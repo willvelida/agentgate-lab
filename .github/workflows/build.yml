@@ -1,0 +1,58 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.101
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/Client/package-lock.json
+
+      - name: Restore .NET dependencies
+        run: dotnet restore AgentGateLab.sln --locked-mode
+
+      - name: Install frontend dependencies
+        working-directory: src/Client
+        run: npm ci
+
+      - name: Type-check frontend
+        working-directory: src/Client
+        run: npm run typecheck
+
+      - name: Test frontend
+        working-directory: src/Client
+        run: npm test
+
+      - name: Build frontend
+        working-directory: src/Client
+        run: npm run build
+
+      - name: Build .NET solution
+        run: dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true
+
+      - name: Test .NET solution
+        run: dotnet test AgentGateLab.sln --no-build --no-restore --property:SkipClientBuild=true
+
+      - name: Publish Portal
+        run: dotnet publish src/Portal/Portal.csproj --configuration Release --no-restore --property:SkipClientBuild=true
