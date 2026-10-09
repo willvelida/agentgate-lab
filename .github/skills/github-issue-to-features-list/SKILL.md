@@ -68,7 +68,8 @@ an issue on the user's behalf.
          "description": "An independently verifiable acceptance criterion",
          "status": "not-started",
          "evidence": "",
-         "testedAt": ""
+         "testedAt": "",
+         "dependsOn": []
        }
      ]
    }
@@ -77,7 +78,9 @@ an issue on the user's behalf.
    Number features sequentially as `F001`, `F002`, and so on, in issue order.
    Initialize every feature with `status` set to `not-started`; leave
    `evidence` and `testedAt` empty. Do not mark a feature complete based only
-   on the issue text.
+   on the issue text. `dependsOn` is an optional list of feature IDs that must
+   reach `pass` before this feature starts. Default it to `[]`, and only add
+   IDs when the issue clearly states an order.
 7. Create or update `agent-progress.md` in the same issue folder. Start it with
    Markdown frontmatter containing `title`, `description`, and `ms.date`.
    Record the issue repository, number, title, URL, feature-list path, and a
@@ -90,6 +93,17 @@ an issue on the user's behalf.
    `features_list.json` is ignored and `agent-progress.md` is not ignored
    with `git check-ignore`. Report the issue, both output paths, the number of
    extracted criteria, and validation results.
+
+## One feature at a time
+
+When implementing from a feature list, work on one feature at a time:
+
+1. Pick the first `not-started` feature whose `dependsOn` entries all `pass`.
+2. Implement and verify it.
+3. Mark it `pass` in `features_list.json` and record the evidence in
+   `agent-progress.md`.
+4. Commit, referencing the feature ID in the message.
+5. Move on to the next feature.
 
 ## Troubleshooting
 

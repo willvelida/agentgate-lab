@@ -22,6 +22,9 @@ ms.date: 2026-10-09
    when a change starts, completes, or blocks milestone work.
 9. Replace the "Last session" section of `docs/progress.md` before ending a
    session.
+10. Work on one feature at a time. Pick only a feature whose `dependsOn`
+    entries all `pass`, verify it, record evidence, and commit it before
+    starting the next one.
 
 ## Repository context
 
@@ -29,7 +32,7 @@ AgentGate Lab is a .NET and React foundation for an Entra Agent ID and ACS
 authorization gateway. The Portal, Gateway, Agent Worker, and React client are
 separate projects under `src/`.
 
-## Session startup
+## Session startup (clock-in)
 
 Follow these steps in order at the start of every session:
 
@@ -37,11 +40,31 @@ Follow these steps in order at the start of every session:
 2. Read [`docs/architecture.md`](./docs/architecture.md) to learn where code
    belongs.
 3. Read [`docs/product.md`](./docs/product.md) to learn what is being built.
-4. Read [`docs/progress.md`](./docs/progress.md), starting with "Last session".
-5. If you are working from an issue, read its
+4. Read [`docs/progress.md`](./docs/progress.md), starting with "Current
+   State", "Known Issues", and "Last session".
+5. Read [`docs/decisions.md`](./docs/decisions.md) so you do not reopen
+   settled decisions.
+6. If you are working from an issue, read its
    `docs/features/<slug>/features_list.json` and `agent-progress.md`.
-6. Run `bash init.sh`, or the focused checks below, to confirm the repository
+7. Run `bash init.sh`, or the focused checks below, to confirm the repository
    is healthy before you change anything.
+8. Continue from the "Next steps" in "Last session".
+
+## Session end (clock-out)
+
+Follow these steps in order before you stop working:
+
+1. Update "Current State" and "Known Issues" in
+   [`docs/progress.md`](./docs/progress.md).
+2. Replace "Last session" with what you accomplished, what remains, decisions,
+   files modified, blockers, and next steps.
+3. Record any new design decision in
+   [`docs/decisions.md`](./docs/decisions.md).
+4. Work through [`docs/clean-state-checklist.md`](./docs/clean-state-checklist.md).
+5. Commit with `git commit -s`.
+
+Start clock-out when you have used about 60% of your context window, so the
+handoff is written while you still have room to do it well.
 
 ## Definition of Done
 
@@ -65,6 +88,10 @@ A change is done only when all of these are true:
   planned features, constraints, or non-goals.
 * [`docs/progress.md`](./docs/progress.md): read at the start of a session to
   learn what is built, in progress, and planned.
+* [`docs/decisions.md`](./docs/decisions.md): read when you need to know why
+  the repository or harness is shaped a certain way, or before changing it.
+* [`docs/clean-state-checklist.md`](./docs/clean-state-checklist.md): read
+  before ending a session or opening a pull request.
 * [`docs/research-and-build-plan.md`](./docs/research-and-build-plan.md): read
   when you need scope, architecture research, or milestone details.
 * [`docs/ui-and-workflow-design.md`](./docs/ui-and-workflow-design.md): read

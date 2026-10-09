@@ -16,20 +16,39 @@ Feature-level evidence lives in `docs/features/<slug>/agent-progress.md`. The
 `github-issue-to-features-list` skill creates those folders from GitHub issues.
 This file only summarizes them.
 
+## Current State
+
+Update this section at clock-out so the next session knows the repository's
+health before it changes anything.
+
+* Branch: `feat/agent-init` (PR #28 open).
+* Latest commit: see `git log -1`; the last verified head was `dcc7bd2`.
+* `init.sh`: passing at the last verified head.
+* CI: build, docs-check, and DCO checks green on PR #28.
+
+## Known Issues
+
+* No gateway security, identity, storage, or agent logic exists yet. Do not
+  treat any endpoint as protected.
+* `docs-check.yml` only warns, and does not fail, when code changes without a
+  `docs/progress.md` update.
+
 ## Last session
 
 Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: added `docs/product.md`, this "Last session" handoff, and a
-  session startup checklist and Definition of Done in `AGENTS.md`.
+* Accomplished: added `docs/decisions.md`, `docs/clean-state-checklist.md`,
+  Current State and Known Issues in this file, clock-in and clock-out routines
+  and a one-feature-at-a-time rule in `AGENTS.md`, and an optional `dependsOn`
+  field in the `github-issue-to-features-list` skill.
 * Remains: merge PR #28.
-* Decisions: keep `features_list.json` gitignored; commit only
-  `agent-progress.md` per feature.
-* Files modified: `AGENTS.md`, `docs/progress.md`, `docs/product.md`.
-* Blockers: the DCO check on PR #28 fails because its commits lack a
-  `Signed-off-by` line.
+* Decisions: see D007 in [decisions.md](./decisions.md).
+* Files modified: `AGENTS.md`, `docs/progress.md`, `docs/decisions.md`,
+  `docs/clean-state-checklist.md`,
+  `.github/skills/github-issue-to-features-list/SKILL.md`.
+* Blockers: none.
 * Next steps: start milestone M0 from a GitHub issue using the
   `github-issue-to-features-list` skill.
 
@@ -70,6 +89,11 @@ before milestone M0.
   constraints.
 * "Last session" handoff in this file, plus a session startup checklist and
   Definition of Done in `AGENTS.md`.
+* `docs/decisions.md`: why the harness is shaped the way it is.
+* `docs/clean-state-checklist.md`: checks to run before ending a session.
+* Clock-in and clock-out routines, the 60% context handoff rule, and a
+  one-feature-at-a-time rule in `AGENTS.md`.
+* Optional `dependsOn` field in the skill's `features_list.json`.
 
 ## Planned
 
@@ -93,5 +117,8 @@ the full scope and exit criteria of each one.
    "Done" when its exit criteria are met.
 3. Link the matching `docs/features/<slug>/agent-progress.md` for detailed
    evidence instead of copying it here.
-4. Replace the "Last session" section before you stop working.
-5. Update `ms.date` in the frontmatter.
+4. At clock-out, update "Current State" and "Known Issues", then replace the
+   "Last session" section.
+5. Record any new design decision in [decisions.md](./decisions.md) and link
+   it from "Last session".
+6. Update `ms.date` in the frontmatter.
