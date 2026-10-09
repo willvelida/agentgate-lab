@@ -80,4 +80,7 @@ dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true
 ```
 
 Run the checks that cover your change. Before submitting, confirm the
-corresponding CI checks in `.github/workflows/build.yml` pass.
+corresponding CI checks in `.github/workflows/build.yml` pass. The
+`.github/workflows/docs-check.yml` workflow fails on broken relative Markdown
+links and warns when `src/` or `tests/` change without a `docs/progress.md`
+update.

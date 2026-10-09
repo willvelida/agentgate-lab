@@ -46,6 +46,9 @@ before milestone M0.
 * `github-issue-to-features-list` skill: turns a GitHub issue's acceptance
   criteria into `docs/features/<slug>/features_list.json` (gitignored) and
   `docs/features/<slug>/agent-progress.md` (committed).
+* PR template and hard rule 8: PRs that change behavior update this file.
+* `.github/workflows/docs-check.yml`: fails on broken relative Markdown links
+  and warns when code changes without a `docs/progress.md` update.
 
 ## Planned
 

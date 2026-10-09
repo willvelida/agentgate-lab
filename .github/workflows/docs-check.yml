@@ -1,0 +1,43 @@
+name: Docs check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check Markdown links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress --exclude-path node_modules './**/*.md'
+          fail: true
+
+  progress-reminder:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remind to update docs/progress.md
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if echo "$changed" | grep -qE '^(src|tests)/' && ! echo "$changed" | grep -qx 'docs/progress.md'; then
+            echo "::warning file=docs/progress.md::Code under src/ or tests/ changed but docs/progress.md did not. Update it if this PR starts, completes, or blocks milestone work."
+          fi
