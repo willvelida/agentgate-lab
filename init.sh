@@ -20,6 +20,8 @@ main() {
   repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   cd "${repo_root}"
 
+  run_step "Check project boundaries" \
+    bash scripts/check-architecture.sh
   run_step "Restore locked .NET dependencies" \
     dotnet restore AgentGateLab.sln --locked-mode
   run_step "Install locked frontend dependencies" \

@@ -25,6 +25,14 @@ ms.date: 2026-10-09
 10. Work on one feature at a time. Pick only a feature whose `dependsOn`
     entries all `pass`, verify it, record evidence, and commit it before
     starting the next one.
+11. Mark a feature `pass` only after its `verification` command succeeds and
+    the evidence is recorded. Never move a feature from `pass` back to an
+    earlier state.
+12. Stay within the active feature's scope. If a small fix outside that scope
+    is needed to get past a blocker, make only that fix and record it in the
+    progress log.
+13. Never weaken, skip, or quietly change a verification command or test to
+    make it pass. If one is wrong, mark the feature `blocked` and ask the user.
 
 ## Repository context
 
@@ -74,7 +82,10 @@ A change is done only when all of these are true:
 * Tests cover any behavior that changed.
 * Feature list entries are marked `pass` only with recorded evidence.
 * Code stays in the project that owns it, as described in
-  [`docs/architecture.md`](./docs/architecture.md).
+  [`docs/architecture.md`](./docs/architecture.md), and
+  `bash scripts/check-architecture.sh` passes.
+* Runtime evidence is recorded when a change affects how a service runs. See
+  "Runtime evidence".
 * Affected docs and [`docs/progress.md`](./docs/progress.md) are updated,
   including "Last session".
 
@@ -105,6 +116,20 @@ A change is done only when all of these are true:
   working from a GitHub issue that has a generated feature list. Treat the
   feature list as the acceptance checklist and the progress log as evidence.
 
+## Runtime evidence
+
+Passing tests is not enough when a change affects how a service starts or
+responds. Run the affected service and record what it did.
+
+| Service | Run command | Evidence |
+| --- | --- | --- |
+| Portal | `dotnet run --project src/Portal/Portal.csproj` | `curl http://localhost:5031/health` returns `{"status":"ok","service":"portal"}` |
+| Gateway | `dotnet run --project src/Gateway/Gateway.csproj` | `curl http://localhost:5077/health` returns `{"status":"ok","service":"gateway"}` |
+| AgentWorker | `dotnet run --project src/AgentWorker/AgentWorker.csproj` | Startup log lines show the worker started without errors |
+
+Record the command, the output, and the date in the slug's `agent-progress.md`
+or in [`docs/progress.md`](./docs/progress.md). Stop the service when done.
+
 ## Build and test
 
 Run commands from the repository root. The documented baseline is .NET SDK
@@ -134,6 +159,12 @@ Build and test the .NET solution without rebuilding the client:
 ```sh
 dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true
 dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true
+```
+
+Check project boundaries:
+
+```sh
+bash scripts/check-architecture.sh
 ```
 
 Run the checks that cover your change. Before submitting, confirm the

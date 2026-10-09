@@ -14,6 +14,7 @@ this list.
 ## Build
 
 * [ ] `bash init.sh`, or the focused checks for your change, passes.
+* [ ] `bash scripts/check-architecture.sh` passes.
 * [ ] No new build warnings or test failures were introduced.
 * [ ] Dependency lockfiles changed only for an intentional update.
 
@@ -21,14 +22,20 @@ this list.
 
 * [ ] Only one feature was worked on this session.
 * [ ] The feature meets its acceptance criterion.
+* [ ] The feature's `verification` step ran and succeeded.
+* [ ] Runtime evidence is recorded for behavior changes, such as a `/health`
+      response or AgentWorker log output.
 * [ ] The feature is marked `pass` only with recorded evidence and a tested
       date in `docs/features/<slug>/features_list.json` and
       `agent-progress.md`.
-* [ ] An unfinished feature stays `in-progress`, and the reason is recorded.
+* [ ] An unfinished feature stays `active` or becomes `blocked`, and the
+      reason is recorded.
+* [ ] No test was weakened, skipped, or deleted to make a check pass.
 
 ## Scope Control
 
-* [ ] Changes stay within the chosen feature.
+* [ ] Changes stay within the chosen feature, and any small fix needed to
+      get past a blocker is logged in `agent-progress.md`.
 * [ ] No unrelated refactors, features, or files were added.
 * [ ] Code lives in the project that owns it, as described in
       [architecture.md](./architecture.md).

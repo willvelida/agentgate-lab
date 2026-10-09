@@ -24,6 +24,8 @@ an issue on the user's behalf.
 * Use explicit acceptance criteria from the issue. Do not invent criteria. If
   the issue has no clear acceptance criteria, ask the user how to proceed
   before writing either output.
+* Each feature must be small enough to implement and verify in one session,
+  and must have a `verification` command.
 * Create both files under `docs/features/<slug>/`.
 * `features_list.json` is ignored by Git. `agent-progress.md` is not ignored
   and should be committed through the normal review workflow.
@@ -44,6 +46,11 @@ an issue on the user's behalf.
    independently verifiable criterion as one feature. Preserve its meaning
    without adding requirements. Ask the user if the criteria are absent or
    ambiguous.
+
+   Size each feature so it can be implemented and verified in one session.
+   If a criterion is too big for that, split it into smaller features that
+   together cover the same criterion, without adding new requirements. Tell
+   the user which criteria were split.
 4. Build a stable slug from the canonical repository owner/name, issue number,
    and normalized title. Use lowercase ASCII words separated by hyphens; remove
    punctuation, collapse repeated hyphens, and limit the title portion to 60
@@ -67,6 +74,7 @@ an issue on the user's behalf.
          "id": "F001",
          "description": "An independently verifiable acceptance criterion",
          "status": "not-started",
+         "verification": "dotnet test --filter FullyQualifiedName~Example",
          "evidence": "",
          "testedAt": "",
          "dependsOn": []
@@ -81,11 +89,25 @@ an issue on the user's behalf.
    on the issue text. `dependsOn` is an optional list of feature IDs that must
    reach `pass` before this feature starts. Default it to `[]`, and only add
    IDs when the issue clearly states an order.
+
+   `status` is one of four states:
+
+   * `not-started`: no work has begun.
+   * `active`: the one feature currently being worked on.
+   * `blocked`: work cannot continue; record the reason in `evidence`.
+   * `pass`: the verification command succeeded and evidence is recorded.
+
+   `verification` is the exact command that proves the feature works, such
+   as a focused test, build, or `curl` call. Propose one per feature from the
+   repository's existing build and test commands. If no command fits yet,
+   set it to `TBD` and ask the user before the feature becomes `active`.
 7. Create or update `agent-progress.md` in the same issue folder. Start it with
    Markdown frontmatter containing `title`, `description`, and `ms.date`.
    Record the issue repository, number, title, URL, feature-list path, and a
-   feature/evidence table. Initialize each row with status `not-started`,
-   evidence `Not yet implemented or verified`, and tested date `Not tested`.
+   feature/evidence table with the feature ID, description, status,
+   verification command, evidence, and tested date. Initialize each row with
+   status `not-started`, evidence `Not yet implemented or verified`, and tested
+   date `Not tested`.
    Preserve existing entries and evidence. If the file already contains this
    issue, append a dated update under its existing issue heading instead of
    duplicating the issue entry.
@@ -98,12 +120,21 @@ an issue on the user's behalf.
 
 When implementing from a feature list, work on one feature at a time:
 
-1. Pick the first `not-started` feature whose `dependsOn` entries all `pass`.
-2. Implement and verify it.
-3. Mark it `pass` in `features_list.json` and record the evidence in
-   `agent-progress.md`.
-4. Commit, referencing the feature ID in the message.
-5. Move on to the next feature.
+1. Pick the first `not-started` feature whose `dependsOn` entries all `pass`,
+   and set it to `active`. Only one feature may be `active` at a time.
+2. Implement it, staying within its scope.
+3. Run its `verification` command exactly as written.
+4. If the command succeeds, set the feature to `pass`, record the command
+   output summary in `evidence` and `testedAt`, and update
+   `agent-progress.md`. A `pass` feature never moves back to another state.
+5. If work cannot continue, set the feature to `blocked`, record the reason,
+   and ask the user before picking another feature.
+6. Commit, referencing the feature ID in the message.
+7. Move on to the next feature.
+
+Never weaken, skip, or quietly change a `verification` command or test to make
+it pass. If a command is wrong, ask the user before changing it, and record the
+change in `agent-progress.md`.
 
 ## Troubleshooting
 

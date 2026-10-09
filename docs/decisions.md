@@ -106,3 +106,49 @@ Each entry records:
   because it would make the router long.
 * Constraints: mark a feature `pass` only with recorded evidence, and do not
   start a feature until its dependencies pass.
+
+## D008: Feature states, verification, and sizing
+
+* Date: 2026-10-09
+* Decision: features use four states (`not-started`, `active`, `blocked`,
+  `pass`) and a `verification` field that names the command or check proving
+  the feature works. Each feature must fit in one session. This replaces the
+  `in-progress` state from D007.
+* Why: a named verification step and a `blocked` state stop an agent from
+  declaring success early or quietly giving up. Small features finish cleanly.
+* Alternatives rejected: a free-text status, because agents drift from it;
+  a richer workflow with more states, because it adds bookkeeping without
+  benefit at this size.
+* Constraints: only one feature may be `active`. A feature with an unknown
+  verification stays `not-started` until the user supplies one.
+
+## D009: Task-boundary hard rules 11 to 13
+
+* Date: 2026-10-09
+* Decision: `AGENTS.md` adds three rules. Mark `pass` only after verification
+  succeeds and evidence is recorded. Stay in scope, except for small, logged
+  fixes needed to get past a blocker. Never weaken a test; mark the feature
+  `blocked` and ask the user instead.
+* Why: agents overreach by doing unrequested work and under-finish by
+  declaring success without proof or by editing tests to pass.
+* Alternatives rejected: leaving these as guidance only, because guidance is
+  easier to skip than a numbered hard rule.
+* Constraints: any out-of-scope fix must be recorded in the feature's
+  `agent-progress.md`.
+
+## D010: Architecture check and runtime evidence
+
+* Date: 2026-10-09
+* Decision: `scripts/check-architecture.sh` fails when a project under `src/`
+  references another service project, or when Client code imports outside
+  `src/Client`. It runs first in `init.sh` and in CI. Runtime evidence comes
+  from each service's `/health` endpoint, or from logs for AgentWorker.
+  `.gitattributes` forces LF line endings for `*.sh` files.
+* Why: a script gives fast, mechanical feedback that agents cannot argue with,
+  and runtime evidence proves the app runs, not only that it builds. Windows
+  CRLF line endings break bash on Linux CI.
+* Alternatives rejected: an analyzer package or architecture test library,
+  because a short shell script covers today's two rules with no new
+  dependency.
+* Constraints: the script scans only `src/`, so tests may reference services.
+  Extend the script when [architecture.md](./architecture.md) adds a boundary.

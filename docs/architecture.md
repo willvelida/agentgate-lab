@@ -83,6 +83,18 @@ Supporting services: Key Vault, Blob storage for auth keys, a Foundry model
 behind APIM, and OpenTelemetry with Azure Monitor. Public and internal parts
 run in separate Container Apps environments.
 
+## Enforced boundaries
+
+[check-architecture.sh](../scripts/check-architecture.sh) enforces these
+rules. It runs first in `init.sh` and in CI, and fails the build on a
+violation.
+
+* A service project under `src/` (Portal, Gateway, AgentWorker) must not
+  reference another service project through a `ProjectReference`.
+* Code in `src/Client` must not use relative imports that leave `src/Client`.
+
+Projects under `tests/` may reference the services they test.
+
 ## Key boundaries
 
 These rules come from the plan. They are design intent, not enforced code.

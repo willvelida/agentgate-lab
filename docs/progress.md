@@ -22,7 +22,7 @@ Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
 * Branch: `feat/agent-init` (PR #28 open).
-* Latest commit: see `git log -1`; the last verified head was `dcc7bd2`.
+* Latest commit: see `git log -1`; the last verified head was `97bde1d`.
 * `init.sh`: passing at the last verified head.
 * CI: build, docs-check, and DCO checks green on PR #28.
 
@@ -39,15 +39,17 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: added `docs/decisions.md`, `docs/clean-state-checklist.md`,
-  Current State and Known Issues in this file, clock-in and clock-out routines
-  and a one-feature-at-a-time rule in `AGENTS.md`, and an optional `dependsOn`
-  field in the `github-issue-to-features-list` skill.
+* Accomplished: added task boundaries from Lectures 07 and 08 and Project 04:
+  four feature states with a `verification` field and a one-session sizing
+  rule in the skill, hard rules 11 to 13 and runtime evidence in `AGENTS.md`,
+  and `scripts/check-architecture.sh` wired into `init.sh` and CI.
 * Remains: merge PR #28.
-* Decisions: see D007 in [decisions.md](./decisions.md).
-* Files modified: `AGENTS.md`, `docs/progress.md`, `docs/decisions.md`,
-  `docs/clean-state-checklist.md`,
-  `.github/skills/github-issue-to-features-list/SKILL.md`.
+* Decisions: see D008 to D010 in [decisions.md](./decisions.md).
+* Files modified: `AGENTS.md`, `init.sh`, `.gitattributes`,
+  `scripts/check-architecture.sh`, `.github/workflows/build.yml`,
+  `.github/skills/github-issue-to-features-list/SKILL.md`,
+  `docs/architecture.md`, `docs/progress.md`, `docs/decisions.md`,
+  `docs/clean-state-checklist.md`.
 * Blockers: none.
 * Next steps: start milestone M0 from a GitHub issue using the
   `github-issue-to-features-list` skill.
@@ -94,6 +96,13 @@ before milestone M0.
 * Clock-in and clock-out routines, the 60% context handoff rule, and a
   one-feature-at-a-time rule in `AGENTS.md`.
 * Optional `dependsOn` field in the skill's `features_list.json`.
+* Feature states `not-started`, `active`, `blocked`, and `pass`, a
+  `verification` field, and a one-session sizing rule in the skill.
+* Hard rules 11 to 13 (evidence before `pass`, stay in scope, never weaken a
+  test) and a "Runtime evidence" section in `AGENTS.md`.
+* `scripts/check-architecture.sh`: enforces service and Client boundaries,
+  runs in `init.sh` and CI.
+* `.gitattributes`: LF line endings for `*.sh` files.
 
 ## Planned
 
