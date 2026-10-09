@@ -1,0 +1,49 @@
+{
+  "name": "AgentGate Lab",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "24",
+      "pnpmVersion": "none"
+    }
+  },
+  "postCreateCommand": "dotnet restore AgentGateLab.sln --locked-mode && npm ci --prefix src/Client",
+  "mounts": [
+    "source=agentgate-${devcontainerId}-node-modules,target=${containerWorkspaceFolder}/src/Client/node_modules,type=volume",
+    "source=agentgate-${devcontainerId}-portal-bin,target=${containerWorkspaceFolder}/src/Portal/bin,type=volume",
+    "source=agentgate-${devcontainerId}-portal-obj,target=${containerWorkspaceFolder}/src/Portal/obj,type=volume",
+    "source=agentgate-${devcontainerId}-gateway-bin,target=${containerWorkspaceFolder}/src/Gateway/bin,type=volume",
+    "source=agentgate-${devcontainerId}-gateway-obj,target=${containerWorkspaceFolder}/src/Gateway/obj,type=volume",
+    "source=agentgate-${devcontainerId}-worker-bin,target=${containerWorkspaceFolder}/src/AgentWorker/bin,type=volume",
+    "source=agentgate-${devcontainerId}-worker-obj,target=${containerWorkspaceFolder}/src/AgentWorker/obj,type=volume",
+    "source=agentgate-${devcontainerId}-tests-bin,target=${containerWorkspaceFolder}/tests/Portal.Tests/bin,type=volume",
+    "source=agentgate-${devcontainerId}-tests-obj,target=${containerWorkspaceFolder}/tests/Portal.Tests/obj,type=volume"
+  ],
+  "forwardPorts": [
+    5031,
+    5077,
+    5173
+  ],
+  "portsAttributes": {
+    "5031": {
+      "label": "AgentGate Portal",
+      "onAutoForward": "notify"
+    },
+    "5077": {
+      "label": "AgentGate Gateway",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vite development server",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit"
+      ]
+    }
+  }
+}
