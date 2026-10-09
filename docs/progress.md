@@ -22,9 +22,20 @@ Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
 * Branch: `feat/agent-init` (PR #28 open).
-* Latest commit: see `git log -1`; the last verified head was `97bde1d`.
-* `init.sh`: passing at the last verified head.
-* CI: build, docs-check, and DCO checks green on PR #28.
+* Latest commit: see `git log -1`; focused checks passed for the evaluator
+  skill and wiring before commit.
+* `init.sh`: passing at the previously verified head; not rerun for the
+  evaluator changes.
+* CI: build, docs-check, and DCO checks were green on PR #28 before the
+  evaluator changes. These local changes have not been checked by CI.
+* Focused validation (2026-10-09): `bash scripts/check-architecture.sh` and
+  `git diff --check` passed after evaluator wiring. A Node.js check confirmed
+  all 41 relative link targets in the six changed or new Markdown files exist
+  and each file has frontmatter. VS Code reported no errors in those files.
+* Ignore validation: `git check-ignore -v` confirmed rubric and feature-list
+  files are ignored; `git check-ignore -q` returned 1 for the progress log,
+  confirming it is not ignored. Lychee is unavailable locally, so its exact
+  CI link check remains unverified.
 
 ## Known Issues
 
@@ -39,20 +50,21 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: added task boundaries from Lectures 07 and 08 and Project 04:
-  four feature states with a `verification` field and a one-session sizing
-  rule in the skill, hard rules 11 to 13 and runtime evidence in `AGENTS.md`,
-  and `scripts/check-architecture.sh` wired into `init.sh` and CI.
-* Remains: merge PR #28.
-* Decisions: see D008 to D010 in [decisions.md](./decisions.md).
-* Files modified: `AGENTS.md`, `init.sh`, `.gitattributes`,
-  `scripts/check-architecture.sh`, `.github/workflows/build.yml`,
+* Accomplished: created the independent `feature-evaluator` skill from
+  Lectures 09 and 10 and Project 05. Wired its PASS gate into hard rule 14,
+  the Definition of Done, and the feature implementation workflow.
+  Confirmed existing ignore rules exclude rubric files but allow progress
+  logs, so no `.gitignore` change was needed.
+* Remains: confirm publishing and CI on PR #28 before merging. No feature
+  evaluation has been run against an implemented feature.
+* Decisions: see D011 in [decisions.md](./decisions.md).
+* Files modified: `AGENTS.md`,
+  `.github/skills/feature-evaluator/SKILL.md`,
   `.github/skills/github-issue-to-features-list/SKILL.md`,
-  `docs/architecture.md`, `docs/progress.md`, `docs/decisions.md`,
-  `docs/clean-state-checklist.md`.
+  `docs/progress.md`, `docs/decisions.md`, `docs/clean-state-checklist.md`.
 * Blockers: none.
-* Next steps: start milestone M0 from a GitHub issue using the
-  `github-issue-to-features-list` skill.
+* Next steps: complete the approved publishing step for PR #28, then confirm
+  CI before starting milestone M0.
 
 ## Built
 
@@ -103,6 +115,11 @@ before milestone M0.
 * `scripts/check-architecture.sh`: enforces service and Client boundaries,
   runs in `init.sh` and CI.
 * `.gitattributes`: LF line endings for `*.sh` files.
+* `feature-evaluator` skill: independent five-part scoring in a fresh session.
+  Every score must be at least 3 and the average at least 4 for PASS.
+  Full rubrics stay gitignored; verdict lines go in committed progress logs.
+* Hard rule 14 and the feature workflow require a recorded evaluator PASS
+  before a feature becomes `pass`.
 
 ## Planned
 

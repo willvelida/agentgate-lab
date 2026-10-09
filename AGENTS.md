@@ -33,6 +33,10 @@ ms.date: 2026-10-09
     progress log.
 13. Never weaken, skip, or quietly change a verification command or test to
     make it pass. If one is wrong, mark the feature `blocked` and ask the user.
+14. Mark a feature `pass` only after the `feature-evaluator` skill gives it a
+    PASS in a fresh session and records the verdict in the slug's
+    `agent-progress.md`. The verdict must cover the changes being marked
+    `pass`; request a new evaluation if those changes are modified.
 
 ## Repository context
 
@@ -80,7 +84,8 @@ A change is done only when all of these are true:
 
 * The relevant checks in "Build and test" pass.
 * Tests cover any behavior that changed.
-* Feature list entries are marked `pass` only with recorded evidence.
+* Feature list entries are marked `pass` only with recorded verification
+  evidence and a fresh-session evaluator PASS for the reviewed changes.
 * Code stays in the project that owns it, as described in
   [`docs/architecture.md`](./docs/architecture.md), and
   `bash scripts/check-architecture.sh` passes.
@@ -115,6 +120,9 @@ A change is done only when all of these are true:
 * `docs/features/<slug>/features_list.json` and `agent-progress.md`: read when
   working from a GitHub issue that has a generated feature list. Treat the
   feature list as the acceptance checklist and the progress log as evidence.
+* [Feature evaluator skill](./.github/skills/feature-evaluator/SKILL.md): read
+  after a feature's verification succeeds, before marking it `pass`. Run the
+  evaluation in a fresh session, not the session that built the feature.
 
 ## Runtime evidence
 

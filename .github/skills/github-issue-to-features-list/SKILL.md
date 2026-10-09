@@ -95,7 +95,8 @@ an issue on the user's behalf.
    * `not-started`: no work has begun.
    * `active`: the one feature currently being worked on.
    * `blocked`: work cannot continue; record the reason in `evidence`.
-   * `pass`: the verification command succeeded and evidence is recorded.
+   * `pass`: the verification command succeeded, evidence is recorded, and
+     a fresh-session evaluator PASS covers the reviewed changes.
 
    `verification` is the exact command that proves the feature works, such
    as a focused test, build, or `curl` call. Propose one per feature from the
@@ -124,9 +125,15 @@ When implementing from a feature list, work on one feature at a time:
    and set it to `active`. Only one feature may be `active` at a time.
 2. Implement it, staying within its scope.
 3. Run its `verification` command exactly as written.
-4. If the command succeeds, set the feature to `pass`, record the command
-   output summary in `evidence` and `testedAt`, and update
-   `agent-progress.md`. A `pass` feature never moves back to another state.
+4. If the command succeeds, record the command output summary in `evidence`
+   and `testedAt`, and update `agent-progress.md`. Keep the feature `active`
+   while the `feature-evaluator` skill evaluates it in a fresh session.
+   Set it to `pass` only after that session records a PASS verdict in
+   `agent-progress.md` for the changes being marked `pass`. If evaluation
+   returns FAIL, keep it `active`, fix the defects within scope, rerun
+   verification, and request a new evaluation in a fresh session. If the
+   reviewed changes are modified, request a new evaluation before setting
+   `pass`. A `pass` feature never moves back to another state.
 5. If work cannot continue, set the feature to `blocked`, record the reason,
    and ask the user before picking another feature.
 6. Commit, referencing the feature ID in the message.

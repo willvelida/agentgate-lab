@@ -152,3 +152,24 @@ Each entry records:
   dependency.
 * Constraints: the script scans only `src/`, so tests may reference services.
   Extend the script when [architecture.md](./architecture.md) adds a boundary.
+
+## D011: Independent evaluation gates feature completion
+
+* Date: 2026-10-09
+* Decision: the [feature-evaluator skill](../.github/skills/feature-evaluator/SKILL.md)
+  evaluates one feature in a fresh session after its verification succeeds.
+  It scores acceptance criteria, verification evidence, scope discipline,
+  architecture and code quality, and tests not weakened from 1 to 5.
+  PASS requires every score to be at least 3 and the average to be at least 4.
+  This adds an evaluator gate to the completion rules in D007 to D009.
+* Why: independent review checks the implementer's claims against the
+  repository and rerun checks before the feature is declared complete.
+* Alternatives rejected: self-review in the implementation session, because
+  it reuses the builder's assumptions; a checklist without scores, because
+  it does not expose gaps across the five dimensions.
+* Constraints: the evaluator reads only the repository, slug files, and diff.
+  It writes only the gitignored `docs/features/<slug>/evaluator-rubric.md`
+  and one verdict line in the committed `agent-progress.md`. It does not
+  change source, tests, feature status, or commit. The implementer may mark
+  `pass` only after a recorded evaluator PASS for the reviewed changes.
+  Modified changes need a new evaluation; a FAIL never lowers the threshold.

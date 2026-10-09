@@ -28,6 +28,8 @@ this list.
 * [ ] The feature is marked `pass` only with recorded evidence and a tested
       date in `docs/features/<slug>/features_list.json` and
       `agent-progress.md`.
+* [ ] A fresh-session evaluator PASS is recorded in `agent-progress.md` for
+      the changes being marked `pass`.
 * [ ] An unfinished feature stays `active` or becomes `blocked`, and the
       reason is recorded.
 * [ ] No test was weakened, skipped, or deleted to make a check pass.
