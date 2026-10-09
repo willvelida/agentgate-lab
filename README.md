@@ -23,11 +23,12 @@ publishes the React assets from the same origin.
 ```text
 src/
   AgentWorker/       Future agent job host
-  AcsSpike/          Linux x64 ACS spike scaffold
+  AcsSpike/          Linux x64 native ACS ticket-read fixtures
   Client/            React + TypeScript + Vite frontend
   Gateway/           Future private authorization gateway
   Portal/            ASP.NET Core BFF and published frontend host
 tests/
+  AcsSpike.Tests/    Native ACS container integration tests
   Portal.Tests/      Portal host smoke tests
 docs/                Research, design, threat model, and acceptance criteria
 ```
@@ -64,8 +65,34 @@ docker compose run --build --rm acs-spike
 ```
 
 The service is constrained to Linux x64 and exits with an error on a different
-operating system or architecture. This initial scaffold does not yet load the
-native ACS runtime or evaluate policies.
+operating system or architecture. It validates the original manifest and Rego
+fixtures with the pinned ACS validator, then uses `AgentControl.FromPath` and
+`RunToolAsync` with the native runtime and bundled OPA dispatcher. No custom
+runtime or dispatcher is supplied.
+
+The JSON output reports three synthetic fixtures: a permitted `tickets.read`
+allows and executes its delegate once; an unpermitted read and an unknown
+`tickets.delete` deny and execute no delegate. The successful read also passes
+the post-tool policy. These fixture facts are not real identity or task grants,
+and this isolated spike does not protect the Gateway.
+
+The SDK is `AgentControlSpecification` 0.3.1-beta.1 (MIT), with its bundled
+`libagent_control_specification_core.so` Linux x64 payload and manifest schema
+`0.3.1-beta`. Package metadata identifies upstream revision
+`c57d9d9a4849556a3c5347d359012d7a85bc3dfb`. The package lockfile pins its
+content hash. The native payload SHA-256 is
+`2deb429ec7bf5ea902e23717b1e991ad3b78a22a5ebcd26ca0682d5d2c424839`.
+OPA 1.4.2 uses the Linux amd64 static binary, checked during the image build
+against SHA-256
+`2c0ccdbbe0b8e2a5d12d9c42d92f1f34f494ffb32d1f3c4ddc36101be637d66f`.
+The final image includes upstream license texts under `/app/notices`.
+These are preview artifacts, not a production authorization boundary.
+
+The container build uses nuget.org by default. If your network requires an
+approved NuGet mirror, set `ACS_NUGET_SOURCE` to its service-index URL before
+running Compose or the tests. The override remains subject to locked restore
+and content-hash validation; TLS validation is not disabled. Do not put feed
+credentials in this variable or in build arguments.
 
 To restore dependencies, run the Linux container smoke, and execute the .NET
 solution tests from a fresh clone, use Bash, the .NET 10 SDK, Node.js 24.15.0
@@ -128,7 +155,9 @@ dotnet run --project src/AgentWorker/AgentWorker.csproj
 
 ## Test and publish
 
-Run the .NET smoke tests:
+Run the .NET smoke and native ACS integration tests with Docker and Linux
+containers available. The ACS tests build and run the real container, validate
+its fixture decisions and delegate counts, and remove their named container:
 
 ```sh
 dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true

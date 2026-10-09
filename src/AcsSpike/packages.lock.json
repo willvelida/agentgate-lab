@@ -1,6 +1,13 @@
 {
   "version": 1,
   "dependencies": {
-    "net10.0": {}
+    "net10.0": {
+      "AgentControlSpecification": {
+        "type": "Direct",
+        "requested": "[0.3.1-beta.1, )",
+        "resolved": "0.3.1-beta.1",
+        "contentHash": "kIlp2xOGaVeZa8aA6tVLJZQKl1TglfwCrikBbxkkEijglcNN8UtmfrNzT8NExTmCizKC2w5uQgt5OiwZCm38Cw=="
+      }
+    }
   }
 }

@@ -4,3 +4,5 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        ACS_NUGET_SOURCE: ${ACS_NUGET_SOURCE:-https://api.nuget.org/v3/index.json}

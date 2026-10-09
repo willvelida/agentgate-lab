@@ -230,3 +230,23 @@ Each entry records:
   require user input. Evaluation-result handling belongs to a separate
   follow-up. Model and tools are not pinned; instructions are not a
   permission boundary. A real agent trial remains necessary to check behavior.
+
+## D015: F003 uses the published native ACS package
+
+* Date: 2026-10-09
+* Decision: use `AgentControlSpecification` 0.3.1-beta.1, its bundled Linux
+  x64 native payload, the matching `0.3.1-beta` manifest schema, and OPA 1.4.2.
+  Fixtures call the official validator and `RunToolAsync` without overriding
+  the runtime or policy dispatcher. Windows-hosted tests run the Linux
+  container rather than claiming native Windows support.
+* Why: this available package provides matching managed and native artifacts.
+  The researched 0.4.0-beta.0 package could not be restored from the configured
+  feed. The published package avoids an unnecessary source build.
+* Alternatives rejected: a custom dispatcher or mock engine, because neither
+  proves native ACS evaluation; mixing the newer schema with the older
+  payload, because manifest and ABI compatibility must be verified together.
+* Constraints: keep package content hashes locked, checksum the OPA download,
+  retain upstream license texts, and require explicit failures rather than a
+  fallback engine. An optional build-time `ACS_NUGET_SOURCE` selects an approved
+  mirror when nuget.org is unreachable, without disabling TLS or locked restore.
+  The spike remains credential-free and separate from Gateway authorization.

@@ -1,7 +1,7 @@
 ---
 title: Issue #2 feature progress
 description: Implementation and verification evidence for native ACS .NET policy evaluation and Linux packaging.
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Issue
@@ -18,7 +18,7 @@ ms.date: 2026-10-09
 |----|-------------|--------|--------------|----------|-------------|
 | F001 | A small runnable .NET 10 spike targets Linux x64 and runs from Windows through a Linux container. | pass | `docker compose run --build --rm acs-spike` | Container smoke passed, run `2026-10-09T06-51-18-652Z-7e0c3b03-dc58-4383-a763-3ba8c317fa83`, exit 0; output confirmed .NET 10.0.12 on Linux x64. Independent evaluator reran the container command (run `2026-10-09T06-59-44-568Z-3236cc4d-d87f-4b36-8102-4bfb2537f527`) and architecture check (run `2026-10-09T06-59-44-630Z-ccc33071-c1bd-4fca-8cf9-a362d06e372f`), both passed, exit 0. Evaluator PASS, average 4.6, minimum 4. Solution build passed with 0 warnings/errors and all 13 tests passed. Reviewed commit `5bddd53f243d435e8c323adfbe8f4e26abdfe9c2`; implementation was uncommitted during verification. | 2026-10-09 |
 | F002 | A documented command runs the containerized spike and its automated tests from a fresh clone after issue #1. | pass | `bash scripts/verify-acs-spike.sh` | Fresh-clone command restores the locked .NET and frontend dependencies, builds Portal assets, runs the Linux x64 container smoke, and passes all 13 solution tests. Independent evaluator PASS, average 5.0, minimum 5. | 2026-10-09 |
-| F003 | A permitted synthetic ticket-read fixture returns allow; an unpermitted or unknown-tool fixture returns deny and executes no guarded tool delegate. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
+| F003 | A permitted synthetic ticket-read fixture returns allow; an unpermitted or unknown-tool fixture returns deny and executes no guarded tool delegate. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.4, minimum 4. All 17 tests passed on evaluator and publication reruns. Allow executed once; both deny fixtures executed zero delegates. | 2026-10-09 |
 | F004 | Identical manifest and snapshot inputs produce the same decision, stable reason, action identity, and transformed target, excluding telemetry timings. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
 | F005 | Malformed manifests, missing required snapshot paths, missing native payload, unavailable OPA, and policy evaluation errors all block startup or explicitly deny execution. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
 | F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
@@ -87,7 +87,7 @@ updated script builds the assets before tests.
   push has been made yet.
 * Next steps: commit and push the F002 changes, then begin F003.
 
-## Last session
+## F002 publication evidence
 
 * Date: 2026-10-09
 * Accomplished: implemented F002's fresh-clone workflow and README guidance on
@@ -126,3 +126,84 @@ updated script builds the assets before tests.
 
 * 2026-10-09: F001 evaluator verdict PASS (avg 4.6, min 4). See evaluator-rubric.md.
 * 2026-10-09: F002 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+
+## F003 verification evidence
+
+All F003 checks reviewed commit
+`9769b78fa9ee66778f2b501751ce1876e4474c70`. Baseline tests ran with a clean
+tree; subsequent checks included uncommitted F003 changes. The Linux startup
+and exact feature verification used the explicit `ACS_NUGET_SOURCE` override
+`https://packagefeedproxy.microsoft.io/nuget/v3/index.json`, matching this
+environment's configured feed. This changes only the build-time source; locked
+hashes and TLS verification remain enabled.
+
+| Command or attempt | Result | Run ID |
+|--------------------|--------|--------|
+| Baseline: `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 13 tests | `2026-10-09T19-09-01-185Z-737bbf37-bbcb-4d48-88f5-c6612258ad6f` |
+| Restore attempted SDK 0.4.0-beta.0 | Failed, exit 1; configured feed lacks that version | `2026-10-09T19-17-30-437Z-5582b43d-300e-42e8-8a81-62e619db41b0` |
+| Restore available SDK 0.3.1-beta.1 | Passed, exit 0; includes prebuilt Linux x64 payload | `2026-10-09T19-18-36-485Z-9e8de63c-803d-488c-abed-d9a983bec718` |
+| `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; zero warnings/errors | `2026-10-09T22-34-18-556Z-7634e70f-8554-40af-8765-78f3d963b75d` |
+| Initial native Linux startup | Failed, exit 1; nuget.org TLS handshake failure | `2026-10-09T22-33-52-251Z-1c5d4616-cdf9-443b-8584-aec0efdc12b3` |
+| Native Linux startup with explicit feed | Failed, exit 1; Docker extraction snapshot missing after successful publish | `2026-10-09T22-36-16-821Z-cc477c0d-00af-47ce-87a3-d824d4187b76` |
+| `docker compose run --build --rm acs-spike` retry | Passed, exit 0; native validator and all three fixtures returned expected results | `2026-10-09T22-37-17-175Z-407e39a2-c7cb-4a47-bb07-91a38782f0c4` |
+| `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 13 Portal tests and 4 native ACS container tests | `2026-10-09T22-38-46-187Z-f3666a65-4189-463b-a581-e7f0a2ade5b8` |
+| `dotnet restore AgentGateLab.sln --locked-mode` | Passed, exit 0 | `2026-10-09T22-40-51-127Z-e50534e0-bffc-42e3-b27b-6bd936a01fac` |
+| `bash scripts/check-architecture.sh` | Passed, exit 0 | `2026-10-09T22-40-57-527Z-0417b512-bf19-4c5e-9f2c-9cdb20fd25c2` |
+
+The allowed fixture returned `ticket_read_permitted` and ran the delegate once.
+The unpermitted fixture returned `ticket_read_not_permitted` and ran it zero
+times. The unknown tool returned `runtime_error:tool_unknown` and ran it zero
+times. The permitted result also passed the post-tool policy. These results
+come from the official native runtime and bundled OPA dispatcher, not a mock.
+
+## F003 implementation handoff
+
+* Date: 2026-10-09
+* Accomplished: signed and pushed the authorized F002 work as
+  `9769b78fa9ee66778f2b501751ce1876e4474c70`, then implemented F003. Added
+  original manifest/Rego fixtures, official native SDK integration, checksum
+  pinned OPA and upstream license texts, and four container integration tests.
+* Status: F003 remains active, implemented and verified but not evaluator-PASS.
+  F004-F009 remain not-started. No evaluation was invoked by this session.
+* Verification: exact feature command passed all 17 tests, exit 0; build,
+  native Linux startup, locked restore, and architecture passed as recorded
+  above. Checks include uncommitted F003 changes over `9769b78`. Only
+  documentation and local checklist updates followed the successful tests.
+  Final relative Markdown file links and `git diff --check` passed.
+* Files changed: solution, Dockerfile, Compose configuration, AcsSpike project,
+  program and lockfile, original fixture files, new AcsSpike test project and
+  lockfile, README, architecture, decisions, and both progress logs.
+* Cleanup: stopped the owned source-build probe container `a9c2975a66b2`
+  (shell 400, interrupted with exit 137). No source-build success is claimed;
+  the prebuilt package was selected instead. Removed the named temporary
+  `.local/acs-f003` source/archive/license downloads. Test containers used
+  unique names and were removed; no owned container remains running.
+  Docker image/build caches and ignored verification reports are retained.
+* Publication: F002 push succeeded. No workflow run exists for that head;
+  workflows trigger on pull requests or main, so CI is unverified, not green.
+  F003 changes remain uncommitted for independent review.
+* Blockers: none for local F003 verification with the explicit approved mirror.
+  The default nuget.org source could not be checked successfully on this network.
+* Next action: open a fresh session in the same checkout and run
+  `/feature-evaluator Evaluate F003 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+  Do not start F004 until that review and the separate completion workflow.
+* 2026-10-10: F003 evaluator verdict PASS (avg 4.4, min 4). See evaluator-rubric.md.
+
+## F003 publication checks
+
+* Date: 2026-10-10 (run timestamps are UTC on 2026-10-09).
+* Independent evaluator PASS covers `9769b78fa9ee66778f2b501751ce1876e4474c70`
+  plus uncommitted F003 implementation. Evaluator exact test run
+  `2026-10-09T23-10-55-267Z-33d49936-632f-47c7-a790-63fabdaf6733`
+  passed all 17 tests, exit 0; architecture run
+  `2026-10-09T23-11-22-623Z-10f51d96-fae2-4284-8da1-efd6afefc5d0`
+  passed, exit 0.
+* Publication rerun: exact solution tests passed 17/17, zero skipped, exit 0
+  (run `2026-10-09T23-26-40-610Z-887d2017-fef0-458d-a71a-1dde3dc99974`);
+  architecture passed, exit 0 (run
+  `2026-10-09T23-26-35-200Z-c882ce12-7ca1-467a-a410-6ac790289bda`).
+  Both reviewed `9769b78` plus the evaluated F003 changes. Only documentation
+  and checklist reconciliation followed; implementation remains unchanged.
+* The explicit approved NuGet mirror was used again. No dependency was
+  updated and no test was weakened. F003 is now pass, ready for the authorized
+  signed commit and push; F004 remains not-started until publication.

@@ -10,7 +10,8 @@ agentgate-lab will become an authorization gateway. It lets an AI agent act
 for a user only through short-lived, one-use tickets that the user has approved.
 Right now the repository holds the foundation only. No authentication,
 Agent Control Specification (ACS) enforcement, grant, approval, or ticket
-logic exists yet.
+logic exists in the application services yet. The isolated ACS spike evaluates
+synthetic fixtures but does not protect those services.
 
 This page separates what is **implemented** (verified against code) from what
 is **planned** (described in design docs only).
@@ -23,7 +24,8 @@ is **planned** (described in design docs only).
 | Client      | `src/Client`       | React + Vite single-page app | Foundation |
 | Gateway     | `src/Gateway`      | ASP.NET Core minimal API     | Foundation |
 | AgentWorker | `src/AgentWorker`  | .NET generic host worker     | Foundation |
-| AcsSpike    | `src/AcsSpike`     | .NET 10 console spike        | Scaffold   |
+| AcsSpike    | `src/AcsSpike`     | .NET 10 console spike        | Native fixtures |
+| ACS tests   | `tests/AcsSpike.Tests` | xUnit container integration | Allow/deny |
 | Tests       | `tests/Portal.Tests` | xUnit host tests for Portal | Smoke only |
 
 The solution file is `AgentGateLab.sln`.
@@ -62,14 +64,22 @@ The solution file is `AgentGateLab.sln`.
 ### ACS spike
 
 * `src/AcsSpike` runs in a Linux x64 container through Docker Compose.
-* The scaffold verifies its operating system and architecture, but does not
-  load the native ACS runtime or evaluate policies.
+* It validates its original manifest and Rego policy through the pinned
+  native ACS artifact validator.
+* The official .NET SDK loads its Linux x64 native payload and dispatches Rego
+  to packaged OPA. `RunToolAsync` enforces pre-tool and post-tool verdicts.
+* A permitted synthetic read executes once. Unpermitted reads and unknown
+  tools deny without running a guarded delegate.
+* This is an isolated spike, not Gateway authorization or real task grants.
 
 ### Tests
 
 * `tests/Portal.Tests` checks that deep links return the starter shell and
   that reserved routes return problems instead of HTML.
 * No Gateway or AgentWorker tests exist yet.
+* `tests/AcsSpike.Tests` builds and runs the Linux spike through Docker Compose.
+  These tests require Docker, verify native allow/deny reasons and delegate
+  counts, and fail if the container cannot evaluate its fixtures.
 
 ## Planned target architecture
 
