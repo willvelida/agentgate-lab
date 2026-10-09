@@ -319,6 +319,10 @@ src/Portal/wwwroot/
 **/playwright-report/
 **/test-results/
 *.browser.*
+/docs/features/**
+!/docs/features/
+!/docs/features/*/
+!/docs/features/*/agent-progress.md
 
 # Visual Studio 6 build log
 *.plg

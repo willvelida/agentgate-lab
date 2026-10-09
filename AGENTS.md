@@ -4,25 +4,47 @@ description: Guidance for coding agents working in AgentGate Lab
 ms.date: 2026-10-09
 ---
 
+## Hard rules
+
+1. Authentication, ACS enforcement, model access, task grants, human approval,
+   and ticket operations are not implemented. Do not treat the starter shell as
+   a security boundary or claim these features exist.
+2. Design documents describe planned behavior. Confirm what is implemented in
+   code and tests before describing a feature as done.
+3. Never commit secrets, credentials, or generated output from
+   `src/Portal/wwwroot`.
+4. Preserve dependency lockfiles. Change them only for intentional dependency
+   updates, then verify locked restore or install succeeds.
+5. Add or update tests when behavior changes.
+6. Keep changes focused and follow the conventions of the affected project.
+7. Record only verified results in progress logs and feature lists.
+
 ## Repository context
 
 AgentGate Lab is a .NET and React foundation for an Entra Agent ID and ACS
-authorization gateway. The main projects are the Portal, Gateway, Agent Worker,
-and React client under `src/`. Read `README.md` and relevant design documents
-before changing behavior.
+authorization gateway. The Portal, Gateway, Agent Worker, and React client are
+separate projects under `src/`.
 
-Authentication, ACS enforcement, model access, task grants, human approval, and
-ticket operations are not implemented. Do not treat the starter shell as a
-security boundary or imply that these features are available.
+## Read when
 
-## Change guidelines
-
-* Keep changes focused and follow the conventions of the affected project.
-* Add or update tests when behavior changes.
-* Preserve dependency lockfiles. Update them only when intentionally changing
-  dependencies, then verify locked restore or install succeeds.
-* Check `.github/workflows/` for the CI checks relevant to your changes.
-* Do not commit generated frontend output from `src/Portal/wwwroot`.
+* [`README.md`](./README.md): read when you need the repository layout,
+  prerequisites, or commands to run each project.
+* [`docs/architecture.md`](./docs/architecture.md): read when you need to know
+  how the projects fit together and where a change belongs.
+* [`docs/progress.md`](./docs/progress.md): read at the start of a session to
+  learn what is built, in progress, and planned.
+* [`docs/research-and-build-plan.md`](./docs/research-and-build-plan.md): read
+  when you need scope, architecture research, or milestone details.
+* [`docs/ui-and-workflow-design.md`](./docs/ui-and-workflow-design.md): read
+  when changing the portal or task, approval, and history workflows.
+* [`docs/threat-model.md`](./docs/threat-model.md): read when touching trust
+  boundaries, identity, authorization, or tool execution.
+* [`docs/acceptance-tests.md`](./docs/acceptance-tests.md): read when adding
+  acceptance or attack tests.
+* [`docs/demo.md`](./docs/demo.md): read when changing the demo flow.
+* `docs/features/<slug>/features_list.json` and `agent-progress.md`: read when
+  working from a GitHub issue that has a generated feature list. Treat the
+  feature list as the acceptance checklist and the progress log as evidence.
 
 ## Build and test
 
