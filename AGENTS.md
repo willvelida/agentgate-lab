@@ -29,6 +29,10 @@ security boundary or imply that these features are available.
 Run commands from the repository root. The documented baseline is .NET SDK
 10.0.101 or later within the .NET 10 feature band, Node.js 24, and npm 11.
 
+Run `bash init.sh` to restore locked dependencies and execute the full CI build,
+test, and publish sequence locally. For a focused change, run only the
+relevant commands below.
+
 Restore dependencies when needed:
 
 ```sh
