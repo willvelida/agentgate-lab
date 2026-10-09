@@ -20,6 +20,8 @@ ms.date: 2026-10-09
 7. Record only verified results in progress logs and feature lists.
 8. Update [`docs/progress.md`](./docs/progress.md) in the same pull request
    when a change starts, completes, or blocks milestone work.
+9. Replace the "Last session" section of `docs/progress.md` before ending a
+   session.
 
 ## Repository context
 
@@ -27,12 +29,40 @@ AgentGate Lab is a .NET and React foundation for an Entra Agent ID and ACS
 authorization gateway. The Portal, Gateway, Agent Worker, and React client are
 separate projects under `src/`.
 
+## Session startup
+
+Follow these steps in order at the start of every session:
+
+1. Read this file.
+2. Read [`docs/architecture.md`](./docs/architecture.md) to learn where code
+   belongs.
+3. Read [`docs/product.md`](./docs/product.md) to learn what is being built.
+4. Read [`docs/progress.md`](./docs/progress.md), starting with "Last session".
+5. If you are working from an issue, read its
+   `docs/features/<slug>/features_list.json` and `agent-progress.md`.
+6. Run `bash init.sh`, or the focused checks below, to confirm the repository
+   is healthy before you change anything.
+
+## Definition of Done
+
+A change is done only when all of these are true:
+
+* The relevant checks in "Build and test" pass.
+* Tests cover any behavior that changed.
+* Feature list entries are marked `pass` only with recorded evidence.
+* Code stays in the project that owns it, as described in
+  [`docs/architecture.md`](./docs/architecture.md).
+* Affected docs and [`docs/progress.md`](./docs/progress.md) are updated,
+  including "Last session".
+
 ## Read when
 
 * [`README.md`](./README.md): read when you need the repository layout,
   prerequisites, or commands to run each project.
 * [`docs/architecture.md`](./docs/architecture.md): read when you need to know
   how the projects fit together and where a change belongs.
+* [`docs/product.md`](./docs/product.md): read when you need the product goal,
+  planned features, constraints, or non-goals.
 * [`docs/progress.md`](./docs/progress.md): read at the start of a session to
   learn what is built, in progress, and planned.
 * [`docs/research-and-build-plan.md`](./docs/research-and-build-plan.md): read

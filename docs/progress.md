@@ -16,6 +16,23 @@ Feature-level evidence lives in `docs/features/<slug>/agent-progress.md`. The
 `github-issue-to-features-list` skill creates those folders from GitHub issues.
 This file only summarizes them.
 
+## Last session
+
+Replace this section at the end of every session so the next one can pick up
+where you left off.
+
+* Date: 2026-10-09
+* Accomplished: added `docs/product.md`, this "Last session" handoff, and a
+  session startup checklist and Definition of Done in `AGENTS.md`.
+* Remains: merge PR #28.
+* Decisions: keep `features_list.json` gitignored; commit only
+  `agent-progress.md` per feature.
+* Files modified: `AGENTS.md`, `docs/progress.md`, `docs/product.md`.
+* Blockers: the DCO check on PR #28 fails because its commits lack a
+  `Signed-off-by` line.
+* Next steps: start milestone M0 from a GitHub issue using the
+  `github-issue-to-features-list` skill.
+
 ## Built
 
 ### Foundation (Issue #1, merged in PR #27)
@@ -49,6 +66,10 @@ before milestone M0.
 * PR template and hard rule 8: PRs that change behavior update this file.
 * `.github/workflows/docs-check.yml`: fails on broken relative Markdown links
   and warns when code changes without a `docs/progress.md` update.
+* `docs/product.md`: what the product is, its planned features, and its
+  constraints.
+* "Last session" handoff in this file, plus a session startup checklist and
+  Definition of Done in `AGENTS.md`.
 
 ## Planned
 
@@ -72,4 +93,5 @@ the full scope and exit criteria of each one.
    "Done" when its exit criteria are met.
 3. Link the matching `docs/features/<slug>/agent-progress.md` for detailed
    evidence instead of copying it here.
-4. Update `ms.date` in the frontmatter.
+4. Replace the "Last session" section before you stop working.
+5. Update `ms.date` in the frontmatter.
