@@ -1,0 +1,7 @@
+.git
+**/bin
+**/obj
+**/node_modules
+**/.local
+src/Portal/wwwroot
+docs/features

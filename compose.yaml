@@ -1,0 +1,6 @@
+services:
+  acs-spike:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile

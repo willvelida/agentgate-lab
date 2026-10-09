@@ -23,6 +23,7 @@ publishes the React assets from the same origin.
 ```text
 src/
   AgentWorker/       Future agent job host
+  AcsSpike/          Linux x64 ACS spike scaffold
   Client/            React + TypeScript + Vite frontend
   Gateway/           Future private authorization gateway
   Portal/            ASP.NET Core BFF and published frontend host
@@ -52,6 +53,19 @@ single dev container provides the .NET 10 SDK and Node.js 24, restores the
 locked .NET dependencies, and installs the frontend dependencies at creation.
 The Portal uses port 5031, the Gateway uses port 5077, and Vite uses port
 5173.
+
+## Native ACS Linux spike
+
+Build and run the .NET 10 spike from Windows using Docker Desktop with Linux
+containers enabled:
+
+```sh
+docker compose run --build --rm acs-spike
+```
+
+The service is constrained to Linux x64 and exits with an error on a different
+operating system or architecture. This initial scaffold does not yet load the
+native ACS runtime or evaluate policies.
 
 ## Restore and build
 

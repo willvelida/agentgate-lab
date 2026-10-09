@@ -23,6 +23,7 @@ is **planned** (described in design docs only).
 | Client      | `src/Client`       | React + Vite single-page app | Foundation |
 | Gateway     | `src/Gateway`      | ASP.NET Core minimal API     | Foundation |
 | AgentWorker | `src/AgentWorker`  | .NET generic host worker     | Foundation |
+| AcsSpike    | `src/AcsSpike`     | .NET 10 console spike        | Scaffold   |
 | Tests       | `tests/Portal.Tests` | xUnit host tests for Portal | Smoke only |
 
 The solution file is `AgentGateLab.sln`.
@@ -57,6 +58,12 @@ The solution file is `AgentGateLab.sln`.
 
 * Runs a background service that logs one message and waits. It does no
   agent work.
+
+### ACS spike
+
+* `src/AcsSpike` runs in a Linux x64 container through Docker Compose.
+* The scaffold verifies its operating system and architecture, but does not
+  load the native ACS runtime or evaluate policies.
 
 ### Tests
 

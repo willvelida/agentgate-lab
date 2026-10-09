@@ -21,17 +21,17 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* Branch: `feat/agent-init` (PR #28 open).
-* PR #28 is the source of truth for the latest commit and exact-head CI status;
-  confirm all checks before merge.
-* Current increment: addressing four review comments on PR #28. Checklist
-  recreation now stops when a progress log exists without its ignored JSON;
-  architecture scans cover multiline references/imports and ignore commented
-  XML; architecture wording expands ACS correctly. Focused checks passed;
-  changes are uncommitted and unpublished.
-* `init.sh`: passed the full sequence on Windows through Git Bash
-  (2026-10-09, exit 0). All 10 steps produced finalized, ignored reports.
-  Commands and run IDs are recorded below.
+* Branch: `issue-2-native-acs-runtime`, created from `main` for issue #2.
+* Harness changes from PR #28 merged into `main` on 2026-10-09; the earlier
+  PR handoff below has been superseded.
+* Current increment: F001 adds a runnable .NET 10 Linux x64 container spike.
+  Its Docker Compose smoke command, architecture check, solution build, and
+  solution tests passed. The independent evaluator recorded PASS (average
+  4.6, minimum 4), and F001 is marked pass in the local feature checklist.
+* Baseline: architecture, harness tests, locked restore, solution build, and
+  solution tests passed through the PowerShell verification wrapper. This
+  session's `bash init.sh` attempt stopped because Git Bash could not resolve
+  Node.js; the focused checks provide the baseline for F001.
 * Focused validation (2026-10-09): `node --test
   scripts/run-verification.test.mjs` passed all 9 tests on Windows, including
   Bash and PowerShell wrappers, failed commands, argument boundaries, and
@@ -97,6 +97,11 @@ final link and whitespace checks were repeated before commit.
 
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
+* Issue #2 F001 is only a container startup scaffold. Native ACS policy
+  evaluation, fixtures, and packaged native runtime dependencies remain
+  unimplemented.
+* Git Bash could not resolve Node.js when starting `bash init.sh` in this
+  session. The PowerShell verification wrapper worked for focused checks.
 * `docs-check.yml` only warns, and does not fail, when code changes without a
   `docs/progress.md` update.
 
@@ -106,37 +111,40 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: addressed four Copilot review comments on PR #28. The issue
-  skill now asks before recreating a missing feature list when its progress log
-  exists. The architecture checker removes XML comments before scanning
-  complete, multiline project-reference tags and flattens source files before
-  checking imports across line breaks. Added regression tests for multiline
-  service references, commented references, and multiline dynamic imports.
-  Corrected ACS to Agent Control Specification.
-* Files modified: `.github/skills/github-issue-to-features-list/SKILL.md`,
-  `.github/workflows/build.yml`, `docs/architecture.md`, `docs/progress.md`,
-  `init.sh`, `scripts/check-architecture.sh`,
-  `scripts/check-architecture.test.mjs`.
-* Verification: `node --test scripts/check-architecture.test.mjs
-  scripts/run-verification.test.mjs` passed, 14 tests (exit 0, run
-  `2026-10-09T06-29-57-434Z-c7394d3e-a81c-4a2f-b530-92557304d8c3`).
-  `bash scripts/check-architecture.sh` passed against the repository (exit 0,
-  run `2026-10-09T06-29-57-586Z-e81b85ea-02ec-4acc-af0d-bda3360be873`).
-  `bash -n` for the checker and `init.sh`, `git diff --check`, and a
-  frontmatter/relative-link scan (10 links across 3 Markdown files) passed.
-* Validation correction: an intermediate implementation tried to invoke Node
-  from non-login Git Bash, where Node was not on `PATH`; it was replaced with
-  a self-contained Bash/awk implementation. The first XML regression run also
-  exposed an awk helper naming conflict and then an expected-message mismatch;
-  both were fixed, and the final captured suite passed.
-* Startup: not applicable; application source and tests were unchanged.
-* Cleanup: regression fixtures removed themselves. Captured verification
-  reports remain in ignored `.local/verification/`; no services were started.
-* Publication: no commit or push was requested. PR #28 still points to
-  `1e95964`; review threads remain open until these changes are published.
-* Blockers: none.
-* Next steps: review the diff; after approval, commit and push, then confirm
-  exact-head CI and resolve the addressed PR threads.
+* Accomplished: implemented issue #2 F001 on `issue-2-native-acs-runtime`.
+  Added a .NET 10 console spike, Linux x64 Docker Compose runner, and README
+  instructions. The scaffold explicitly reports that ACS evaluation is not
+  wired yet.
+* Files modified: `.dockerignore`, `AgentGateLab.sln`, `Dockerfile`,
+  `README.md`, `compose.yaml`, `docs/architecture.md`,
+  `docs/features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md`,
+  `docs/progress.md`, `src/AcsSpike/AcsSpike.csproj`,
+  `src/AcsSpike/Program.cs`, and `src/AcsSpike/packages.lock.json`.
+  `features_list.json` is intentionally ignored by Git.
+* Verification: `docker compose run --build --rm acs-spike` passed, exit 0,
+  reporting .NET 10.0.12 on Linux x64 (run
+  `2026-10-09T06-51-18-652Z-7e0c3b03-dc58-4383-a763-3ba8c317fa83`).
+  `bash scripts/check-architecture.sh` passed, exit 0 (run
+  `2026-10-09T06-52-21-476Z-3a90d43d-234c-4409-a175-0dd6555035f2`).
+  The solution build passed with 0 warnings/errors (run
+  `2026-10-09T06-52-21-460Z-61be0d6b-3c7a-4a43-bc64-b42373448c9c`), and
+  all 13 solution tests passed (run
+  `2026-10-09T06-52-41-919Z-412f2bbd-e5dd-4348-a727-bb8278a0011a`).
+* Baseline: architecture and harness checks, locked restore, solution build,
+  and 13 existing tests passed. `bash init.sh` did not start its first step
+  because Git Bash could not resolve Node.js; the focused PowerShell-wrapper
+  checks were used instead. Baseline run IDs and results are in the issue
+  progress log.
+* Reviewed revision: `5bddd53f243d435e8c323adfbe8f4e26abdfe9c2`, plus
+  uncommitted changes. The working tree remains dirty; no commit or push was
+  requested. Documentation-only updates were made after the source checks; no
+  implementation code changed afterward.
+* Startup and cleanup: the container exited successfully, `--rm` removed it,
+  and `docker compose down --rmi local` removed the generated image and
+  network. Captured reports remain in ignored `.local/verification/`.
+* Blockers: none for F001. Native ACS functionality and the remaining issue
+  criteria are not implemented.
+* Next steps: begin F002 only after selecting its verification command.
 
 ## Built
 
@@ -153,54 +161,28 @@ where you left off.
 No gateway security, identity, storage, or agent logic exists yet. The code is
 before milestone M0.
 
-### Harness basics (committed on `feat/agent-init`, not yet merged)
+### Agent harness (merged in PR #28)
 
-* `AGENTS.md`: entry point for agents, with hard rules and links to docs.
-* `init.sh`: one command to restore, build, and test the repository.
+* `AGENTS.md` defines clock-in/out, one-feature scope, verification, and
+  evidence requirements.
+* Issue skills create feature checklists and evidence logs; the evaluator
+  records an independent fresh-session verdict.
+* Bash and PowerShell wrappers capture verification metadata and raw output
+  under ignored `.local/verification/` run directories.
+* `scripts/check-architecture.sh` enforces service and Client boundaries.
+  CI also checks relative Markdown links and reminds contributors to update
+  this progress file when source changes start, complete, or block a milestone.
+* The [Harness Implementer](./harness-agent.md) works on one agreed feature
+  and stops before independent evaluation.
 
 ## In progress
 
-### Harness expansion (branch `feat/agent-init`, PR #28)
+### Native ACS Linux spike (Issue #2, F001 active)
 
-* `AGENTS.md` rewritten as a short router with a "Hard rules" list.
-* `docs/architecture.md`: implemented components versus the planned target.
-* `docs/progress.md`: this file.
-* `github-issue-to-features-list` skill: turns a GitHub issue's acceptance
-  criteria into `docs/features/<slug>/features_list.json` (gitignored) and
-  `docs/features/<slug>/agent-progress.md` (committed).
-* PR template and hard rule 8: PRs that change behavior update this file.
-* `.github/workflows/docs-check.yml`: fails on broken relative Markdown links
-  and warns when code changes without a `docs/progress.md` update.
-* `docs/product.md`: what the product is, its planned features, and its
-  constraints.
-* "Last session" handoff in this file, plus a session startup checklist and
-  Definition of Done in `AGENTS.md`.
-* `docs/decisions.md`: why the harness is shaped the way it is.
-* `docs/clean-state-checklist.md`: checks to run before ending a session.
-* Clock-in and clock-out routines, the 60% context handoff rule, and a
-  one-feature-at-a-time rule in `AGENTS.md`.
-* Optional `dependsOn` field in the skill's `features_list.json`.
-* Feature states `not-started`, `active`, `blocked`, and `pass`, a
-  `verification` field, and a one-session sizing rule in the skill.
-* Hard rules 11 to 13 (evidence before `pass`, stay in scope, never weaken a
-  test) and a "Runtime evidence" section in `AGENTS.md`.
-* `scripts/check-architecture.sh`: enforces service and Client boundaries,
-  runs in `init.sh` and CI.
-* `.gitattributes`: LF line endings for `*.sh` files.
-* `feature-evaluator` skill: independent five-part scoring in a fresh session.
-  Every score must be at least 3 and the average at least 4 for PASS.
-  Full rubrics stay gitignored; verdict lines go in committed progress logs.
-* Hard rule 14 and the feature workflow require a recorded evaluator PASS
-  before a feature becomes `pass`.
-* Verification evidence runner: records command
-  results and repository state under ignored `.local/verification/` run directories.
-  Bash and PowerShell wrappers share the same report format. Initialization,
-  feature checks, and evaluator checks use capture; clock-out records the
-  reviewed state, results, and owned cleanup.
-* [Harness Implementer](./harness-agent.md): custom agent that
-  follows the existing harness for one agreed feature and stops before
-  independent evaluation. Static checks passed; the user accepted the
-  read-only trial's stop behavior. Picker discovery remains unverified.
+* A .NET 10 console spike runs in a Linux x64 container through Docker Compose.
+* The current scaffold checks container OS and architecture only; native ACS
+  evaluation and policy fixtures remain future work.
+* See the [issue #2 feature evidence](./features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md).
 
 ## Planned
 
