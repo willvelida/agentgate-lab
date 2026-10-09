@@ -12,7 +12,7 @@ run_step() {
   shift
 
   printf '\n==> %s\n' "${description}"
-  "$@"
+  bash scripts/run-verification.sh --label "${description}" -- "$@"
 }
 
 main() {
@@ -22,6 +22,8 @@ main() {
 
   run_step "Check project boundaries" \
     bash scripts/check-architecture.sh
+  run_step "Test verification evidence capture" \
+    node --test scripts/run-verification.test.mjs
   run_step "Restore locked .NET dependencies" \
     dotnet restore AgentGateLab.sln --locked-mode
   run_step "Install locked frontend dependencies" \

@@ -22,20 +22,74 @@ Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
 * Branch: `feat/agent-init` (PR #28 open).
-* Latest commit: see `git log -1`; focused checks passed for the evaluator
-  skill and wiring before commit.
-* `init.sh`: passing at the previously verified head; not rerun for the
-  evaluator changes.
-* CI: build, docs-check, and DCO checks were green on PR #28 before the
-  evaluator changes. These local changes have not been checked by CI.
-* Focused validation (2026-10-09): `bash scripts/check-architecture.sh` and
-  `git diff --check` passed after evaluator wiring. A Node.js check confirmed
-  all 41 relative link targets in the six changed or new Markdown files exist
-  and each file has frontmatter. VS Code reported no errors in those files.
-* Ignore validation: `git check-ignore -v` confirmed rubric and feature-list
-  files are ignored; `git check-ignore -q` returned 1 for the progress log,
-  confirming it is not ignored. Lychee is unavailable locally, so its exact
-  CI link check remains unverified.
+* Verification baseline: `bb08840` plus the runner and harness increment
+  included with this handoff. The resulting commit is recorded in PR #28.
+* CI: build, links, progress-reminder, and DCO passed for `bb08840` on PR #28.
+  The new head's CI was unverified when this handoff was written; PR #28
+  records the later publication result for that exact head.
+* `init.sh`: passed the full sequence on Windows through Git Bash
+  (2026-10-09, exit 0). All 10 steps produced finalized, ignored reports.
+  Commands and run IDs are recorded below.
+* Focused validation (2026-10-09): `node --test
+  scripts/run-verification.test.mjs` passed all 9 tests on Windows, including
+  Bash and PowerShell wrappers, failed commands, argument boundaries, and
+  Windows command shims.
+* Wrapper validation: Bash syntax and PowerShell parsing passed.
+  `Invoke-ScriptAnalyzer -Path scripts/Invoke-Verification.ps1 -Severity
+  Error,Warning` reported no findings. ShellCheck is unavailable locally.
+* `git check-ignore -v` confirmed `.local/verification/` reports and raw output
+  are ignored. A captured architecture check passed after integration
+  (exit 0, run `2026-10-09T05-15-48-848Z-ce6d8a08-7876-4e4e-a0bd-2a6d39946997`,
+  reviewed commit `bb08840` plus uncommitted runner and harness changes).
+* Integration: frontend type-check, test (1 passed), build, .NET build
+  (0 warnings and errors), tests (13 passed), and Portal publish passed.
+  Relative links (51 across 7 changed Markdown files), frontmatter presence,
+  Node and Bash syntax, PowerShell lint, and whitespace checks passed.
+* Initial initialization stopped at `npm ci` with Windows `EPERM`.
+  Retrying succeeded without manual deletion or stopping unrelated processes;
+  the next complete initialization passed. The original report remains failed.
+
+### Verification evidence
+
+These runs checked `bb08840` plus uncommitted runner and harness changes on
+2026-10-09. Each full-initialization command below passed with exit 0.
+Raw output stays local; these summaries are not an independent feature PASS.
+
+| Command | Run ID |
+|---------|--------|
+| `bash scripts/check-architecture.sh` | `2026-10-09T05-19-41-925Z-663698a6-55dd-4378-8bb0-e6ef015b8d72` |
+| `node --test scripts/run-verification.test.mjs` | `2026-10-09T05-19-46-427Z-fe80d233-960e-4391-9f35-05a9129aa116` |
+| `dotnet restore AgentGateLab.sln --locked-mode` | `2026-10-09T05-20-13-185Z-2af0fa1d-b46e-46c7-a726-4e5cacd0e4ab` |
+| `npm ci --prefix src/Client` | `2026-10-09T05-20-18-508Z-14a9f854-7128-4f31-839c-65df87e8c070` |
+| `npm run typecheck --prefix src/Client` | `2026-10-09T05-20-46-562Z-1682dea9-75fc-4f6b-a240-dafcdbb625da` |
+| `npm test --prefix src/Client` | `2026-10-09T05-20-55-488Z-4b8c4574-a361-4b7e-85c7-845be803681d` |
+| `npm run build --prefix src/Client` | `2026-10-09T05-21-08-112Z-56c8f09d-83bf-49ec-b84c-aa17a3a3ba9d` |
+| `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | `2026-10-09T05-21-17-662Z-70e01981-9e0f-4257-a6ed-6e88c1f4808c` |
+| `dotnet test AgentGateLab.sln --no-build --no-restore --property:SkipClientBuild=true` | `2026-10-09T05-21-35-175Z-2acc6d7c-91a0-430e-bb68-3e314db5820d` |
+| `dotnet publish src/Portal/Portal.csproj --configuration Release --no-restore --property:SkipClientBuild=true` | `2026-10-09T05-21-44-659Z-dffe6b83-98df-4b16-84fb-39f508b01b1f` |
+
+The failed `npm ci --prefix src/Client` run was
+`2026-10-09T05-17-56-710Z-d005bb91-d60b-434a-add6-eaafc9df8e51`
+(status `failed`, recorded Windows exit code `4294963248`, `EPERM`).
+The standalone retry was
+`2026-10-09T05-18-51-498Z-616924aa-cf01-4592-9b89-79ad1a5a58c2`
+(passed, exit 0).
+
+An inline report validation initially assumed that failure returned 1
+(run `2026-10-09T05-22-44-666Z-4a0f8167-60ce-4018-8d5e-94c30d63b887`,
+failed, exit 1). After inspecting the original report, validation checked
+the actual native Windows exit code instead
+(run `2026-10-09T05-23-38-364Z-571383f8-dc5d-4746-b5ef-7958e3cb2d29`,
+passed, exit 0). It confirmed all 10 successful reports' timing, arguments,
+revision, dirty state, output files, and Git ignore coverage. The runner and
+its tests were not changed to hide either failure.
+
+Final static checks (`node -e` with inline link, frontmatter, script syntax,
+PowerShell parsing and lint, and whitespace validation) passed with exit 0
+in run `2026-10-09T05-25-09-441Z-cb4ef885-cf33-4df8-b2ca-30f59e9b56a7`.
+Editor diagnostics reported no errors in the changed documents and scripts.
+Only evidence and publication handoff text changed after those checks;
+final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
@@ -50,21 +104,37 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: created the independent `feature-evaluator` skill from
-  Lectures 09 and 10 and Project 05. Wired its PASS gate into hard rule 14,
-  the Definition of Done, and the feature implementation workflow.
-  Confirmed existing ignore rules exclude rubric files but allow progress
-  logs, so no `.gitignore` change was needed.
-* Remains: confirm publishing and CI on PR #28 before merging. No feature
-  evaluation has been run against an implemented feature.
-* Decisions: see D011 in [decisions.md](./decisions.md).
-* Files modified: `AGENTS.md`,
-  `.github/skills/feature-evaluator/SKILL.md`,
+* Accomplished: read Lectures 11 and 12 and Project 06, compared their
+  observability and clean-handoff guidance with this harness, and agreed on
+  verification capture plus focused handoff checks. Completed Steps 1 to 3:
+  a shared Node.js runner, Bash and PowerShell wrappers, focused tests, and
+  [verification guidance](./verification.md). Wired capture into initialization,
+  feature verification, and evaluator guidance. Expanded clock-out and the
+  clean-state checklist, added runner tests to CI, and validated full
+  initialization with per-step evidence.
+* Publication: Step 4 is authorized. The resulting commit, final working-tree
+  state, and exact-head CI outcome are recorded in PR #28 after publication.
+  Read those results before assuming Linux CI passed. No feature evaluation
+  has been run against an implemented feature.
+* Decisions: D012 and D013 in [decisions.md](./decisions.md).
+* Files modified: `scripts/run-verification.mjs`,
+  `scripts/run-verification.sh`, `scripts/Invoke-Verification.ps1`,
+  `scripts/run-verification.test.mjs`, `docs/verification.md`,
+  `docs/progress.md`, `init.sh`, `.github/workflows/build.yml`, `AGENTS.md`,
   `.github/skills/github-issue-to-features-list/SKILL.md`,
-  `docs/progress.md`, `docs/decisions.md`, `docs/clean-state-checklist.md`.
+  `.github/skills/feature-evaluator/SKILL.md`, `docs/decisions.md`,
+  `docs/clean-state-checklist.md`.
+* Startup: not applicable; no application runtime behavior changed.
+* Cleanup: no background service was started. All validation commands exited;
+  test fixtures were removed by the tests. Local evidence and ignored build
+  output are retained. All working-tree changes belong to this increment and
+  are included in its authorized commit. Only documentation summaries changed
+  after full initialization; final documentation checks cover those edits.
 * Blockers: none.
-* Next steps: complete the approved publishing step for PR #28, then confirm
-  CI before starting milestone M0.
+* Next steps: check PR #28 for the exact published head's result and any
+  remaining failures. Choose the next harness enhancement with the user;
+  application runtime observability and benchmarking remain outside this
+  increment.
 
 ## Built
 
@@ -120,6 +190,11 @@ before milestone M0.
   Full rubrics stay gitignored; verdict lines go in committed progress logs.
 * Hard rule 14 and the feature workflow require a recorded evaluator PASS
   before a feature becomes `pass`.
+* Verification evidence runner: records command
+  results and repository state under ignored `.local/verification/` run directories.
+  Bash and PowerShell wrappers share the same report format. Initialization,
+  feature checks, and evaluator checks use capture; clock-out records the
+  reviewed state, results, and owned cleanup.
 
 ## Planned
 

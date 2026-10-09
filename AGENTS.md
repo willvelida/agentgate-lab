@@ -37,6 +37,10 @@ ms.date: 2026-10-09
     PASS in a fresh session and records the verdict in the slug's
     `agent-progress.md`. The verdict must cover the changes being marked
     `pass`; request a new evaluation if those changes are modified.
+15. Capture verification commands through the runner in
+    [verification guidance](./docs/verification.md). Keep raw reports local
+    and commit only sanitized summaries with run IDs, results, and the
+    reviewed revision. An incomplete run is not a successful check.
 
 ## Repository context
 
@@ -66,14 +70,22 @@ Follow these steps in order at the start of every session:
 
 Follow these steps in order before you stop working:
 
-1. Update "Current State" and "Known Issues" in
+1. Run the relevant checks with evidence capture. For runtime changes,
+   also verify the affected service's startup path. Record failed or
+   unavailable checks explicitly; do not declare a healthy handoff.
+2. Stop only processes this session owns and remove only its named temporary
+   artifacts. Preserve unrelated changes and retained local evidence.
+3. Update "Current State" and "Known Issues" in
    [`docs/progress.md`](./docs/progress.md).
-2. Replace "Last session" with what you accomplished, what remains, decisions,
-   files modified, blockers, and next steps.
-3. Record any new design decision in
+4. Replace "Last session" with what you accomplished, what remains, decisions,
+   files modified, blockers, next steps, verification run IDs and results,
+   the reviewed commit and dirty state, and process or artifact cleanup.
+5. Record any new design decision in
    [`docs/decisions.md`](./docs/decisions.md).
-4. Work through [`docs/clean-state-checklist.md`](./docs/clean-state-checklist.md).
-5. Commit with `git commit -s`.
+6. Work through [`docs/clean-state-checklist.md`](./docs/clean-state-checklist.md).
+7. Commit with `git commit -s` when authorized, then inspect `git status --short`.
+   Report the resulting commit and any remaining changes. When publishing,
+   record CI results for that exact head; pending CI is not green CI.
 
 Start clock-out when you have used about 60% of your context window, so the
 handoff is written while you still have room to do it well.
@@ -93,6 +105,8 @@ A change is done only when all of these are true:
   "Runtime evidence".
 * Affected docs and [`docs/progress.md`](./docs/progress.md) are updated,
   including "Last session".
+* The clean-state checklist is complete, with verification evidence,
+  applicable startup checks, and owned-process and artifact cleanup recorded.
 
 ## Read when
 
@@ -123,6 +137,8 @@ A change is done only when all of these are true:
 * [Feature evaluator skill](./.github/skills/feature-evaluator/SKILL.md): read
   after a feature's verification succeeds, before marking it `pass`. Run the
   evaluation in a fresh session, not the session that built the feature.
+* [Verification guidance](./docs/verification.md): read before running checks
+  or writing the verification and cleanup evidence for a handoff.
 
 ## Runtime evidence
 
@@ -136,7 +152,9 @@ responds. Run the affected service and record what it did.
 | AgentWorker | `dotnet run --project src/AgentWorker/AgentWorker.csproj` | Startup log lines show the worker started without errors |
 
 Record the command, the output, and the date in the slug's `agent-progress.md`
-or in [`docs/progress.md`](./docs/progress.md). Stop the service when done.
+or in [`docs/progress.md`](./docs/progress.md). Record the PID or tool session
+that owns the service, then stop only that process when done and record the
+result. Do not run a long-lived service through the finite-command runner.
 
 ## Build and test
 
@@ -144,8 +162,9 @@ Run commands from the repository root. The documented baseline is .NET SDK
 10.0.101 or later within the .NET 10 feature band, Node.js 24, and npm 11.
 
 Run `bash init.sh` to restore locked dependencies and execute the full CI build,
-test, and publish sequence locally. For a focused change, run only the
-relevant commands below.
+test, and publish sequence locally. Each step writes its own local evidence
+report. For a focused change, run only the relevant commands below through
+the Bash or PowerShell wrapper in [verification guidance](./docs/verification.md).
 
 Restore dependencies when needed:
 

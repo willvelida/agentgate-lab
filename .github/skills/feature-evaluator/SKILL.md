@@ -24,8 +24,10 @@ Ask for either value if it is missing.
 * Read only the repository, the slug files in `docs/features/<slug>/`, and the
   diff. Treat the implementer's evidence as claims to check, not as proof.
 * Do not edit source code, tests, `features_list.json`, or the feature status.
-  Write only `evaluator-rubric.md` and one verdict line in `agent-progress.md`.
-* Run the feature's `verification` command exactly as written.
+  Author only `evaluator-rubric.md` and one verdict line in `agent-progress.md`.
+  Verification commands may produce ignored build output and local evidence.
+* Run the feature's `verification` command exactly as written through the
+  evidence runner described in `docs/verification.md`. Keep raw output local.
 * Cite evidence (a file path, command output, or line) for every score.
 * Do not commit. Leave committing to the user or the implementer.
 
@@ -62,9 +64,11 @@ average is at least 4. Otherwise the verdict is FAIL.
    `verification` is `TBD`.
 3. Collect the diff. Prefer commits that reference the feature ID; otherwise
    use `git diff` against the base branch. Report the range you reviewed.
-4. Run the `verification` command and `bash scripts/check-architecture.sh`. If
-   the change affects how a service runs, also follow the runtime evidence
-   table in `AGENTS.md`.
+4. Run the `verification` command and `bash scripts/check-architecture.sh`
+   through the evidence runner. Record their run IDs, results and exit codes,
+   reviewed commit, and dirty state in the rubric. Sanitize output summaries.
+   If the change affects how a service runs, also follow the runtime evidence
+   table in `AGENTS.md`, then stop only the service process this session owns.
 5. Score each dimension with evidence.
 6. Append the result to `docs/features/<slug>/evaluator-rubric.md`:
 
@@ -72,6 +76,9 @@ average is at least 4. Otherwise the verdict is FAIL.
    ## F001 evaluation (YYYY-MM-DD)
 
    Reviewed range: <commit range or diff base>
+   Verification: <command, run ID, result, exit code>
+   Architecture: <command, run ID, result, exit code>
+   Reviewed commit and working tree: <SHA, clean or uncommitted changes>
 
    | Dimension | Score | Evidence | Defects |
    |-----------|-------|----------|---------|

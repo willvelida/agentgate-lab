@@ -17,6 +17,11 @@ this list.
 * [ ] `bash scripts/check-architecture.sh` passes.
 * [ ] No new build warnings or test failures were introduced.
 * [ ] Dependency lockfiles changed only for an intentional update.
+* [ ] Commands ran through the evidence runner in
+      [verification guidance](./verification.md). Sanitized summaries include
+      run IDs, exit codes, the reviewed commit, and dirty state.
+* [ ] Failed, unavailable, or incomplete checks are recorded as such, not
+      treated as a healthy handoff.
 
 ## Feature
 
@@ -49,10 +54,28 @@ this list.
 * [ ] No secrets, credentials, or generated output from `src/Portal/wwwroot`
       are staged.
 
+## Startup and Cleanup
+
+* [ ] For runtime changes, the affected service's documented startup path was
+      checked and the observed result recorded. For documentation-only
+      changes, startup checks are recorded as not applicable.
+* [ ] Processes started by this session are identified by PID or tool session
+      and stopped. The cleanup result is recorded; unrelated processes are
+      left alone.
+* [ ] Only named temporary files created by this session were removed.
+      Intentionally retained local evidence is distinguished from leftovers.
+* [ ] Pre-existing changes are preserved and remaining changes are explained.
+
 ## Documentation
 
 * [ ] [progress.md](./progress.md) is updated, including Current State, Known
       Issues, and "Last session".
 * [ ] New decisions are recorded in [decisions.md](./decisions.md).
 * [ ] Affected docs are updated and their relative links resolve.
-* [ ] Work is committed with `git commit -s`.
+* [ ] "Last session" records verification run IDs and results, reviewed
+      revision, startup evidence where applicable, cleanup, blockers, and
+      the next action.
+* [ ] Authorized commits use `git commit -s`. The resulting commit and final
+      `git status --short` state are reported, including intentional leftovers.
+* [ ] When publishing, CI evidence identifies the exact head. Pending or
+      unchecked CI is not recorded as green.

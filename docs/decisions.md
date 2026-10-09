@@ -173,3 +173,39 @@ Each entry records:
   change source, tests, feature status, or commit. The implementer may mark
   `pass` only after a recorded evaluator PASS for the reviewed changes.
   Modified changes need a new evaluation; a FAIL never lowers the threshold.
+
+## D012: Capture verification runs and require an evidenced handoff
+
+* Date: 2026-10-09
+* Decision: a shared Node.js runner with Bash and PowerShell wrappers records
+  finite verification commands under ignored `.local/verification/<run-id>/`.
+  Reports include command arguments, times, duration, exit status, output
+  locations, and repository state before and after the command. `init.sh`
+  captures each step; focused checks use the same wrappers.
+* Why: consistent evidence makes failed checks explainable and identifies
+  what revision was tested. A restart should not depend on terminal history.
+* Alternatives rejected: capturing only initialization, because focused
+  checks would remain opaque; committing raw reports, because output can
+  contain sensitive data and generate noisy diffs; separate implementations,
+  because their report formats and failure handling could drift.
+* Constraints: preserve verification arguments and nonzero exit codes.
+  Running, interrupted, or capture-error reports are not successful checks.
+  Commit only sanitized summaries in existing progress logs. No telemetry
+  export, automatic evidence deletion, or CI artifact upload is introduced.
+
+## D013: Clean handoffs use focused checks and owned cleanup
+
+* Date: 2026-10-09
+* Decision: clock-out records verification run IDs and results, reviewed
+  revision and dirty state, remaining work, and owned-process and artifact
+  cleanup. Runtime changes require the affected startup path to be checked;
+  documentation-only changes do not require launching services.
+* Why: explicit evidence makes the next session restartable without requiring
+  an expensive full application startup for every documentation change.
+* Alternatives rejected: full initialization and all service startups at
+  every exit, because focused checks cover smaller changes without unrelated
+  work; relying on a clean Git tree alone, because it does not prove health.
+* Constraints: preserve unrelated changes and processes. Remove only named,
+  session-owned temporary artifacts; retain local evidence intentionally.
+  Failed or unavailable checks must be visible as blockers. Authorized
+  commits and CI reports identify the resulting head and remaining changes.

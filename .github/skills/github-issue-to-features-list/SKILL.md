@@ -124,9 +124,14 @@ When implementing from a feature list, work on one feature at a time:
 1. Pick the first `not-started` feature whose `dependsOn` entries all `pass`,
    and set it to `active`. Only one feature may be `active` at a time.
 2. Implement it, staying within its scope.
-3. Run its `verification` command exactly as written.
+3. Run its `verification` command exactly as written through the verification
+   evidence runner described in `docs/verification.md`. Pass command arguments
+   separately; do not rewrite the command to make it easier to capture.
 4. If the command succeeds, record the command output summary in `evidence`
-   and `testedAt`, and update `agent-progress.md`. Keep the feature `active`
+   and `testedAt`, and update `agent-progress.md`. Include the run ID, exit
+   code, reviewed commit, and whether uncommitted changes were present.
+   Sanitize the summary; do not commit raw output or reports from `.local/`.
+   Keep the feature `active`
    while the `feature-evaluator` skill evaluates it in a fresh session.
    Set it to `pass` only after that session records a PASS verdict in
    `agent-progress.md` for the changes being marked `pass`. If evaluation
@@ -138,6 +143,12 @@ When implementing from a feature list, work on one feature at a time:
    and ask the user before picking another feature.
 6. Commit, referencing the feature ID in the message.
 7. Move on to the next feature.
+
+Before ending the session, follow `docs/clean-state-checklist.md` and record
+the verification summary, applicable startup evidence, owned-process and
+temporary-artifact cleanup, remaining work, and working-tree state in the
+handoff. Preserve unrelated changes. A failed or incomplete check stays
+explicitly failed or incomplete; it is not a healthy handoff.
 
 Never weaken, skip, or quietly change a `verification` command or test to make
 it pass. If a command is wrong, ask the user before changing it, and record the

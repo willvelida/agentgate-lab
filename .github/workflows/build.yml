@@ -32,6 +32,9 @@ jobs:
           cache: npm
           cache-dependency-path: src/Client/package-lock.json
 
+      - name: Test verification evidence capture
+        run: node --test scripts/run-verification.test.mjs
+
       - name: Restore .NET dependencies
         run: dotnet restore AgentGateLab.sln --locked-mode
 
