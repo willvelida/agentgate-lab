@@ -1,7 +1,7 @@
 ---
 title: AgentGate Lab
 description: A credential-free repository foundation for an Entra Agent ID and ACS authorization gateway.
-ms.date: 2026-10-08
+ms.date: 2026-10-09
 ---
 
 ## Overview
@@ -34,7 +34,7 @@ docs/                Research, design, threat model, and acceptance criteria
 ## Prerequisites
 
 * .NET SDK 10.0.101 or a later .NET 10 feature band
-* Node.js 24 LTS
+* Node.js 24 LTS, version 24.15.0 or later within Node 24
 * npm 11
 
 The .NET SDK baseline is pinned in [`global.json`](./global.json), which allows
@@ -55,31 +55,30 @@ The Portal uses port 5031, the Gateway uses port 5077, and Vite uses port
 
 ## Restore and build
 
-Run these commands from the repository root:
+Run these commands from the repository root in PowerShell or the dev
+container's Bash shell:
 
-```powershell
-dotnet restore .\AgentGateLab.sln --locked-mode
-Push-Location .\src\Client
-npm ci
-npm run typecheck
-npm test
-npm run build
-Pop-Location
-dotnet build .\AgentGateLab.sln --no-restore --property:SkipClientBuild=true
+```sh
+dotnet restore AgentGateLab.sln --locked-mode
+npm ci --prefix src/Client
+npm run typecheck --prefix src/Client
+npm test --prefix src/Client
+npm run build --prefix src/Client
+dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true
 ```
 
 `npm run build` writes the production frontend to
 `src/Portal/wwwroot`. That folder is generated and ignored by Git. The Portal
 project also builds the client automatically when `SkipClientBuild` is not set,
-so `dotnet build .\AgentGateLab.sln` works from a fresh clone after Node and
+so `dotnet build AgentGateLab.sln` works from a fresh clone after Node and
 npm are available.
 
 ## Run locally
 
 Start the Portal:
 
-```powershell
-dotnet run --project .\src\Portal\Portal.csproj
+```sh
+dotnet run --project src/Portal/Portal.csproj
 ```
 
 Then open the URL printed by ASP.NET Core. The `/health` endpoint reports the
@@ -89,29 +88,29 @@ by the React shell. Unknown `/bff`, `/auth`, and `/api` routes return a JSON
 
 The Gateway can be started independently:
 
-```powershell
-dotnet run --project .\src\Gateway\Gateway.csproj
+```sh
+dotnet run --project src/Gateway/Gateway.csproj
 ```
 
 The Agent Worker is a separate host and currently waits without executing
 agent jobs:
 
-```powershell
-dotnet run --project .\src\AgentWorker\AgentWorker.csproj
+```sh
+dotnet run --project src/AgentWorker/AgentWorker.csproj
 ```
 
 ## Test and publish
 
 Run the .NET smoke tests:
 
-```powershell
-dotnet test .\AgentGateLab.sln --no-restore --property:SkipClientBuild=true
+```sh
+dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true
 ```
 
 Publish the Portal after building the client:
 
-```powershell
-dotnet publish .\src\Portal\Portal.csproj --configuration Release --no-restore --property:SkipClientBuild=true
+```sh
+dotnet publish src/Portal/Portal.csproj --configuration Release --no-restore --property:SkipClientBuild=true
 ```
 
 The publish output contains the compiled React assets and supports the same
@@ -129,9 +128,9 @@ Azure login or cloud credentials.
 Locked restore fails when a .NET dependency change does not match its lockfile.
 After an intentional package change, update and verify the lockfiles:
 
-```powershell
-dotnet restore .\AgentGateLab.sln --force-evaluate
-dotnet restore .\AgentGateLab.sln --locked-mode
+```sh
+dotnet restore AgentGateLab.sln --force-evaluate
+dotnet restore AgentGateLab.sln --locked-mode
 ```
 
 Use `npm install` in `src/Client` to update frontend dependencies and their
