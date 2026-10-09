@@ -18,6 +18,8 @@ ms.date: 2026-10-09
 5. Add or update tests when behavior changes.
 6. Keep changes focused and follow the conventions of the affected project.
 7. Record only verified results in progress logs and feature lists.
+8. Update [`docs/progress.md`](./docs/progress.md) in the same pull request
+   when a change starts, completes, or blocks milestone work.
 
 ## Repository context
 
