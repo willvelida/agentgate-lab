@@ -67,6 +67,19 @@ The service is constrained to Linux x64 and exits with an error on a different
 operating system or architecture. This initial scaffold does not yet load the
 native ACS runtime or evaluate policies.
 
+To restore dependencies, run the Linux container smoke, and execute the .NET
+solution tests from a fresh clone, use Bash, the .NET 10 SDK, Node.js 24.15.0
+or later within Node 24, npm 11, and Docker with Linux containers enabled:
+
+```sh
+bash scripts/verify-acs-spike.sh
+```
+
+The script restores locked dependencies, installs the locked frontend
+packages, builds the Portal assets required by its tests, builds and runs the
+container, then runs `dotnet test` for the solution. It does not require Azure
+credentials or start a long-running service.
+
 ## Restore and build
 
 Run these commands from the repository root in PowerShell or the dev
