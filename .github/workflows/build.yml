@@ -29,6 +29,15 @@ jobs:
           cache: npm
           cache-dependency-path: src/Client/package-lock.json
 
+      - name: Check project boundaries
+        run: bash scripts/check-architecture.sh
+
+      - name: Test project boundary checks
+        run: node --test scripts/check-architecture.test.mjs
+
+      - name: Test verification evidence capture
+        run: node --test scripts/run-verification.test.mjs
+
       - name: Restore .NET dependencies
         run: dotnet restore AgentGateLab.sln --locked-mode
 
