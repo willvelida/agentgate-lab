@@ -139,6 +139,9 @@ A change is done only when all of these are true:
   evaluation in a fresh session, not the session that built the feature.
 * [Verification guidance](./docs/verification.md): read before running checks
   or writing the verification and cleanup evidence for a handoff.
+* [Harness Implementer usage](./docs/harness-agent.md): read when selecting
+  the custom agent to agree on, implement, and verify one feature before a
+  fresh-session evaluator review.
 
 ## Runtime evidence
 

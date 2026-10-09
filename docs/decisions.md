@@ -209,3 +209,24 @@ Each entry records:
   session-owned temporary artifacts; retain local evidence intentionally.
   Failed or unavailable checks must be visible as blockers. Authorized
   commits and CI reports identify the resulting head and remaining changes.
+
+## D014: A custom implementer stops before independent evaluation
+
+* Date: 2026-10-09
+* Decision: the [Harness Implementer](../.github/agents/harness-implementer.agent.md)
+  routes to AGENTS.md and the existing skills rather than duplicating them.
+  It accepts an issue or feature slug, agrees on one feature with the user,
+  then implements and verifies without routine phase-by-phase approvals.
+  It leaves the feature `active`, records a clean handoff, and stops with
+  instructions for a fresh-session evaluator.
+* Why: a reusable role reduces repeated prompting while keeping the builder
+  separate from the reviewer and preserving the repository as the record.
+* Alternatives rejected: adding an evaluator custom agent or coordinator in
+  this increment, because the existing evaluator skill covers independent
+  review; automatic evaluator handoffs, because a same-chat transition does
+  not establish a fresh session.
+* Constraints: no self-evaluation, feature PASS, next-feature work, or
+  automatic commit, branch change, or publication. Scope changes and blockers
+  require user input. Evaluation-result handling belongs to a separate
+  follow-up. Model and tools are not pinned; instructions are not a
+  permission boundary. A real agent trial remains necessary to check behavior.

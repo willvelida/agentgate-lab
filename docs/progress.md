@@ -22,11 +22,12 @@ Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
 * Branch: `feat/agent-init` (PR #28 open).
-* Verification baseline: `bb08840` plus the runner and harness increment
-  included with this handoff. The resulting commit is recorded in PR #28.
-* CI: build, links, progress-reminder, and DCO passed for `bb08840` on PR #28.
-  The new head's CI was unverified when this handoff was written; PR #28
-  records the later publication result for that exact head.
+* PR #28 is the source of truth for the latest commit and exact-head CI status;
+  confirm all checks before merge.
+* Current increment: [Harness Implementer](./harness-agent.md) definition
+  and usage guidance created. Focused static validation passed. The read-only
+  trial stopped without looking up issue #2 or taking action; the user
+  accepted the result. No application source or verification runner changed.
 * `init.sh`: passed the full sequence on Windows through Git Bash
   (2026-10-09, exit 0). All 10 steps produced finalized, ignored reports.
   Commands and run IDs are recorded below.
@@ -104,36 +105,47 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: read Lectures 11 and 12 and Project 06, compared their
-  observability and clean-handoff guidance with this harness, and agreed on
-  verification capture plus focused handoff checks. Completed Steps 1 to 3:
-  a shared Node.js runner, Bash and PowerShell wrappers, focused tests, and
-  [verification guidance](./verification.md). Wired capture into initialization,
-  feature verification, and evaluator guidance. Expanded clock-out and the
-  clean-state checklist, added runner tests to CI, and validated full
-  initialization with per-step evidence.
-* Publication: Step 4 is authorized. The resulting commit, final working-tree
-  state, and exact-head CI outcome are recorded in PR #28 after publication.
-  Read those results before assuming Linux CI passed. No feature evaluation
-  has been run against an implemented feature.
-* Decisions: D012 and D013 in [decisions.md](./decisions.md).
-* Files modified: `scripts/run-verification.mjs`,
-  `scripts/run-verification.sh`, `scripts/Invoke-Verification.ps1`,
-  `scripts/run-verification.test.mjs`, `docs/verification.md`,
-  `docs/progress.md`, `init.sh`, `.github/workflows/build.yml`, `AGENTS.md`,
-  `.github/skills/github-issue-to-features-list/SKILL.md`,
-  `.github/skills/feature-evaluator/SKILL.md`, `docs/decisions.md`,
-  `docs/clean-state-checklist.md`.
-* Startup: not applicable; no application runtime behavior changed.
-* Cleanup: no background service was started. All validation commands exited;
-  test fixtures were removed by the tests. Local evidence and ignored build
-  output are retained. All working-tree changes belong to this increment and
-  are included in its authorized commit. Only documentation summaries changed
-  after full initialization; final documentation checks cover those edits.
+* Accomplished: agreed on a single custom implementer, one-feature approval
+  followed by implementation and verification, and a stop before independent
+  evaluation. Created its definition and usage guide, added the harness
+  pointer, recorded D014, and passed focused static checks. In read-only
+  trials, the agent did not edit files, run commands, look up issue #2, or
+  take further action. It acknowledged #2 from earlier conversation after
+  the prompt said no task was selected. The user accepted the stop as
+  sufficient and clarified that "work on issue 2 using the harness" should
+  select issue #2.
+* Remains: CI for the new custom-agent changes. No feature evaluation has
+  run. Static instruction assertions do not prove model behavior or picker
+  discovery.
+* Publication: user authorized commit, push, and PR #28 update. The PR records
+  the resulting commit and its exact-head CI checks.
+* Decisions: D014 in [decisions.md](./decisions.md).
+* Files modified: `.github/agents/harness-implementer.agent.md`,
+  `docs/harness-agent.md`, `AGENTS.md`, `docs/decisions.md`, `docs/progress.md`.
+* Verification: static assertions through the PowerShell runner passed for
+  the agent metadata, boundaries, 54 relative links across 5 Markdown files,
+  architecture, whitespace, and unchanged application/test/runner/CI files
+  (exit 0, run
+  `2026-10-09T05-45-14-410Z-6b5d2f49-39ef-4692-b009-9f66a3721851`).
+  After current-request-only issue selection was added, the focused guard,
+  frontmatter, link, architecture, and whitespace check passed (exit 0, run
+  `2026-10-09T05-56-51-832Z-994374bd-2155-42b7-a2f5-cb5c0f7f82f8`).
+  The final pre-publication check passed (exit 0, run
+  `2026-10-09T06-06-43-365Z-3521ce82-94d1-40ce-8dc3-f2efa4d0a60e`),
+  confirming links, frontmatter, agent role and boundaries, architecture,
+  and whitespace. Editor diagnostics found no errors. Static checks do not prove model
+  behavior or custom-agent picker discovery. Both reports remain local.
+* Validation correction: an intermediate prose assertion assumed LF line
+  breaks, but Markdown uses CRLF (run
+  `2026-10-09T05-44-49-948Z-4af1e131-5227-4677-b110-4bb902cc5960`,
+  failed, exit 1). Normalizing whitespace fixed the assertion; no agent
+  instruction or approval rule was weakened. The failed report remains local.
+* Startup: not applicable; only agent instructions and documentation changed.
+* Cleanup: no service or delegated agent was started. No task-owned temporary
+  repository files were created. Existing local evidence is retained.
 * Blockers: none.
-* Next steps: check PR #28 for the exact published head's result and any
-  remaining failures. Choose the next harness enhancement with the user;
-  application runtime observability and benchmarking remain outside this
+* Next steps: review exact-head CI on PR #28; leave the PR open for review.
+  Application runtime observability and benchmarking remain outside this
   increment.
 
 ## Built
@@ -195,6 +207,10 @@ before milestone M0.
   Bash and PowerShell wrappers share the same report format. Initialization,
   feature checks, and evaluator checks use capture; clock-out records the
   reviewed state, results, and owned cleanup.
+* [Harness Implementer](./harness-agent.md): custom agent that
+  follows the existing harness for one agreed feature and stops before
+  independent evaluation. Static checks passed; the user accepted the
+  read-only trial's stop behavior. Picker discovery remains unverified.
 
 ## Planned
 
