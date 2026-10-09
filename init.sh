@@ -22,6 +22,8 @@ main() {
 
   run_step "Check project boundaries" \
     bash scripts/check-architecture.sh
+  run_step "Test project boundary checks" \
+    node --test scripts/check-architecture.test.mjs
   run_step "Test verification evidence capture" \
     node --test scripts/run-verification.test.mjs
   run_step "Restore locked .NET dependencies" \

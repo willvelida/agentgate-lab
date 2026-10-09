@@ -58,7 +58,10 @@ an issue on the user's behalf.
    `docs/features/<owner>-<repo>-<number>-<title-slug>/`.
 5. If `features_list.json` already exists, stop and ask before replacing or
    changing it. Do not discard existing feature status or evidence without
-   the user's approval.
+   the user's approval. If it is missing but `agent-progress.md` already
+   exists in the issue folder, stop and ask how to restore or reconcile the
+   checklist with that progress log. Do not recreate every feature as
+   `not-started` while existing progress records later states.
 6. Create the folder and write valid JSON with this shape:
 
    ```json

@@ -8,8 +8,9 @@ ms.date: 2026-10-09
 
 agentgate-lab will become an authorization gateway. It lets an AI agent act
 for a user only through short-lived, one-use tickets that the user has approved.
-Right now the repository holds the foundation only. No auth, Agent Credential
-Service (ACS), grant, approval, or ticket logic exists yet.
+Right now the repository holds the foundation only. No authentication,
+Agent Control Specification (ACS) enforcement, grant, approval, or ticket
+logic exists yet.
 
 This page separates what is **implemented** (verified against code) from what
 is **planned** (described in design docs only).
@@ -87,7 +88,8 @@ run in separate Container Apps environments.
 
 [check-architecture.sh](../scripts/check-architecture.sh) enforces these
 rules. It runs first in `init.sh` and in CI, and fails the build on a
-violation.
+violation. Its regression tests cover multiline references and imports, plus
+XML comments that contain inactive references.
 
 * A service project under `src/` (Portal, Gateway, AgentWorker) must not
   reference another service project through a `ProjectReference`.

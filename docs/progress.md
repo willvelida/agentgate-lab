@@ -24,10 +24,11 @@ health before it changes anything.
 * Branch: `feat/agent-init` (PR #28 open).
 * PR #28 is the source of truth for the latest commit and exact-head CI status;
   confirm all checks before merge.
-* Current increment: [Harness Implementer](./harness-agent.md) definition
-  and usage guidance created. Focused static validation passed. The read-only
-  trial stopped without looking up issue #2 or taking action; the user
-  accepted the result. No application source or verification runner changed.
+* Current increment: addressing four review comments on PR #28. Checklist
+  recreation now stops when a progress log exists without its ignored JSON;
+  architecture scans cover multiline references/imports and ignore commented
+  XML; architecture wording expands ACS correctly. Focused checks passed;
+  changes are uncommitted and unpublished.
 * `init.sh`: passed the full sequence on Windows through Git Bash
   (2026-10-09, exit 0). All 10 steps produced finalized, ignored reports.
   Commands and run IDs are recorded below.
@@ -105,48 +106,37 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-09
-* Accomplished: agreed on a single custom implementer, one-feature approval
-  followed by implementation and verification, and a stop before independent
-  evaluation. Created its definition and usage guide, added the harness
-  pointer, recorded D014, and passed focused static checks. In read-only
-  trials, the agent did not edit files, run commands, look up issue #2, or
-  take further action. It acknowledged #2 from earlier conversation after
-  the prompt said no task was selected. The user accepted the stop as
-  sufficient and clarified that "work on issue 2 using the harness" should
-  select issue #2.
-* Remains: CI for the new custom-agent changes. No feature evaluation has
-  run. Static instruction assertions do not prove model behavior or picker
-  discovery.
-* Publication: user authorized commit, push, and PR #28 update. The PR records
-  the resulting commit and its exact-head CI checks.
-* Decisions: D014 in [decisions.md](./decisions.md).
-* Files modified: `.github/agents/harness-implementer.agent.md`,
-  `docs/harness-agent.md`, `AGENTS.md`, `docs/decisions.md`, `docs/progress.md`.
-* Verification: static assertions through the PowerShell runner passed for
-  the agent metadata, boundaries, 54 relative links across 5 Markdown files,
-  architecture, whitespace, and unchanged application/test/runner/CI files
-  (exit 0, run
-  `2026-10-09T05-45-14-410Z-6b5d2f49-39ef-4692-b009-9f66a3721851`).
-  After current-request-only issue selection was added, the focused guard,
-  frontmatter, link, architecture, and whitespace check passed (exit 0, run
-  `2026-10-09T05-56-51-832Z-994374bd-2155-42b7-a2f5-cb5c0f7f82f8`).
-  The final pre-publication check passed (exit 0, run
-  `2026-10-09T06-06-43-365Z-3521ce82-94d1-40ce-8dc3-f2efa4d0a60e`),
-  confirming links, frontmatter, agent role and boundaries, architecture,
-  and whitespace. Editor diagnostics found no errors. Static checks do not prove model
-  behavior or custom-agent picker discovery. Both reports remain local.
-* Validation correction: an intermediate prose assertion assumed LF line
-  breaks, but Markdown uses CRLF (run
-  `2026-10-09T05-44-49-948Z-4af1e131-5227-4677-b110-4bb902cc5960`,
-  failed, exit 1). Normalizing whitespace fixed the assertion; no agent
-  instruction or approval rule was weakened. The failed report remains local.
-* Startup: not applicable; only agent instructions and documentation changed.
-* Cleanup: no service or delegated agent was started. No task-owned temporary
-  repository files were created. Existing local evidence is retained.
+* Accomplished: addressed four Copilot review comments on PR #28. The issue
+  skill now asks before recreating a missing feature list when its progress log
+  exists. The architecture checker removes XML comments before scanning
+  complete, multiline project-reference tags and flattens source files before
+  checking imports across line breaks. Added regression tests for multiline
+  service references, commented references, and multiline dynamic imports.
+  Corrected ACS to Agent Control Specification.
+* Files modified: `.github/skills/github-issue-to-features-list/SKILL.md`,
+  `.github/workflows/build.yml`, `docs/architecture.md`, `docs/progress.md`,
+  `init.sh`, `scripts/check-architecture.sh`,
+  `scripts/check-architecture.test.mjs`.
+* Verification: `node --test scripts/check-architecture.test.mjs
+  scripts/run-verification.test.mjs` passed, 14 tests (exit 0, run
+  `2026-10-09T06-29-57-434Z-c7394d3e-a81c-4a2f-b530-92557304d8c3`).
+  `bash scripts/check-architecture.sh` passed against the repository (exit 0,
+  run `2026-10-09T06-29-57-586Z-e81b85ea-02ec-4acc-af0d-bda3360be873`).
+  `bash -n` for the checker and `init.sh`, `git diff --check`, and a
+  frontmatter/relative-link scan (10 links across 3 Markdown files) passed.
+* Validation correction: an intermediate implementation tried to invoke Node
+  from non-login Git Bash, where Node was not on `PATH`; it was replaced with
+  a self-contained Bash/awk implementation. The first XML regression run also
+  exposed an awk helper naming conflict and then an expected-message mismatch;
+  both were fixed, and the final captured suite passed.
+* Startup: not applicable; application source and tests were unchanged.
+* Cleanup: regression fixtures removed themselves. Captured verification
+  reports remain in ignored `.local/verification/`; no services were started.
+* Publication: no commit or push was requested. PR #28 still points to
+  `1e95964`; review threads remain open until these changes are published.
 * Blockers: none.
-* Next steps: review exact-head CI on PR #28; leave the PR open for review.
-  Application runtime observability and benchmarking remain outside this
-  increment.
+* Next steps: review the diff; after approval, commit and push, then confirm
+  exact-head CI and resolve the addressed PR threads.
 
 ## Built
 
