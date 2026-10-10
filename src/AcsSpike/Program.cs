@@ -22,14 +22,28 @@ if (!validation.Valid)
 
 var control = AgentControl.FromPath(manifestPath);
 var results = new List<FixtureResult>();
-foreach (var fixture in new[]
+var ticketFixtures = new[]
 {
     new TicketFixture("permitted-read", "tickets.read", true),
     new TicketFixture("unpermitted-read", "tickets.read", false),
     new TicketFixture("unknown-tool", "tickets.delete", true)
-})
+};
+foreach (var fixture in ticketFixtures)
 {
     results.Add(await RunFixtureAsync(control, fixture));
+}
+
+var determinism = new List<DeterminismResult>();
+foreach (var fixture in ticketFixtures.Append(
+    new TicketFixture("normalized-read", "tickets.read", true, "syn-001")))
+{
+    var attempts = new List<FixtureResult>();
+    for (var attempt = 0; attempt < 3; attempt++)
+    {
+        var freshControl = AgentControl.FromPath(manifestPath);
+        attempts.Add(await RunFixtureAsync(freshControl, fixture));
+    }
+    determinism.Add(new DeterminismResult(fixture.Name, attempts));
 }
 
 Console.WriteLine(JsonSerializer.Serialize(new
@@ -37,14 +51,16 @@ Console.WriteLine(JsonSerializer.Serialize(new
     runtime = $".NET {Environment.Version} on Linux x64",
     engine = "native-acs-opa",
     manifestValid = validation.Valid,
-    fixtures = results
+    fixtures = results,
+    determinism
 }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 return 0;
 
 static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFixture fixture)
 {
     var executions = 0;
-    var args = new { ticketId = "SYN-001" };
+    var args = new { ticketId = fixture.TicketId };
+    string? delegateTicketId = null;
     var snapshot = new Dictionary<string, object?>
     {
         ["task"] = new { ticketReadPermitted = fixture.Permitted }
@@ -54,10 +70,11 @@ static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFix
         var result = await control.RunToolAsync(
             fixture.ToolName,
             args,
-            (_, _) =>
+            (effectiveArgs, _) =>
             {
                 executions++;
-                return ValueTask.FromResult(new { ticketId = "SYN-001", title = "Synthetic ticket" });
+                delegateTicketId = effectiveArgs.ticketId;
+                return ValueTask.FromResult(new { ticketId = effectiveArgs.ticketId, title = "Synthetic ticket" });
             },
             toolCallId: fixture.Name,
             snapshot: snapshot,
@@ -67,7 +84,10 @@ static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFix
             result.PreToolCallResult.Verdict.Decision.ToWireName(),
             result.PreToolCallResult.Verdict.Reason,
             executions,
-            result.PostToolCallResult.Verdict.Decision.ToWireName());
+            result.PostToolCallResult.Verdict.Decision.ToWireName(),
+            EvaluationResult.FromNative(result.PreToolCallResult),
+            EvaluationResult.FromNative(result.PostToolCallResult),
+            delegateTicketId);
     }
     catch (AgentControlBlockedException exception)
     {
@@ -76,10 +96,27 @@ static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFix
             exception.Result.Verdict.Decision.ToWireName(),
             exception.Result.Verdict.Reason,
             executions,
-            null);
+            null,
+            EvaluationResult.FromNative(exception.Result),
+            null,
+            delegateTicketId);
     }
 }
 
-internal sealed record TicketFixture(string Name, string ToolName, bool Permitted);
+internal sealed record TicketFixture(
+    string Name, string ToolName, bool Permitted, string TicketId = "SYN-001");
 internal sealed record FixtureResult(
-    string Name, string Decision, string? Reason, int DelegateExecutions, string? PostToolDecision);
+    string Name, string Decision, string? Reason, int DelegateExecutions, string? PostToolDecision,
+    EvaluationResult PreToolEvaluation, EvaluationResult? PostToolEvaluation, string? DelegateTicketId);
+internal sealed record DeterminismResult(string Name, IReadOnlyList<FixtureResult> Attempts);
+internal sealed record EvaluationResult(
+    string Decision, string? Reason, string? ActionIdentity,
+    JsonElement? TransformedPolicyTarget, bool TransformedPolicyTargetApplied)
+{
+    internal static EvaluationResult FromNative(InterventionPointResult result) => new(
+        result.Verdict.Decision.ToWireName(),
+        result.Verdict.Reason,
+        result.ActionIdentity,
+        result.TransformedPolicyTarget,
+        result.TransformedPolicyTargetApplied);
+}

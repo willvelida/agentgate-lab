@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Purpose
@@ -250,3 +250,22 @@ Each entry records:
   fallback engine. An optional build-time `ACS_NUGET_SOURCE` selects an approved
   mirror when nuget.org is unreachable, without disabling TLS or locked restore.
   The spike remains credential-free and separate from Gateway authorization.
+
+## D016: F004 compares stable native results across fresh runtimes
+
+* Date: 2026-10-10
+* Decision: repeat each synthetic case three times with identical inputs and
+  a freshly loaded native runtime. Report the SDK's decision, reason, action
+  identity, transformed target and applied flag for each intervention point,
+  along with delegate execution evidence. Compare those fields without telemetry.
+  An original Rego normalization rule exercises a non-null target rewrite.
+* Why: a repeated null transform alone would not prove target rewriting is
+  deterministic. Fresh native instances avoid relying on an earlier instance's
+  state or on cached results; the guarded delegate proves the rewrite is applied.
+* Alternatives rejected: custom runtime projections that compute their own
+  identities, and comparing telemetry timings, because neither verifies the
+  stable native result contract.
+* Constraints: preserve existing allow/deny fixtures and dependency pins.
+  The native unknown-tool failure has no action identity; compare its absence
+  without fabricating one. Three matching repetitions are regression evidence
+  for these fixtures, not proof for every possible policy or snapshot.

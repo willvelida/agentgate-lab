@@ -24,14 +24,18 @@ health before it changes anything.
 * Branch: `issue-2-native-acs-runtime`, created from `main` for issue #2.
 * Harness changes from PR #28 merged into `main` on 2026-10-09; the earlier
   PR handoff below has been superseded.
-* Current increment: F003 passed independent evaluation (average 4.4,
-  minimum 4). The isolated Linux spike uses the official native ACS SDK and
-  OPA to allow a permitted synthetic ticket read and deny an unpermitted read
-  or unknown tool without executing their guarded delegates. All 17 tests
-  passed (13 Portal and 4 native ACS container tests).
+* Current increment: F004 passed independent evaluation (average 4.8, minimum
+  4). Three fresh native runtimes per fixture return identical stable
+  decisions, reasons, action identities and transformed targets. The native
+  normalization fixture rewrites the guarded delegate's arguments.
+  All 22 tests passed (13 Portal and 9 ACS container tests), with zero skipped.
+* F003 passed independent evaluation (average 4.4, minimum 4). The isolated
+  Linux spike allows a permitted synthetic read and denies an unpermitted read
+  or unknown tool without executing their guarded delegates.
 * F001 and F002 passed independent evaluation. F002's fresh-clone verification
   work was signed and pushed as `9769b78fa9ee66778f2b501751ce1876e4474c70`.
-  F003 changes remain uncommitted; no further feature was started.
+  F003 was signed and pushed as `75f56fd04eef96a6771e5145a0217cbd6a18c31e`.
+  The working tree was clean before starting F004.
 * F002 baseline on `bb2006ca1697ef377c4a36f531fb69e9ac1b84cc`: architecture,
   14 harness tests, locked restore, solution build (0 warnings/errors), and
   13 solution tests passed through the PowerShell verification wrapper.
@@ -100,9 +104,9 @@ final link and whitespace checks were repeated before commit.
 
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
-* F003 is an isolated synthetic native ACS spike, not a Gateway authorization
-  boundary. Determinism, dependency-failure coverage, and the remaining issue
-  #2 acceptance criteria still await their own features and evaluation.
+* The ACS spike is isolated synthetic evidence, not a Gateway authorization
+  boundary. F004 determinism passed independent evaluation; dependency-failure
+  coverage and the remaining issue #2 criteria are not yet complete.
 * This network rejected nuget.org TLS during the container build. Local native
   tests used the explicit approved `ACS_NUGET_SOURCE` mirror override, without
   changing locked hashes or disabling TLS. Docker is now required for solution
@@ -118,55 +122,60 @@ Replace this section at the end of every session so the next one can pick up
 where you left off.
 
 * Date: 2026-10-10
-* Accomplished: signed and pushed the existing F002 work as
-  `9769b78fa9ee66778f2b501751ce1876e4474c70`, then implemented F003's native
-  allow/deny fixtures and Linux container tests. Independent F003 evaluator
-  PASS is now recorded (average 4.4, minimum 4); F004-F009 remain not-started.
-* Files modified: solution, Dockerfile, Compose configuration, AcsSpike project,
-  program and lockfile, original manifest/Rego fixtures, AcsSpike test project,
-  tests and lockfile, README, architecture, decisions, and both progress logs.
-  The local feature checklist remains intentionally ignored.
-* Baseline: exact solution test command passed 13 tests on clean `9769b78`,
-  exit 0 (run `2026-10-09T19-09-01-185Z-737bbf37-bbcb-4d48-88f5-c6612258ad6f`).
-* Verification: `dotnet test AgentGateLab.sln --no-restore
-  --property:SkipClientBuild=true` passed all 17 tests, exit 0 (run
-  `2026-10-09T22-38-46-187Z-f3666a65-4189-463b-a581-e7f0a2ade5b8`).
-  Solution build passed with zero warnings/errors (run
-  `2026-10-09T22-34-18-556Z-7634e70f-8554-40af-8765-78f3d963b75d`).
-  Linux startup passed (run
-  `2026-10-09T22-37-17-175Z-407e39a2-c7cb-4a47-bb07-91a38782f0c4`):
-  permitted read allowed and executed once; unpermitted read and unknown tool
-  denied and executed zero delegates. Final locked restore passed (run
-  `2026-10-09T22-40-51-127Z-e50534e0-bffc-42e3-b27b-6bd936a01fac`) and
-  architecture passed (run
-  `2026-10-09T22-40-57-527Z-0417b512-bf19-4c5e-9f2c-9cdb20fd25c2`).
-  All completed checks above exited 0 and covered `9769b78` with uncommitted
-  F003 changes. Only documentation/checklist updates followed tests.
-  Final relative Markdown file links and `git diff --check` passed.
-* Failed attempts: unavailable SDK 0.4.0-beta.0, nuget.org TLS handshake, and
-  one Docker extraction snapshot error are recorded in the
-  [feature evidence](./features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md).
-  Available SDK 0.3.1-beta.1 restored successfully; the explicit approved
-  mirror and a Docker retry produced the passing runs without weakening tests.
-* Decision: [D015](./decisions.md#d015-f003-uses-the-published-native-acs-package)
-  pins the matching published SDK/native payload, schema and OPA artifacts.
-* Cleanup: stopped owned source probe container `a9c2975a66b2` (shell 400,
-  interrupted exit 137), selected the prebuilt payload instead, and removed
-  the named `.local/acs-f003` temporary directory. Tests removed their uniquely
-  named containers; no owned process remains running. Docker caches and ignored
-  `.local/verification/` reports are intentionally retained.
-* Publication: F002 push succeeded. No CI run exists for `9769b78`; workflows
-  trigger on pull requests and main, so CI remains unverified, not green.
-  F003 is evaluator-PASS and ready for the authorized commit and push.
-  Publication tests passed 17/17, exit 0 (run
-  `2026-10-09T23-26-40-610Z-887d2017-fef0-458d-a71a-1dde3dc99974`);
+* Accomplished: confirmed F003 evaluator PASS, reran publication checks,
+  signed and pushed F003 as `75f56fd04eef96a6771e5145a0217cbd6a18c31e`, then
+  implemented and verified F004. F004 now has independent evaluator PASS
+  (average 4.8, minimum 4); F005-F009 remain not-started.
+* Files modified for F004: spike program, original Rego fixture, native tests,
+  README, architecture, decisions, and both progress logs. No lockfile changed;
+  the local feature checklist remains ignored.
+* Baseline/publication: exact solution tests passed 17/17, exit 0 (run
+  `2026-10-09T23-26-40-610Z-887d2017-fef0-458d-a71a-1dde3dc99974`) and
   architecture passed, exit 0 (run
   `2026-10-09T23-26-35-200Z-c882ce12-7ca1-467a-a410-6ac790289bda`).
-  Both reviewed `9769b78` plus evaluated F003 changes. Only documentation and
-  local checklist reconciliation followed.
-* Blockers: no local verification blocker with the approved mirror. Default
-  nuget.org could not be validated successfully on this network.
-* Next step: commit and push F003, then implement and verify F004.
+  Both reviewed `9769b78` with evaluated F003 changes; only documentation and
+  local checklist reconciliation followed before commit.
+* F004 verification: `dotnet test AgentGateLab.sln --no-restore
+  --property:SkipClientBuild=true` passed 22 tests, zero failed/skipped, exit 0
+  (run `2026-10-09T23-34-48-043Z-0019b6a6-748c-473a-a174-69ff83909715`).
+  Build passed with zero warnings/errors, exit 0 (run
+  `2026-10-09T23-35-28-467Z-fb834955-1eea-41bc-a343-595ed2f64028`).
+  Architecture passed, exit 0 (run
+  `2026-10-09T23-32-41-236Z-8131bf47-53e6-4999-ab83-cea7738a4c18`).
+  Linux startup passed, exit 0 (run
+  `2026-10-09T23-35-33-890Z-447b496e-6e32-4c85-8c72-1f3b80532a6c`):
+  all four cases had three matching results, including native action identity
+  and a non-null applied transform. The normalized delegate received `SYN-001`;
+  both denies executed zero delegates. Checks covered `75f56fd` plus uncommitted
+  F004 changes; only documentation and checklist updates followed.
+  Final architecture passed, exit 0 (run
+  `2026-10-09T23-38-46-052Z-7d8dd240-c803-49bf-9d20-461c957d54e9`).
+  Documentation links, relevant anchors and frontmatter passed, exit 0 (run
+  `2026-10-09T23-38-46-053Z-6f44f841-d86e-48d2-b59e-19bd0e1a1a27`);
+  `git diff --check` passed. Clean-state checklist completed for handoff;
+  independent F004 evaluator PASS and publication remain pending.
+* Initial F004 tests passed but reported xUnit2013 (run
+  `2026-10-09T23-32-48-698Z-69dc9a13-84ed-472c-80ff-c1685819d5b9`).
+  Replacing a size assertion with `Assert.Single` removed the warning; the final
+  tests and build above passed without warnings. No test was weakened.
+* Decision: [D016](./decisions.md#d016-f004-compares-stable-native-results-across-fresh-runtimes)
+  records the stable projection and non-null transformation evidence.
+* Cleanup: startup container `agentgate-f004-startup-ae2e76a9` completed under
+  shell 447 and `--rm` removed it. Tests removed their unique containers.
+  No owned long-running process remains. No temporary source directory was
+  created; ignored verification reports and Docker caches are retained.
+* Publication: F003 push succeeded and the tree was clean afterward. No CI
+  run exists for that exact head; CI remains unverified, not green.
+  F004 is ready for authorized signed publication. Exact publication tests
+  passed 22/22, exit 0 (run
+  `2026-10-10T02-48-58-235Z-32c118c1-c2a1-4734-aaf1-81facc1d8349`);
+  architecture passed, exit 0 (run
+  `2026-10-10T02-48-52-905Z-57b94f87-4242-4734-a60c-99ce08c0f7b1`).
+  Checks reviewed `75f56fd` with evaluated F004 changes; only status and evidence
+  documentation followed.
+* Blockers: no local blocker with the explicit approved NuGet mirror. The
+  default nuget.org network restriction is unchanged.
+* Next step: commit and push F004, then implement and verify F005.
 
 ## Built
 
@@ -199,7 +208,7 @@ before milestone M0.
 
 ## In progress
 
-### Native ACS Linux spike (Issue #2, F003 evaluator-PASS)
+### Native ACS Linux spike (Issue #2, F004 evaluator-PASS)
 
 * F001 provides a runnable .NET 10 Linux x64 container scaffold.
 * F002 adds a repeatable command for locked restore, container smoke, and
@@ -207,6 +216,8 @@ before milestone M0.
 * F003 adds real native ACS/OPA allow and deny fixtures, and four Linux
   container integration tests. It passed independent evaluation.
   The remaining acceptance criteria are not yet complete.
+* F004 verifies repeated-input stability, including a native target transform.
+  It passed independent evaluation.
 * See the [issue #2 feature evidence](./features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md).
 
 ## Planned

@@ -38,6 +38,70 @@ public sealed class NativeTicketReadTests(SpikeContainerFixture container) : ICl
         Assert.True(container.Result.GetProperty("manifestValid").GetBoolean());
         Assert.Contains("Linux x64", container.Result.GetProperty("runtime").GetString());
         Assert.Equal(3, container.Result.GetProperty("fixtures").GetArrayLength());
+        Assert.Equal(4, container.Result.GetProperty("determinism").GetArrayLength());
+    }
+
+    [Theory]
+    [InlineData("permitted-read", "allow", "ticket_read_permitted")]
+    [InlineData("unpermitted-read", "deny", "ticket_read_not_permitted")]
+    [InlineData("unknown-tool", "deny", "runtime_error:tool_unknown")]
+    [InlineData("normalized-read", "transform", "ticket_id_normalized")]
+    public void GivenIdenticalInputs_WhenNativeRuntimeReloads_StableResultsMatch(
+        string name, string decision, string reason)
+    {
+        var attempts = container.Result.GetProperty("determinism").EnumerateArray()
+            .Single(value => value.GetProperty("name").GetString() == name)
+            .GetProperty("attempts").EnumerateArray().ToArray();
+        Assert.Equal(3, attempts.Length);
+
+        var expected = attempts[0];
+        Assert.Equal(decision, expected.GetProperty("decision").GetString());
+        Assert.Equal(reason, expected.GetProperty("reason").GetString());
+        foreach (var attempt in attempts)
+        {
+            Assert.True(JsonElement.DeepEquals(expected, attempt),
+                $"Stable native result changed for {name}.\nExpected: {expected}\nActual: {attempt}");
+            var preTool = attempt.GetProperty("preToolEvaluation");
+            Assert.Equal(decision, preTool.GetProperty("decision").GetString());
+            Assert.Equal(reason, preTool.GetProperty("reason").GetString());
+            if (name != "unknown-tool")
+            {
+                Assert.False(string.IsNullOrWhiteSpace(preTool.GetProperty("actionIdentity").GetString()));
+            }
+            if (decision == "deny")
+            {
+                Assert.Equal(0, attempt.GetProperty("delegateExecutions").GetInt32());
+                Assert.Equal(JsonValueKind.Null, attempt.GetProperty("postToolEvaluation").ValueKind);
+                Assert.False(preTool.GetProperty("transformedPolicyTargetApplied").GetBoolean());
+                Assert.Equal(JsonValueKind.Null, preTool.GetProperty("transformedPolicyTarget").ValueKind);
+            }
+            else
+            {
+                Assert.Equal(1, attempt.GetProperty("delegateExecutions").GetInt32());
+                var postTool = attempt.GetProperty("postToolEvaluation");
+                Assert.Equal("allow", postTool.GetProperty("decision").GetString());
+                Assert.Equal("synthetic_ticket_result", postTool.GetProperty("reason").GetString());
+                Assert.False(string.IsNullOrWhiteSpace(postTool.GetProperty("actionIdentity").GetString()));
+            }
+        }
+    }
+
+    [Fact]
+    public void GivenLowercaseTicketId_WhenNativeTransformRuns_DelegateReceivesTransformedTarget()
+    {
+        var attempts = container.Result.GetProperty("determinism").EnumerateArray()
+            .Single(value => value.GetProperty("name").GetString() == "normalized-read")
+            .GetProperty("attempts");
+        foreach (var attempt in attempts.EnumerateArray())
+        {
+            var preTool = attempt.GetProperty("preToolEvaluation");
+            Assert.True(preTool.GetProperty("transformedPolicyTargetApplied").GetBoolean());
+            var target = preTool.GetProperty("transformedPolicyTarget");
+            Assert.Single(target.EnumerateObject());
+            Assert.Equal("SYN-001", target.GetProperty("ticketId").GetString());
+            Assert.Equal("SYN-001", attempt.GetProperty("delegateTicketId").GetString());
+            Assert.Equal(1, attempt.GetProperty("delegateExecutions").GetInt32());
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 ---
 title: AgentGate Lab
 description: A credential-free repository foundation for an Entra Agent ID and ACS authorization gateway.
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Overview
@@ -75,6 +75,16 @@ allows and executes its delegate once; an unpermitted read and an unknown
 `tickets.delete` deny and execute no delegate. The successful read also passes
 the post-tool policy. These fixture facts are not real identity or task grants,
 and this isolated spike does not protect the Gateway.
+
+The `determinism` array repeats each fixture three times, reloading the same
+manifest into a fresh native runtime each time with identical snapshot and
+tool-call inputs. A fourth case normalizes `syn-001` to `SYN-001` through a
+native Rego transform. Its guarded delegate receives the transformed arguments.
+Each attempt reports native pre-tool and post-tool decision, reason, action
+identity, transformed target, and whether the transform was applied. The tests
+compare all these stable fields, not telemetry timings. The pinned runtime
+rejects unknown tools before policy evaluation and returns no action identity;
+that absence must also remain stable rather than inventing a synthetic identity.
 
 The SDK is `AgentControlSpecification` 0.3.1-beta.1 (MIT), with its bundled
 `libagent_control_specification_core.so` Linux x64 payload and manifest schema

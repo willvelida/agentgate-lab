@@ -1,7 +1,7 @@
 ---
 title: Architecture
 description: What exists in agentgate-lab today, how it is organized, and where the planned design lives
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Purpose
@@ -70,6 +70,10 @@ The solution file is `AgentGateLab.sln`.
   to packaged OPA. `RunToolAsync` enforces pre-tool and post-tool verdicts.
 * A permitted synthetic read executes once. Unpermitted reads and unknown
   tools deny without running a guarded delegate.
+* Repeated fixture inputs reload the native runtime three times and expose
+  stable verdict, action identity and transformed-target evidence. An original
+  normalization fixture exercises a non-null native transform and passes the
+  rewritten ticket ID to the delegate.
 * This is an isolated spike, not Gateway authorization or real task grants.
 
 ### Tests
@@ -79,7 +83,8 @@ The solution file is `AgentGateLab.sln`.
 * No Gateway or AgentWorker tests exist yet.
 * `tests/AcsSpike.Tests` builds and runs the Linux spike through Docker Compose.
   These tests require Docker, verify native allow/deny reasons and delegate
-  counts, and fail if the container cannot evaluate its fixtures.
+  counts, repeated-input stability and target transformation, and fail if the
+  container cannot evaluate its fixtures.
 
 ## Planned target architecture
 
