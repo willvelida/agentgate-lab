@@ -21,6 +21,12 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* F007 signed publication succeeded as `0b50371adb38ca56f894711d3e88ba7c6ba64301`.
+  Origin matches and the tree was clean before F008; exact-head CI has no runs.
+* F008 passed independent evaluation (average 5.0, minimum 5). Packaging versions, Linux
+  platform, published binary provenance (no source build), mutable base tags
+  and preview limitations are documented. Full tests passed 32/32, zero skipped;
+  architecture and documentation/pin/link checks passed.
 * F006 signed publication succeeded as `ba55bf3aa7dbc7766215d0e9fd65aa714e6cbe16`.
   Origin matches and the tree was clean before F007; CI is unverified.
 * F007 passed independent evaluation (average 4.8, minimum 4). Full tests passed
@@ -126,8 +132,9 @@ final link and whitespace checks were repeated before commit.
 * The ACS spike is isolated synthetic evidence, not a Gateway authorization
   boundary. F005 failure coverage passed independent evaluation; the remaining
   issue #2 criteria are not yet complete. F006 intervention coverage is verified
-  locally and passed independent evaluation. F007 offline packaging checks
-  passed locally and await fresh-session review; F008-F009 are not started.
+  locally and passed independent evaluation. F007 offline packaging passed
+  independent evaluation and is published. F008 documentation passed local
+  verification and independent review; F009 is not started.
 * This network rejected nuget.org TLS during the container build. Local native
   tests used the explicit approved `ACS_NUGET_SOURCE` mirror override, without
   changing locked hashes or disabling TLS. Docker is now required for solution
@@ -252,7 +259,7 @@ where you left off.
   Reviewed `3deb042` with evaluated F006 changes; only evidence/status docs
   followed. Ready for authorized signed publication.
 
-## Last session
+## F007 implementation handoff
 
 * Date: 2026-10-10
 * Accomplished: signed and pushed independently evaluated F006 as
@@ -314,6 +321,59 @@ where you left off.
   Reviewed `ba55bf3` plus the six-file uncommitted diff. The evaluator-requested
   stale evidence row is synchronized; only status/evidence docs followed.
 
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: synchronized F007's stale evidence row as requested by its
+  evaluator, recorded PASS and signed/pushed
+  `0b50371adb38ca56f894711d3e88ba7c6ba64301`. Origin matches; the tree was
+  clean before F008. Documented and verified F008 only.
+* Status: F001-F007 pass; F008 active pending fresh-session evaluation;
+  F009 not-started. No evaluator was invoked here.
+* Files modified: README, architecture, both progress logs and ignored feature
+  checklist. Runtime, tests, images and lockfiles are unchanged.
+* Verification on `0b50371` plus uncommitted F008 documentation:
+  `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true`
+  passed 32/32, zero skipped, exit 0 (run
+  `2026-10-10T06-41-18-952Z-8e6ce699-d98f-42db-8b7a-b4a9eb5407a2`).
+  `bash scripts/check-architecture.sh` passed, exit 0 (run
+  `2026-10-10T06-41-14-008Z-f0e9b398-5ae7-4407-9264-c92224284961`).
+  Captured `node -e` documentation checks passed, exit 0 (run
+  `2026-10-10T06-41-14-156Z-178d301c-27ae-4e93-8a57-66c5b190debf`):
+  four Markdown files, 34 relative links/anchors and agreement with SDK,
+  package/schema, native/OPA hashes, provenance, paths and preview limits.
+* Decisions: no new architecture decision. F008's verification was unset;
+  asked to use full tests plus documentation checks, but user unavailable.
+  Explicitly recorded that choice without claiming approval or weakening checks.
+* Runtime: separate startup/build not applicable to documentation-only change.
+  Full tests built test targets and ran the unchanged native image fixtures.
+* Cleanup: tests remove owned `agentgate-f003-<guid>` containers. No long-lived
+  service or temporary source artifact was created; raw evidence, ignored rubric
+  and Docker caches stay local. Unrelated processes remain untouched.
+* Publication: F007 push succeeded; no workflow run for that exact head.
+  CI is unverified. Four tracked documentation files remain uncommitted.
+* Blockers: independent evaluation gates F008 completion and further work.
+  Approved mirror tests passed; default nuget.org TLS restriction remains.
+  Core checks passed; only evidence notes followed verification.
+* Next step: open a fresh session in this checkout and run
+  `/feature-evaluator Evaluate F008 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+* F008 subsequently passed independent evaluation, average 5.0, minimum 5.
+  Exact tests passed 32/32, zero skipped, exit 0 (run
+  `2026-10-10T06-59-35-606Z-4cbbad55-3186-4b8d-8b54-d5d0e04a767e`);
+  architecture passed, exit 0 (run
+  `2026-10-10T06-59-34-899Z-92ae718a-3fef-4f23-a1d2-08b957d57476`).
+  Reviewed `0b50371` plus four documentation files; only status/evidence edits
+  followed. No required fixes. Next action is authorized F008 publication.
+* Final handoff validation passed, exit 0 (run
+  `2026-10-10T06-44-02-294Z-3d5b9d3c-61a4-4e80-a8a3-c3d53ac33ad9`):
+  document links/anchors and pin agreement, completed reports, exact revision/
+  origin, unique handoffs, feature states, ignored artifacts and no remaining
+  test containers. Initial inline handoff validator failed with a duplicate
+  variable name (run `2026-10-10T06-43-33-552Z-981cdd2e-82de-4e79-a1d4-f64e0011190d`,
+  exit 1); correcting that local validator identifier passed. Runner and tests
+  unchanged. Editor diagnostics found no errors; clean-state checklist is
+  complete for handoff, with evaluation and publication pending.
+
 ## Built
 
 ### Foundation (Issue #1, merged in PR #27)
@@ -345,7 +405,7 @@ before milestone M0.
 
 ## In progress
 
-### Native ACS Linux spike (Issue #2, F007 active)
+### Native ACS Linux spike (Issue #2, F008 active)
 
 * F001 provides a runnable .NET 10 Linux x64 container scaffold.
 * F002 adds a repeatable command for locked restore, container smoke, and
@@ -362,6 +422,8 @@ before milestone M0.
   signed and pushed.
 * F007 verifies packaged runtime artifacts and native fixture evaluation
   without network or mounts. Its full tests and independent evaluation passed.
+* F008 records verified packaging versions, paths and preview constraints.
+  Full tests, documentation verification and independent review passed.
 * See the [issue #2 feature evidence](./features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md).
 
 ## Planned

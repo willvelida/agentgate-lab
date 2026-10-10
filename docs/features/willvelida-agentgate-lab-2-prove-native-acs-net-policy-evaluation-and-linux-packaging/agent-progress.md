@@ -23,7 +23,7 @@ ms.date: 2026-10-10
 | F005 | Malformed manifests, missing required snapshot paths, missing native payload, unavailable OPA, and policy evaluation errors all block startup or explicitly deny execution. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Exact verification passed 28/28 tests, zero skipped, and architecture check passed using the documented approved NuGet mirror. See F005 evidence and evaluator-rubric.md. | 2026-10-10 |
 | F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4; 31/31 tests, zero skipped. Signed and pushed as `ba55bf3`. | 2026-10-10 |
 | F007 | The final image contains the required runtime artifacts and can evaluate fixtures without downloading dependencies at runtime. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4; exact verification passed 32/32, zero skipped, run `2026-10-10T06-26-49-637Z-f841bbb2-5780-4c23-b41c-accf8818ae0f`, exit 0. Architecture passed. Offline image checks verify artifacts, hashes, no network or mounts, and matching native output. | 2026-10-10 |
-| F008 | Versions, Linux architecture, native and OPA packaging, source-build steps if used, and preview limitations are documented. | not-started | TBD | Not yet implemented or verified | Not tested |
+| F008 | Versions, Linux architecture, native and OPA packaging, source-build steps if used, and preview limitations are documented. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 5.0, minimum 5; exact tests passed 32/32, zero skipped, run `2026-10-10T06-59-35-606Z-4cbbad55-3186-4b8d-8b54-d5d0e04a767e`, exit 0. Architecture passed. No required fixes. | 2026-10-10 |
 | F009 | Tests fail when a guarded operation executes after a deny or dependency failure. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
 
 ## Verification evidence
@@ -514,7 +514,7 @@ run. Both the Docker client and inspected container state must report success.
 The embedded Linux shell script normalizes line endings explicitly; no test
 expectation was weakened. Only whitespace and documentation followed full tests.
 
-## Last session
+## F007 implementation handoff
 
 * Date: 2026-10-10
 * Accomplished: signed and pushed evaluator-PASS F006 as `ba55bf3`, confirmed
@@ -568,3 +568,89 @@ expectation was weakened. Only whitespace and documentation followed full tests.
   `2026-10-10T06-36-57-017Z-b9d6eb53-3da7-4c4d-bd18-28587f29a3d8`),
   confirming completed evaluator reports, reviewed revision, synchronized
   feature statuses and whitespace. Raw reports and ignored rubric stay local.
+
+## F008 implementation
+
+* F007 signed and pushed as `0b50371adb38ca56f894711d3e88ba7c6ba64301`;
+  origin matches and the tree was clean before F008. Exact-head CI has no runs.
+* F008 is documentation-only. README records versions, schema pairing, Linux
+  architecture and paths, published binary provenance with no source build,
+  mutable .NET base tags and preview limits. Architecture links that reference.
+  No runtime, test, image or dependency lockfile changes.
+* F008 verification was `TBD`. Asked to use the existing full solution tests
+  plus captured documentation/pin/link checks; user unavailable. Explicitly
+  selected that command to continue the authorized sequence. No user approval
+  is claimed and no existing verification was weakened.
+
+## F008 verification evidence
+
+All checks on 2026-10-10 reviewed
+`0b50371adb38ca56f894711d3e88ba7c6ba64301` plus uncommitted F008
+documentation. The container test build used the explicit approved
+`ACS_NUGET_SOURCE=https://packagefeedproxy.microsoft.io/nuget/v3/index.json`.
+No runtime, tests, image or lockfile changed.
+
+| Command | Result | Run ID |
+|---------|--------|--------|
+| `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 32/32 tests (13 Portal, 19 ACS), zero skipped | `2026-10-10T06-41-18-952Z-8e6ce699-d98f-42db-8b7a-b4a9eb5407a2` |
+| `bash scripts/check-architecture.sh` | Passed, exit 0 | `2026-10-10T06-41-14-008Z-f0e9b398-5ae7-4407-9264-c92224284961` |
+| `node -e` documented-version, packaging-provenance and link checks | Passed, exit 0; 4 Markdown files, 34 relative links and anchors | `2026-10-10T06-41-14-156Z-178d301c-27ae-4e93-8a57-66c5b190debf` |
+
+The captured inline documentation check compares the README against project,
+lockfile, schema, Compose, Dockerfile, native/OPA test hashes and restored NuGet
+metadata. It verifies SDK roll-forward, upstream revision and MIT metadata,
+runtime paths, published binary provenance, mutable base tags, platform and
+preview constraints. Full tests exercise the real packaged runtime and offline
+image checks. No separate service startup or build is required for this
+documentation-only increment; the exact test command builds its test targets.
+
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: synchronized evaluator-requested F007 evidence row, recorded
+  PASS and signed/pushed F007 as `0b50371`, confirmed clean tree and matching
+  origin, then documented and verified F008.
+* Status: F001-F007 pass; F008 active pending fresh-session evaluation;
+  F009 not-started. No evaluator was invoked here.
+* Files modified: README, architecture, both progress logs and ignored local
+  checklist. Runtime, tests, images and locks are unchanged.
+* Verification: full solution tests, architecture and documented pin/provenance/
+  link checks passed as above, on `0b50371` plus uncommitted F008 documentation.
+  Core checks passed. Only evidence/checklist notes followed.
+* Decisions: no new architecture decision. Explicit verification choice for
+  the unset F008 command is recorded above; user unavailable, not an approval.
+  This reuses full tests plus documentation checks without weakening any check.
+* Runtime/cleanup: service startup not applicable to documentation-only work.
+  Tests use owned `agentgate-f003-<guid>` containers and remove them in cleanup.
+  No long-lived service or temporary source file was created. Retain ignored
+  raw verification reports, evaluator rubric and Docker caches.
+* Publication: F007 push succeeded; no exact-head workflow run exists, so CI
+  is unverified. Four tracked F008 documentation files remain uncommitted.
+* Blockers: fresh-session evaluation gates F008 completion, publication and
+  F009. Default nuget.org TLS restriction remains; explicit mirror succeeded.
+* Next action: open a fresh session in this checkout and run
+  `/feature-evaluator Evaluate F008 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+* Final handoff validation passed, exit 0 (run
+  `2026-10-10T06-44-02-294Z-3d5b9d3c-61a4-4e80-a8a3-c3d53ac33ad9`):
+  document links/anchors and pin agreement, completed reports, exact revision/
+  origin, unique handoffs, feature states, ignored artifacts and no remaining
+  test containers. Initial inline validator failed due to a duplicate variable
+  declaration (run
+  `2026-10-10T06-43-33-552Z-981cdd2e-82de-4e79-a1d4-f64e0011190d`, exit 1).
+  Renaming that local validator identifier passed; runner and tests unchanged.
+  Editor diagnostics found no errors. Clean-state checklist complete for
+  handoff with evaluation and publication pending; only evidence notes followed.
+* 2026-10-10: F008 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+
+## F008 publication checks
+
+* Independent evaluator PASS covers `0b50371` plus the four-file documentation
+  diff. Exact verification passed 32/32, zero skipped, exit 0 (run
+  `2026-10-10T06-59-35-606Z-4cbbad55-3186-4b8d-8b54-d5d0e04a767e`).
+  Architecture passed, exit 0 (run
+  `2026-10-10T06-59-34-899Z-92ae718a-3fef-4f23-a1d2-08b957d57476`).
+* No required fixes. Only status and evidence documentation changed after
+  evaluation. F008 is pass and ready for authorized signed publication.
+* Publication prerequisite validation passed, exit 0 (run
+  `2026-10-10T07-06-40-095Z-28c7f0ab-4eb7-4aef-a60f-c59e1312340e`):
+  completed evaluator reports, reviewed revision, feature status and whitespace.

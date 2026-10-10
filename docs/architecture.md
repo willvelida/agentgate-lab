@@ -89,6 +89,10 @@ The solution file is `AgentGateLab.sln`.
   verify packaged managed artifacts, policies, notices and pinned native/OPA
   hashes, then compare the full output to the normal run. Network access is
   still required for build-time dependency downloads.
+* The [verified packaging configuration](../README.md#verified-packaging-configuration)
+  records the preview SDK/schema pairing, Linux x64 paths, published binary
+  provenance, and mutable .NET base tags. No ACS or OPA source build is used;
+  other architectures and base distributions are unverified.
 
 ### Tests
 

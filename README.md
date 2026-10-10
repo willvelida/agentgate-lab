@@ -132,6 +132,53 @@ against SHA-256
 The final image includes upstream license texts under `/app/notices`.
 These are preview artifacts, not a production authorization boundary.
 
+### Verified packaging configuration
+
+| Component | Configuration | Source of truth |
+|-----------|---------------|-----------------|
+| Spike framework | .NET 10 (`net10.0`) | [AcsSpike.csproj](./src/AcsSpike/AcsSpike.csproj) |
+| Host SDK baseline | 10.0.101, `latestFeature` roll-forward, no prerelease SDK | [global.json](./global.json) |
+| Container build/runtime | `sdk:10.0-noble` / `runtime:10.0-noble` | [Dockerfile](./Dockerfile) |
+| Supported spike platform | Linux x64 (`linux/amd64` in Compose) | [compose.yaml](./compose.yaml), [startup guard](./src/AcsSpike/Program.cs) |
+| Managed ACS SDK | `AgentControlSpecification` 0.3.1-beta.1 | [project](./src/AcsSpike/AcsSpike.csproj), [package lock](./src/AcsSpike/packages.lock.json) |
+| Manifest schema | `0.3.1-beta` | [manifest.yaml](./src/AcsSpike/Fixtures/manifest.yaml) |
+| Native ACS payload | NuGet's Linux x64 `.so`, published to `/app/runtimes/linux-x64/native/libagent_control_specification_core.so` | [container integration tests](./tests/AcsSpike.Tests/NativeTicketReadTests.cs) |
+| Policy executable | OPA 1.4.2 Linux amd64 static, `/usr/local/bin/opa` | [Dockerfile](./Dockerfile) |
+| Policy configuration | `/app/Fixtures/manifest.yaml` and `/app/Fixtures/policy/ticket-read.rego` | [spike project](./src/AcsSpike/AcsSpike.csproj) |
+| Upstream notices | `/app/notices/ACS-LICENSE` and `/app/notices/OPA-LICENSE` | [Dockerfile](./Dockerfile) |
+
+The Docker base tags are mutable, not digest-pinned. The observed runtime was
+.NET 10.0.12; later builds can resolve a newer patch. That observation is not an
+exact runtime pin. ACS package content and the downloaded OPA binary are pinned
+separately as described above.
+
+No ACS or OPA source build is used. The image restores the published NuGet
+package with `--locked-mode`, publishes the managed app and bundled native
+payload with `--no-restore`, and copies the checksum-verified upstream OPA
+release binary into the final runtime stage. `ACS_OPA_PATH` points the default
+dispatcher at that executable. License downloads are also checksum-verified.
+There are no Rust or Go build steps to reproduce for this configuration.
+Changing package, schema, native payload or OPA versions requires new locked
+restore, compatibility and container evidence; mixing preview versions is not
+validated by this spike.
+
+### Preview and platform limits
+
+* Windows is the development host, not a supported native execution target for
+  this spike. Docker Desktop must use Linux containers. Startup rejects Windows
+  and non-x64 processes; Linux arm64, Alpine/musl and other base distributions
+  are not verified by these tests.
+* These synthetic fixtures demonstrate native validation, policy invocation,
+  argument transformation and pre/post checks for the pinned configuration.
+  They do not certify arbitrary policies, upgrades, or production suitability.
+* The preview SDK exposes only the blocking result on a denied call. A post-tool
+  denial withholds the result after execution; it does not undo side effects.
+* Authentication, Entra Agent ID integration, real task grants, approvals and
+  Gateway ticket authorization remain unimplemented. Fixture snapshots and
+  successful native evaluation are not a security boundary.
+
+### Offline runtime verification
+
 The offline-image test resolves the built image to its immutable ID and creates
 a container with `--pull never`, `--network none`, and no mounts. It checks the
 managed application and SDK, manifest, Rego, license texts, native library hash,
