@@ -13,6 +13,11 @@ import {
   runMakerCheckerLoop,
 } from './maker-checker-loop.mjs';
 import { CopilotCapabilityBoundary } from './maker-checker-safety.mjs';
+import {
+  createLoopState,
+  recordRound,
+  saveLoopState,
+} from './loop-state.mjs';
 
 function goal(overrides = {}) {
   return {
@@ -133,6 +138,48 @@ test('stops successfully on checker pass for unchanged work', async (t) => {
   assert.equal(result.status, 'pass');
   assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['maker', 'checker']);
   assert.deepEqual(result.state.rounds.map((round) => round.outcome), ['completed', 'pass']);
+});
+
+test('resumes an interrupted loop at the checker without repeating the maker', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const makerRevision = revision('maker-before-interruption');
+  const initial = createLoopState(
+    contract,
+    new Date('2026-10-10T09:59:00.000Z'),
+  );
+  const interrupted = recordRound(initial, {
+    actor: 'maker',
+    startedAt: '2026-10-10T10:00:00.000Z',
+    finishedAt: '2026-10-10T10:00:01.000Z',
+    reviewedRevision: makerRevision,
+    outcome: 'completed',
+    feedback: 'Maker completed before the controller stopped.',
+    nextAction: 'checker',
+    humanIntervention: {
+      required: false,
+      reason: null,
+    },
+  });
+  saveLoopState(statePath, interrupted);
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'pass', feedback: 'checker passed after resume' },
+  ]);
+
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    getRevision: revisions(makerRevision, makerRevision),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['checker']);
+  assert.deepEqual(
+    result.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
+    ['maker:completed', 'checker:pass'],
+  );
 });
 
 test('returns checker fail feedback to a new maker while limits permit', async (t) => {
