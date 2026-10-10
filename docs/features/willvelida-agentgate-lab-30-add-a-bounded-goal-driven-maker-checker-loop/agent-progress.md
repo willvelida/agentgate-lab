@@ -202,3 +202,17 @@ ms.date: 2026-10-10
   post-verdict architecture passed, exit 0, run
   `2026-10-10T23-17-15-560Z-bb8839bb-2b41-4ef4-84f8-f492284d772a`;
   `git diff --check` passed.
+* F006 was committed with sign-off as
+  `954c853308d84a68024a088db9a6130366e1380e`. No push was performed.
+* Final issue verification: all 28 maker-checker tests passed, exit 0, run
+  `2026-10-10T23-19-08-169Z-66659d89-4f2e-4d9c-ae27-20481144f19e`;
+  verification-runner tests passed 9/9, exit 0, run
+  `2026-10-10T23-19-08-102Z-925c5edd-9279-4802-a6ca-57366f887fa7`;
+  architecture passed, exit 0, run
+  `2026-10-10T23-19-06-902Z-2af141a4-b0ab-4f76-9520-2fd532ec790f`.
+  A scripted maker/checker dry run ended `pass` without tracked changes, exit
+  0, run `2026-10-10T23-20-39-156Z-4f54cae8-e374-4fb2-ba12-fb90bc1eb8bc`.
+* Startup checks were not applicable because issue #30 changes finite local
+  harness scripts and documentation. No long-lived process was started. The
+  named final dry-run goal, fixture, state, and temporary ignored checklist
+  were removed; local verification reports were intentionally retained.
