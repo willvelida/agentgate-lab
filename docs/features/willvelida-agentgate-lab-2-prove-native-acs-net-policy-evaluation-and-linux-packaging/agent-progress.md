@@ -24,7 +24,7 @@ ms.date: 2026-10-10
 | F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4; 31/31 tests, zero skipped. Signed and pushed as `ba55bf3`. | 2026-10-10 |
 | F007 | The final image contains the required runtime artifacts and can evaluate fixtures without downloading dependencies at runtime. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4; exact verification passed 32/32, zero skipped, run `2026-10-10T06-26-49-637Z-f841bbb2-5780-4c23-b41c-accf8818ae0f`, exit 0. Architecture passed. Offline image checks verify artifacts, hashes, no network or mounts, and matching native output. | 2026-10-10 |
 | F008 | Versions, Linux architecture, native and OPA packaging, source-build steps if used, and preview limitations are documented. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 5.0, minimum 5; exact tests passed 32/32, zero skipped, run `2026-10-10T06-59-35-606Z-4cbbad55-3186-4b8d-8b54-d5d0e04a767e`, exit 0. Architecture passed. No required fixes. | 2026-10-10 |
-| F009 | Tests fail when a guarded operation executes after a deny or dependency failure. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
+| F009 | Tests fail when a guarded operation executes after a deny or dependency failure. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 5.0, minimum 5; exact tests passed 43/43, zero skipped, architecture passed. Eleven sensitivity cases reject altered native execution evidence; runtime unchanged. | 2026-10-10 |
 
 ## Verification evidence
 
@@ -604,7 +604,7 @@ preview constraints. Full tests exercise the real packaged runtime and offline
 image checks. No separate service startup or build is required for this
 documentation-only increment; the exact test command builds its test targets.
 
-## Last session
+## F008 implementation handoff
 
 * Date: 2026-10-10
 * Accomplished: synchronized evaluator-requested F007 evidence row, recorded
@@ -654,3 +654,107 @@ documentation-only increment; the exact test command builds its test targets.
 * Publication prerequisite validation passed, exit 0 (run
   `2026-10-10T07-06-40-095Z-28c7f0ab-4eb7-4aef-a60f-c59e1312340e`):
   completed evaluator reports, reviewed revision, feature status and whitespace.
+
+## F009 implementation
+
+* F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
+  origin matches and tree was clean before F009. Exact-head CI has no runs.
+* F009 active: extract the integration no-execution assertions, add sensitivity
+  tests that change only a denied result's execution count or inject an execution
+  marker in actual dependency-failure output. The same assertions must throw.
+  Native engine and runtime remain unchanged; no unsafe execution hook is added.
+
+## F009 verification evidence
+
+All checks on 2026-10-10 reviewed
+`f64c72729e6f337e62e5b24e34f1157dde07133f` plus uncommitted F009 tests and
+documentation. Container builds used the explicit approved
+`ACS_NUGET_SOURCE=https://packagefeedproxy.microsoft.io/nuget/v3/index.json`;
+TLS and locked hashes remain enforced. Runtime, image and dependencies are
+unchanged; no test is skipped, weakened or deleted.
+
+| Command | Result | Run ID |
+|---------|--------|--------|
+| `dotnet test tests/AcsSpike.Tests/AcsSpike.Tests.csproj --no-restore --filter FullyQualifiedName~NoExecutionAssertionFails --property:SkipClientBuild=true` | Passed, exit 0; 11 sensitivity tests, zero skipped | `2026-10-10T07-09-50-130Z-b3659a57-ee17-4d0a-b386-51de8b8814e6` |
+| `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 43/43 (13 Portal, 30 ACS), zero skipped | `2026-10-10T07-12-04-858Z-f23f5fbe-04e5-48d4-8868-c5657a095616` |
+| `bash scripts/check-architecture.sh` | Passed, exit 0 | `2026-10-10T07-11-58-673Z-e10d3107-96d2-4e51-aa37-b3cc4f40a44b` |
+| `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; zero warnings/errors | `2026-10-10T07-14-17-974Z-484df428-10d7-47cf-b1d6-499aab2e540c` |
+
+Five count mutations cover unpermitted read, unknown tool, missing task,
+missing permission and policy invocation error. Each test verifies actual
+native denial and zero executions before altering a copy's count to one.
+The same `AssertNoGuardedExecution` used in integration tests must throw its
+count assertion. Six marker mutations cover malformed manifest, missing native
+payload and unavailable OPA in stdout and stderr separately. Real startup
+failure diagnostics and marker-free output are required before mutation.
+The shared marker assertion must throw with the execution marker in its error.
+
+The original integration assertions are retained or strengthened: native
+decision/reason, zero count, absent post-tool result/ticket, unreturned result,
+specific startup diagnostics and no markers. Normal allow and post-tool
+result-withholding tests remain unchanged. These tests demonstrate assertion
+sensitivity to execution evidence, not a runtime bypass injection or arbitrary
+production authorization. Startup is exercised by the same real native
+container fixture and offline test; no service startup path changed.
+
+## F009 implementation handoff
+
+* Date: 2026-10-10
+* Accomplished: recorded F008 independent PASS (average 5.0, minimum 5),
+  signed/pushed `f64c727`, confirmed matching origin and clean tree, then
+  implemented and verified F009 only.
+* Status: F001-F008 pass; F009 active pending fresh-session evaluation.
+  No evaluator was invoked here; issue #2 is not yet complete.
+* Files modified: native tests, README, architecture, both progress logs and
+  ignored local checklist. Runtime, Dockerfile and dependency locks unchanged.
+* Verification: eleven targeted sensitivity cases, exact 43/43 full tests,
+  zero-warning build and architecture passed as above. Reviewed `f64c727`
+  plus uncommitted F009 changes; only evidence/checklist notes followed.
+  No failed or incomplete implementation checks.
+* Decisions: no new architecture decision. Test-only assertion mutation was
+  chosen to avoid adding an unsafe runtime bypass or custom engine.
+* Runtime/cleanup: test initialization and offline integration exercise native
+  startup. No service runtime path changed, so separate service startup is not
+  applicable. Test-owned `agentgate-f003-<guid>` containers are removed by
+  existing cleanup; no long-lived process or temporary source file created.
+  Raw reports, ignored rubric and Docker caches remain local.
+* Publication: F008 push succeeded; no exact-head workflow run exists, so CI
+  remains unverified. F009 stays uncommitted for independent review.
+* Blockers: fresh-session evaluator gates F009 completion and publication.
+  Default nuget.org TLS remains restricted; documented explicit mirror passed.
+* Next action: open a fresh session in this checkout and run
+  `/feature-evaluator Evaluate F009 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+* Final handoff validation passed, exit 0 (run
+  `2026-10-10T07-16-07-859Z-7f4347a9-5eaf-4192-8ba8-97fad01d578d`):
+  four Markdown files, 34 links/anchors, unique handoffs, feature states,
+  shared assertion mutations, completed reports, exact revision/origin,
+  unchanged runtime/locks/images and no remaining owned test containers.
+  Editor diagnostics found no errors. Clean-state checklist complete for
+  handoff with evaluation and publication pending; only evidence notes followed.
+* 2026-10-10: F009 evaluator verdict PASS (avg 5.0, min 5). See [evaluator-rubric.md](./evaluator-rubric.md).
+
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: a separate fresh-context evaluator reviewed F009 and recorded
+  PASS (average 5.0, minimum 5), no required fixes. All nine features now pass.
+  Only status and evidence notes changed after evaluation.
+* Reviewed revision: `f64c72729e6f337e62e5b24e34f1157dde07133f` plus five
+  uncommitted test/documentation files. Runtime, images and locks unchanged.
+* Exact verification: `dotnet test AgentGateLab.sln --no-restore
+  --property:SkipClientBuild=true` passed 43/43, zero skipped, exit 0 (run
+  `2026-10-10T07-20-24-793Z-7e0478a4-e98a-4a27-a901-3a68a70a318d`).
+  `bash scripts/check-architecture.sh` passed, exit 0 (run
+  `2026-10-10T07-20-18-211Z-865218c0-9492-4cfb-8ab2-85e8bd7f5e0d`).
+* Cleanup: native/offline startup ran in tests; separate service startup is
+  not applicable. No owned containers remain, no long-lived service or
+  temporary source artifact created. Local raw reports and caches retained.
+* Blockers: none for publication. Default NuGet TLS restriction persists;
+  verification used the documented explicit approved mirror, locks preserved.
+* Next action: signed commit and authorized push, then inspect exact-head CI.
+  No PR creation or issue closure is included in this request.
+* Publication prerequisite validation passed, exit 0 (run
+  `2026-10-10T07-27-07-850Z-b16bbe8c-6228-416a-b5aa-725777d38519`):
+  evaluator reports complete, all nine features pass, five scoped files,
+  35 relative links/anchors and unique handoffs. Clean-state checklist complete;
+  no source/test changes followed evaluation.

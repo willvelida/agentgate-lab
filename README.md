@@ -105,6 +105,17 @@ native denial and no delegate execution. An undefined query passes artifact
 validation but fails native policy invocation; it is not an ordinary policy deny.
 These tests do not change the host, the shared image, or the default fixture run.
 
+Assertion-sensitivity tests also check that the integration suite would reject
+execution evidence after a pre-tool denial or startup dependency failure.
+They first require genuine native denied/startup-failure output, then alter a
+copy: five denied cases get a delegate count of one; three startup failures get
+an execution marker in stdout and stderr separately. The shared no-execution
+assertions must throw for each altered copy. These are assertion mutations, not
+an injected runtime bypass or a substitute policy engine. Normal native tests
+still require zero delegates, no post-tool evaluation, no returned result and
+no execution marker. A native post-tool denial is different: the read has
+already executed once, and its result is withheld.
+
 The default output also includes `interventionChecks`: pre/post allow returns
 the read result, pre-tool deny prevents execution, and `post-denied-read`
 allows execution but rejects an unapproved result title with

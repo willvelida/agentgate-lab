@@ -105,6 +105,10 @@ The solution file is `AgentGateLab.sln`.
   They also verify result withholding after native post-tool denial and fail
   if the container cannot evaluate its fixtures. No custom runtime or dispatcher
   is supplied; dependency-removal tests reject fallback success.
+* Assertion-sensitivity tests alter copies of actual native denial and startup
+  failure results. Shared assertions used by integration tests must reject
+  nonzero delegate counts or execution markers in either output stream.
+  They do not inject a runtime bypass or claim production authorization.
 
 ## Planned target architecture
 

@@ -1,10 +1,80 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using Xunit.Sdk;
 
 namespace AcsSpike.Tests;
 
 public sealed class NativeTicketReadTests(SpikeContainerFixture container) : IClassFixture<SpikeContainerFixture>
 {
+    private static void AssertNoGuardedExecution(JsonElement result)
+    {
+        Assert.Equal(0, result.GetProperty("delegateExecutions").GetInt32());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("postToolEvaluation").ValueKind);
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("delegateTicketId").ValueKind);
+        Assert.False(result.GetProperty("resultReturned").GetBoolean());
+    }
+
+    private static void AssertNoExecutionMarker(SpikeContainerFixture.ContainerRun run)
+    {
+        Assert.DoesNotContain("ACS_SPIKE_DELEGATE_EXECUTED", run.Error);
+        Assert.DoesNotContain("ACS_SPIKE_DELEGATE_EXECUTED", run.Output);
+        Assert.DoesNotContain("\"delegateExecutions\":1", run.Output);
+    }
+
+    [Theory]
+    [InlineData("unpermitted-read")]
+    [InlineData("unknown-tool")]
+    [InlineData("missing-task")]
+    [InlineData("missing-permission")]
+    [InlineData("policy-evaluation-error")]
+    public async Task GivenNativeDeniedResult_WhenExecutionCountIsMutated_NoExecutionAssertionFails(string name)
+    {
+        JsonElement result;
+        if (name is "unpermitted-read" or "unknown-tool")
+        {
+            result = container.Result.GetProperty("fixtures").EnumerateArray()
+                .Single(value => value.GetProperty("name").GetString() == name);
+        }
+        else
+        {
+            var run = await container.RunFailureAsync(name);
+            Assert.True(run.ExitCode == 0, $"{run.Output}\n{run.Error}");
+            AssertNoExecutionMarker(run);
+            using var document = JsonDocument.Parse(run.Output.Trim());
+            result = document.RootElement.Clone();
+        }
+        Assert.Equal("deny", result.GetProperty("decision").GetString());
+        AssertNoGuardedExecution(result);
+
+        var mutated = Assert.IsType<JsonObject>(JsonNode.Parse(result.GetRawText()));
+        mutated["delegateExecutions"] = 1;
+        var mutatedResult = JsonSerializer.SerializeToElement(mutated);
+        Assert.Throws<EqualException>(() => AssertNoGuardedExecution(mutatedResult));
+    }
+
+    [Theory]
+    [InlineData("malformed-manifest", "manifest_parse_error", true)]
+    [InlineData("malformed-manifest", "manifest_parse_error", false)]
+    [InlineData("missing-native-payload", "DllNotFoundException", true)]
+    [InlineData("missing-native-payload", "DllNotFoundException", false)]
+    [InlineData("unavailable-opa", "opa_execution_error", true)]
+    [InlineData("unavailable-opa", "opa_execution_error", false)]
+    public async Task GivenNativeStartupFailure_WhenExecutionMarkerIsInjected_NoExecutionAssertionFails(
+        string name, string diagnostic, bool standardError)
+    {
+        var run = await container.RunFailureAsync(name);
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains(diagnostic, run.Error);
+        AssertNoExecutionMarker(run);
+
+        var mutated = standardError
+            ? run with { Error = run.Error + "\nACS_SPIKE_DELEGATE_EXECUTED\n" }
+            : run with { Output = run.Output + "\nACS_SPIKE_DELEGATE_EXECUTED\n" };
+        var exception = Assert.ThrowsAny<XunitException>(() => AssertNoExecutionMarker(mutated));
+        Assert.Contains("ACS_SPIKE_DELEGATE_EXECUTED", exception.Message);
+    }
+
     [Fact]
     public async Task GivenPackagedImage_WhenNetworkingIsDisabled_NativeFixturesStillEvaluate()
     {
@@ -39,7 +109,7 @@ public sealed class NativeTicketReadTests(SpikeContainerFixture container) : ICl
             .Single(value => value.GetProperty("name").GetString() == "unpermitted-read");
         Assert.Equal("deny", result.GetProperty("preToolEvaluation").GetProperty("decision").GetString());
         Assert.Equal("PreToolCall", result.GetProperty("blockedInterventionPoint").GetString());
-        Assert.Equal(0, result.GetProperty("delegateExecutions").GetInt32());
+        AssertNoGuardedExecution(result);
         Assert.Equal(JsonValueKind.Null, result.GetProperty("postToolEvaluation").ValueKind);
         Assert.False(result.GetProperty("resultReturned").GetBoolean());
     }
@@ -73,7 +143,7 @@ public sealed class NativeTicketReadTests(SpikeContainerFixture container) : ICl
 
         Assert.Equal("deny", fixture.GetProperty("decision").GetString());
         Assert.Equal(reason, fixture.GetProperty("reason").GetString());
-        Assert.Equal(0, fixture.GetProperty("delegateExecutions").GetInt32());
+        AssertNoGuardedExecution(fixture);
         Assert.Equal(JsonValueKind.Null, fixture.GetProperty("postToolDecision").ValueKind);
     }
 
@@ -171,16 +241,14 @@ public sealed class NativeTicketReadTests(SpikeContainerFixture container) : ICl
     {
         var run = await container.RunFailureAsync(name);
         Assert.True(run.ExitCode == 0, $"Failure fixture exited {run.ExitCode}.\n{run.Output}\n{run.Error}");
-        Assert.DoesNotContain("ACS_SPIKE_DELEGATE_EXECUTED", run.Error);
+        AssertNoExecutionMarker(run);
         using var document = JsonDocument.Parse(run.Output.Trim());
         var result = document.RootElement;
         Assert.Equal("deny", result.GetProperty("decision").GetString());
         Assert.Equal(reason, result.GetProperty("reason").GetString());
         Assert.Equal("deny", result.GetProperty("preToolEvaluation").GetProperty("decision").GetString());
         Assert.Equal(reason, result.GetProperty("preToolEvaluation").GetProperty("reason").GetString());
-        Assert.Equal(0, result.GetProperty("delegateExecutions").GetInt32());
-        Assert.Equal(JsonValueKind.Null, result.GetProperty("postToolEvaluation").ValueKind);
-        Assert.Equal(JsonValueKind.Null, result.GetProperty("delegateTicketId").ValueKind);
+        AssertNoGuardedExecution(result);
     }
 
     [Theory]
@@ -193,8 +261,7 @@ public sealed class NativeTicketReadTests(SpikeContainerFixture container) : ICl
         var run = await container.RunFailureAsync(name);
         Assert.NotEqual(0, run.ExitCode);
         Assert.Contains(diagnostic, run.Error);
-        Assert.DoesNotContain("ACS_SPIKE_DELEGATE_EXECUTED", run.Error);
-        Assert.DoesNotContain("\"delegateExecutions\":1", run.Output);
+        AssertNoExecutionMarker(run);
         Assert.DoesNotContain("\"runtime\":", run.Output);
         if (name != "missing-native-payload")
         {
