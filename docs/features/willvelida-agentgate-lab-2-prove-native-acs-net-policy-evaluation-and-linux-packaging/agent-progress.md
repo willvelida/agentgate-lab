@@ -751,8 +751,12 @@ container fixture and offline test; no service startup path changed.
   temporary source artifact created. Local raw reports and caches retained.
 * Blockers: none for publication. Default NuGet TLS restriction persists;
   verification used the documented explicit approved mirror, locks preserved.
-* Next action: signed commit and authorized push, then inspect exact-head CI.
-  No PR creation or issue closure is included in this request.
+* Publication: signed F009 commit `17f0cc33662532f55acbbc707665127c3fbfa8ff`
+  pushed successfully; origin matched and tree was clean. Exact-head
+  `gh run list` returned no runs; CI is unverified, not green.
+  Only this publication handoff follows in a documentation commit.
+* Next action: all nine features complete. Review the published branch for a
+  future PR; no PR creation or issue closure is included in this request.
 * Publication prerequisite validation passed, exit 0 (run
   `2026-10-10T07-27-07-850Z-b16bbe8c-6228-416a-b5aa-725777d38519`):
   evaluator reports complete, all nine features pass, five scoped files,

@@ -24,7 +24,9 @@ health before it changes anything.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
-  fixes. F001-F009 all pass; final signed publication is next.
+  fixes. F001-F009 all pass; signed F009 commit
+  `17f0cc33662532f55acbbc707665127c3fbfa8ff` is pushed and matches origin.
+  Its exact-head CI query returned no runs; CI is unverified.
   Eleven sensitivity tests verify
   integration assertions reject altered native denial/dependency evidence.
   Exact tests passed 43/43 (13 Portal, 30 ACS), zero skipped; build and
@@ -451,8 +453,12 @@ where you left off.
   temporary source artifact created. Local reports/caches retained.
 * Blockers: none for publication. Default NuGet TLS restriction persists;
   explicit approved mirror verification succeeded, dependency locks preserved.
-* Next action: signed commit and authorized push, then inspect exact-head CI.
-  No new architectural decision, PR creation or issue closure.
+* Publication: signed F009 commit `17f0cc33662532f55acbbc707665127c3fbfa8ff`
+  pushed successfully; origin matched and tree was clean. Exact-head
+  `gh run list` returned no runs; CI is unverified, not green.
+  Only this publication handoff follows in a documentation commit.
+* Next action: feature sequence complete. Review the published branch for a
+  future PR; no new architectural decision, PR creation or issue closure.
 * Publication prerequisite validation passed, exit 0 (run
   `2026-10-10T07-27-07-850Z-b16bbe8c-6228-416a-b5aa-725777d38519`):
   evaluator reports complete, all nine features pass, five scoped files,
