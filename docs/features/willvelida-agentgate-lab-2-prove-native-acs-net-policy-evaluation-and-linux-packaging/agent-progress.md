@@ -10,7 +10,7 @@ ms.date: 2026-10-10
 * Number: 2
 * Title: Prove native ACS .NET policy evaluation and Linux packaging
 * URL: https://github.com/willvelida/agentgate-lab/issues/2
-* Feature list: [features_list.json](./features_list.json)
+* Feature checklist: `features_list.json` (ignored local working file)
 
 ## Feature evidence
 
@@ -731,7 +731,7 @@ container fixture and offline test; no service startup path changed.
   unchanged runtime/locks/images and no remaining owned test containers.
   Editor diagnostics found no errors. Clean-state checklist complete for
   handoff with evaluation and publication pending; only evidence notes followed.
-* 2026-10-10: F009 evaluator verdict PASS (avg 5.0, min 5). See [evaluator-rubric.md](./evaluator-rubric.md).
+* 2026-10-10: F009 evaluator verdict PASS (avg 5.0, min 5). See the ignored local `evaluator-rubric.md`.
 
 ## Last session
 
