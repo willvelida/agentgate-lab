@@ -304,3 +304,20 @@ Each entry records:
 * Constraints: the controller remains local and serial. It must not commit,
   push, publish, merge, weaken verification, alter acceptance criteria, or
   start another feature without explicit human approval.
+
+## D019: F003 dispatches fresh Copilot CLI sessions
+
+* Date: 2026-10-10
+* Decision: invoke the installed GitHub Copilot CLI directly. Maker processes
+  select the existing Harness Implementer custom agent. Checker processes are
+  new sessions that invoke the Feature Evaluator skill. A scripted dispatcher
+  supplies deterministic dry-run and test outcomes.
+* Why: separate CLI processes provide the required fresh checker context while
+  reusing the repository's existing implementer and evaluator instructions.
+  Dependency injection tests orchestration without launching live agents.
+* Alternatives rejected: simulating every session in the controller, because
+  that would not dispatch the installed Copilot CLI; resuming checker sessions,
+  because that would weaken independent evaluation.
+* Constraints: F003 preserves the implementer and evaluator's explicit
+  boundaries but does not add F004 publication-safety enforcement. Evaluator
+  progress and rubric writes do not make reviewed implementation content stale.

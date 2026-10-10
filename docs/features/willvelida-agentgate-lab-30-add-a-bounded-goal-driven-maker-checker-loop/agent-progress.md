@@ -18,7 +18,7 @@ ms.date: 2026-10-10
 | --- | --- | --- | --- | --- | --- |
 | F001 | Versioned goal contract declares the loop goal and limits. | pass | `node --test scripts/goal-contract.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final verification passed 3/3, exit 0, run `2026-10-10T09-26-09-834Z-f1040b4c-cbdb-46cc-82cf-d18443f072f8`. Final architecture passed, exit 0, run `2026-10-10T09-25-48-624Z-c7e14866-251f-4d8b-907e-2f32ba77b934`. | 2026-10-10 |
 | F002 | Persisted loop state records rounds and supports resume. | pass | `node --test scripts/loop-state.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final verification passed 4/4, exit 0, run `2026-10-10T09-43-04-551Z-29499005-62c8-4b6f-9560-967a17948b4b`. Final architecture passed, exit 0, run `2026-10-10T09-43-02-831Z-09238404-edb3-4973-98cb-2bc6e55f7c60`. | 2026-10-10 |
-| F003 | Controller coordinates maker/checker rounds and bounded stops. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
+| F003 | Controller coordinates maker/checker rounds and bounded stops. | active | `node --test scripts/maker-checker-loop.test.mjs` | Implemented and verified 8/8, exit 0, run `2026-10-10T10-53-41-776Z-b8c51005-22b5-4fff-97d9-dd719e5c3e3a`; awaiting fresh-session evaluation. | 2026-10-10 |
 | F004 | Serial execution and publication/verification safety boundaries are enforced. | not-started | `node --test scripts/maker-checker-safety.test.mjs` | Not yet implemented or verified | Not tested |
 | F005 | Required loop outcomes are covered by automated tests. | not-started | `node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs` | Not yet implemented or verified | Not tested |
 | F006 | Documentation, progress, and architecture decisions describe the loop. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
@@ -73,4 +73,50 @@ ms.date: 2026-10-10
   `2026-10-10T09-43-02-831Z-09238404-edb3-4973-98cb-2bc6e55f7c60`.
 * F002 was committed with sign-off as
   `10d7027ca72147fa0a70023f1355aadc9e132dca`. No push was performed.
-* 2026-10-10: F002 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+* F003 started with explicit approval to invoke the installed GitHub Copilot
+  CLI for Harness Implementer maker sessions and fresh Feature Evaluator
+  checker sessions. Deterministic tests will use an injectable dispatcher.
+  F004 publication-safety enforcement remains out of scope.
+* F003 baseline goal-contract and loop-state tests passed 7/7, exit 0, run
+  `2026-10-10T10-46-25-175Z-d61b0eac-6a01-47c5-aadc-4db762bb2ac3`.
+  Baseline architecture passed, exit 0, run
+  `2026-10-10T10-46-25-143Z-dfd523cf-f3de-480a-b1e9-cf6d5676da1d`.
+  Both runs reviewed commit `09b84c9ef03319536ba5a08c77d7252450be5ff6`
+  with the pre-existing duplicate F002 evaluator line uncommitted.
+* F003 adds a real `copilot` CLI dispatcher, selects the Harness Implementer
+  custom agent for maker sessions, and starts each Feature Evaluator checker
+  as a fresh process. The injectable scripted dispatcher supports deterministic
+  tests and command-line dry runs.
+* The controller retries checker failures while limits permit. It stops on
+  checker PASS, blocked or ambiguous work, stale reviewed content, repeated
+  no-progress maker rounds, dispatch failure, or exhausted round or elapsed
+  limits. Review fingerprints exclude only the evaluator's permitted progress
+  and rubric outputs; overall dirty state remains recorded.
+* Exact F003 verification passed 8/8, exit 0, run
+  `2026-10-10T10-50-05-955Z-8e6213e1-4cfe-4fe4-a6c4-b29c5cce518f`.
+  An earlier passing 8/8 run,
+  `2026-10-10T10-49-08-492Z-5238a737-3a3f-4710-96b0-f8dafa38a76c`,
+  preceded the revision-fingerprint fix and is not the final evidence.
+* The command-line dry run completed one maker and checker round without
+  source or publication changes, exit 0, run
+  `2026-10-10T10-50-56-653Z-75c0763d-fd98-42fe-ab46-09b65c59c6c1`.
+  Loop-state regression tests passed 4/4, exit 0, run
+  `2026-10-10T10-51-19-441Z-6913049f-07a5-45c5-b1d6-95ea0d0b1c0a`.
+  Architecture passed, exit 0, run
+  `2026-10-10T10-51-19-441Z-8f8b3764-c31f-4acf-a8e1-9b5d1e0c2107`.
+* All final runs reviewed commit
+  `09b84c9ef03319536ba5a08c77d7252450be5ff6` plus uncommitted F003
+  implementation and progress changes. F003 remains `active` pending a fresh
+  independent evaluation. F004 remains `not-started`.
+* Final post-handoff verification passed 8/8, exit 0, run
+  `2026-10-10T10-53-41-776Z-b8c51005-22b5-4fff-97d9-dd719e5c3e3a`.
+  Final post-handoff architecture passed, exit 0, run
+  `2026-10-10T10-53-41-768Z-a085b03e-5821-48bc-84df-1208e4d3e33f`.
+  Only these evidence references changed afterward.
+* 2026-10-10: F003 evaluator verdict PASS (avg 4.8, min 4). See evaluator-rubric.md.
+* F003 is now `pass`. F004 is unblocked but has not started.
+* Final F003 handoff checks passed after the status update: controller tests
+  passed 8/8, exit 0, run
+  `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`;
+  architecture passed, exit 0, run
+  `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`.

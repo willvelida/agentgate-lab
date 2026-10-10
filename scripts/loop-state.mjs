@@ -14,8 +14,12 @@ const outcomes = new Set([
   'pass',
   'fail',
   'blocked',
+  'ambiguous',
   'no-progress',
   'interrupted',
+  'stale',
+  'stalled',
+  'limit-exhausted',
 ]);
 const nextActions = new Set(['maker', 'checker', 'stop']);
 
@@ -69,6 +73,12 @@ function assertRound(round, index) {
   assertNonemptyString(round.reviewedRevision.commit, `${path}.reviewedRevision.commit`);
   if (typeof round.reviewedRevision.dirty !== 'boolean') {
     throw new Error(`${path}.reviewedRevision.dirty must be a boolean.`);
+  }
+  if (round.reviewedRevision.fingerprint !== undefined) {
+    assertNonemptyString(
+      round.reviewedRevision.fingerprint,
+      `${path}.reviewedRevision.fingerprint`,
+    );
   }
   if (!outcomes.has(round.outcome)) {
     throw new Error(`${path}.outcome is not supported.`);

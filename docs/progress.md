@@ -21,9 +21,9 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* Issue #30 F001 is committed. F002 passed independent evaluation with an
-  average and minimum score of 5.0 and no required fixes. F003 is unblocked;
-  F003-F006 are not started.
+* Issue #30 F001 and F002 are committed. F003 passed independent evaluation
+  with an average 4.8 and minimum 4. F004 is unblocked; F004-F006 are not
+  started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -140,10 +140,12 @@ final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
-* Issue #30's controller has not been implemented yet. F001's goal contract
-  and F002's persisted state layer exist, but agent dispatch and limit
-  enforcement do not. None of this is a security boundary or authorization
-  implementation.
+* Issue #30 F003 is implemented and evaluator-PASS. The live Copilot CLI path
+  was validated
+  through injected process arguments and a deterministic command-line dry run,
+  not by launching a recursive live maker session. F004 publication-safety
+  enforcement is not implemented. None of this is a security boundary or
+  authorization implementation.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
@@ -438,39 +440,52 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-10
-* Accomplished: committed evaluator-approved F001, then implemented F002's
-  persisted loop state and resume decisions. F002 does not dispatch agents or
-  enforce loop limits.
-* Files modified: `scripts/loop-state.mjs`,
-  `scripts/loop-state.test.mjs`, issue #30's feature progress log and ignored
-  checklist, plus this progress entry.
-* Verification: `node --test scripts/loop-state.test.mjs` passed 4/4, exit 0,
-  run `2026-10-10T09-31-49-190Z-b4e62f19-f53b-4913-9beb-5ea781cf2e74`.
-  `bash scripts/check-architecture.sh` passed, exit 0, run
-  `2026-10-10T09-32-12-168Z-a0c977bc-3161-4b45-bd3e-b0fed01b5f0f`.
-  F001 regression tests passed 3/3, exit 0, run
-  `2026-10-10T09-32-12-216Z-56e8bc35-076e-4188-b94a-545c56f82261`.
-* Reviewed revision: signed F001 handoff commit
-  `33129a177212ce2558e3e48865427888c926506f` plus uncommitted F002 changes.
-* Startup: not applicable. F002 changes local finite scripts only and does not
+* Accomplished: implemented F003's bounded maker-checker controller. It invokes
+  the installed `copilot` CLI with Harness Implementer for maker sessions and
+  fresh Feature Evaluator sessions for checkers. It retries checker failures
+  and persists terminal decisions for PASS, blocked, ambiguous, stale,
+  stalled, dispatch-failed, and exhausted-limit outcomes.
+* Scope: only F003 changed. F004 publication-safety enforcement remains
+  `not-started`; current agent boundaries are preserved rather than extended.
+* Files modified: `scripts/maker-checker-loop.mjs`,
+  `scripts/maker-checker-loop.test.mjs`, `scripts/loop-state.mjs`,
+  `docs/decisions.md`, this progress log, issue #30's retained progress log,
+  and its ignored feature checklist.
+* Baseline: goal-contract and loop-state tests passed 7/7, exit 0, run
+  `2026-10-10T10-46-25-175Z-d61b0eac-6a01-47c5-aadc-4db762bb2ac3`;
+  architecture passed, exit 0, run
+  `2026-10-10T10-46-25-143Z-dfd523cf-f3de-480a-b1e9-cf6d5676da1d`.
+* Verification: final exact F003 tests passed 8/8, exit 0, run
+  `2026-10-10T10-53-41-776Z-b8c51005-22b5-4fff-97d9-dd719e5c3e3a`.
+  The command-line dry run completed one deterministic maker-checker cycle,
+  exit 0, run
+  `2026-10-10T10-50-56-653Z-75c0763d-fd98-42fe-ab46-09b65c59c6c1`.
+  Loop-state regression tests passed 4/4, exit 0, run
+  `2026-10-10T10-51-19-441Z-6913049f-07a5-45c5-b1d6-95ea0d0b1c0a`.
+  Final architecture passed, exit 0, run
+  `2026-10-10T10-53-41-768Z-a085b03e-5821-48bc-84df-1208e4d3e33f`.
+  Only evidence references changed after these final checks.
+* Reviewed revision and tree: commit
+  `09b84c9ef03319536ba5a08c77d7252450be5ff6` plus uncommitted F003
+  changes. The pre-existing duplicate F002 evaluator line in issue #30's
+  progress log was preserved. No commit or publication action was performed.
+* Startup: not applicable. F003 changes finite local scripts and does not
   affect a service startup path.
-* Cleanup: no long-lived process or temporary source artifact was created;
-  test fixtures removed their temporary directories and local verification
-  reports remain under ignored `.local/verification/`.
-* Publication: no push or pull request operation was performed.
-* Evaluation: F002 passed fresh-session evaluation with an average and minimum
-  score of 5.0 and no required fixes. Evaluator verification passed 4/4, exit
-  0, run `2026-10-10T09-39-56-687Z-be29a3a6-54bd-487a-b475-417176f0b62b`;
+* Cleanup: no live Copilot agent or long-lived process was started. Node test
+  fixtures removed their temporary directories. Named dry-run fixture and
+  state files under `.local/` were removed after evidence capture. Ignored
+  verification reports were intentionally retained.
+* Evaluation: F003 passed fresh-session evaluation with average 4.8, minimum
+  4, and no required fixes. Evaluator verification passed 8/8, exit 0, run
+  `2026-10-10T11-03-28-781Z-070ddfb4-ed11-4b20-a0a0-9f0a0b6de903`;
   evaluator architecture passed, exit 0, run
-  `2026-10-10T09-39-56-659Z-250668e8-f463-4363-be48-3a3b1c0a4161`.
-  Final loop-state tests passed 4/4, exit 0, run
-  `2026-10-10T09-43-04-551Z-29499005-62c8-4b6f-9560-967a17948b4b`;
+  `2026-10-10T11-03-28-870Z-987dfea2-48c2-46cc-8cce-0fecd604ef84`.
+  Final controller tests passed 8/8, exit 0, run
+  `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`;
   final architecture passed, exit 0, run
-  `2026-10-10T09-43-02-831Z-09238404-edb3-4973-98cb-2bc6e55f7c60`.
-* Result: F002 was committed with sign-off as
-  `10d7027ca72147fa0a70023f1355aadc9e132dca`. No push was performed.
-* Blocker/next action: none for F002. Agree on F003 before implementation
-  starts.
+  `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`.
+* Blockers and next action: none for F003. Create its signed feature commit,
+  then agree on F004 before implementation starts.
 
 ## Built
 
