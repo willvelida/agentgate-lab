@@ -465,10 +465,10 @@ where you left off.
   Final architecture passed, exit 0, run
   `2026-10-10T10-53-41-768Z-a085b03e-5821-48bc-84df-1208e4d3e33f`.
   Only evidence references changed after these final checks.
-* Reviewed revision and tree: commit
+* Reviewed revision and tree: the evaluator reviewed commit
   `09b84c9ef03319536ba5a08c77d7252450be5ff6` plus uncommitted F003
-  changes. The pre-existing duplicate F002 evaluator line in issue #30's
-  progress log was preserved. No commit or publication action was performed.
+  changes. Duplicate F002 evaluator lines were removed after the evaluator
+  identified them.
 * Startup: not applicable. F003 changes finite local scripts and does not
   affect a service startup path.
 * Cleanup: no live Copilot agent or long-lived process was started. Node test
@@ -484,8 +484,11 @@ where you left off.
   `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`;
   final architecture passed, exit 0, run
   `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`.
-* Blockers and next action: none for F003. Create its signed feature commit,
-  then agree on F004 before implementation starts.
+* Blockers and next action: none for F003. Agree on F004 before implementation
+  starts.
+* Result: F003 was committed with sign-off as
+  `3acaba5c081b5b825894f17f8d66c92d0f91f725`. No push was performed. Agree
+  on F004 before implementation starts.
 
 ## Built
 
