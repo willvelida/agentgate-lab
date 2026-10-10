@@ -5,6 +5,51 @@ namespace AcsSpike.Tests;
 
 public sealed class NativeTicketReadTests(SpikeContainerFixture container) : IClassFixture<SpikeContainerFixture>
 {
+    [Fact]
+    public void GivenAllowedInputAndOutput_WhenNativeChecksRun_BothVerdictsAllowResultReturn()
+    {
+        var result = container.Result.GetProperty("interventionChecks").EnumerateArray()
+            .Single(value => value.GetProperty("name").GetString() == "permitted-read");
+        Assert.Equal("allow", result.GetProperty("preToolEvaluation").GetProperty("decision").GetString());
+        Assert.Equal("ticket_read_permitted", result.GetProperty("preToolEvaluation").GetProperty("reason").GetString());
+        Assert.Equal("allow", result.GetProperty("postToolEvaluation").GetProperty("decision").GetString());
+        Assert.Equal("synthetic_ticket_result", result.GetProperty("postToolEvaluation").GetProperty("reason").GetString());
+        Assert.Equal(1, result.GetProperty("delegateExecutions").GetInt32());
+        Assert.True(result.GetProperty("resultReturned").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("blockedInterventionPoint").ValueKind);
+    }
+
+    [Fact]
+    public void GivenDeniedInput_WhenNativePreCheckRuns_NoDelegateOrPostCheckRuns()
+    {
+        var result = container.Result.GetProperty("interventionChecks").EnumerateArray()
+            .Single(value => value.GetProperty("name").GetString() == "unpermitted-read");
+        Assert.Equal("deny", result.GetProperty("preToolEvaluation").GetProperty("decision").GetString());
+        Assert.Equal("PreToolCall", result.GetProperty("blockedInterventionPoint").GetString());
+        Assert.Equal(0, result.GetProperty("delegateExecutions").GetInt32());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("postToolEvaluation").ValueKind);
+        Assert.False(result.GetProperty("resultReturned").GetBoolean());
+    }
+
+    [Fact]
+    public void GivenUnapprovedOutput_WhenNativePostCheckRuns_ExecutedReadResultIsWithheld()
+    {
+        var result = container.Result.GetProperty("interventionChecks").EnumerateArray()
+            .Single(value => value.GetProperty("name").GetString() == "post-denied-read");
+        Assert.Equal("deny", result.GetProperty("decision").GetString());
+        Assert.Equal("ticket_result_not_permitted", result.GetProperty("reason").GetString());
+        Assert.Equal("PostToolCall", result.GetProperty("blockedInterventionPoint").GetString());
+        Assert.Equal("deny", result.GetProperty("postToolDecision").GetString());
+        var post = result.GetProperty("postToolEvaluation");
+        Assert.Equal("deny", post.GetProperty("decision").GetString());
+        Assert.Equal("ticket_result_not_permitted", post.GetProperty("reason").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(post.GetProperty("actionIdentity").GetString()));
+        Assert.Equal(1, result.GetProperty("delegateExecutions").GetInt32());
+        Assert.Equal("SYN-001", result.GetProperty("delegateTicketId").GetString());
+        Assert.False(result.GetProperty("resultReturned").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("preToolEvaluation").ValueKind);
+    }
+
     [Theory]
     [InlineData("unpermitted-read", "ticket_read_not_permitted")]
     [InlineData("unknown-tool", "runtime_error:tool_unknown")]

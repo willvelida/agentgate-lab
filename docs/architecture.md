@@ -80,6 +80,10 @@ The solution file is `AgentGateLab.sln`.
   tests require no guarded delegate execution. Dependencies are removed only
   inside disposable test containers.
 * This is an isolated spike, not Gateway authorization or real task grants.
+* Native intervention evidence covers pre/post allow, pre-tool denial before
+  execution, and post-tool denial after an executed read. The latter withholds
+  the result, not the side effect; no rollback is claimed. Blocking results
+  retain their SDK intervention point, without inventing an earlier result.
 
 ### Tests
 
@@ -89,8 +93,9 @@ The solution file is `AgentGateLab.sln`.
 * `tests/AcsSpike.Tests` builds and runs the Linux spike through Docker Compose.
   These tests require Docker, verify native allow/deny reasons and delegate
   counts, repeated-input stability, target transformation, and failure paths.
-  They fail if the
-  container cannot evaluate its fixtures.
+  They also verify result withholding after native post-tool denial and fail
+  if the container cannot evaluate its fixtures. No custom runtime or dispatcher
+  is supplied; dependency-removal tests reject fallback success.
 
 ## Planned target architecture
 

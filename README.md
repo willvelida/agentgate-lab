@@ -105,6 +105,21 @@ native denial and no delegate execution. An undefined query passes artifact
 validation but fails native policy invocation; it is not an ordinary policy deny.
 These tests do not change the host, the shared image, or the default fixture run.
 
+The default output also includes `interventionChecks`: pre/post allow returns
+the read result, pre-tool deny prevents execution, and `post-denied-read`
+allows execution but rejects an unapproved result title with
+`ticket_result_not_permitted`. `resultReturned` distinguishes a completed
+`RunToolAsync` call from a blocked one; `blockedInterventionPoint` identifies
+the SDK's blocking stage. A post-tool denial reports one delegate execution
+and withholds its result. It is not rollback or authorization before a write.
+The SDK exception exposes only the blocking result, so `preToolEvaluation`
+is null for that post-tool denial rather than reconstructed.
+
+The spike supplies no custom runtime or policy dispatcher. Tests assert native
+policy-specific pre/post outcomes and fail explicitly when the packaged native
+library or OPA is removed. The `engine` label alone is not evidence of native
+execution. This remains an isolated synthetic read, not Gateway enforcement.
+
 The SDK is `AgentControlSpecification` 0.3.1-beta.1 (MIT), with its bundled
 `libagent_control_specification_core.so` Linux x64 payload and manifest schema
 `0.3.1-beta`. Package metadata identifies upstream revision

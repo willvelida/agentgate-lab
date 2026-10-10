@@ -21,7 +21,7 @@ ms.date: 2026-10-10
 | F003 | A permitted synthetic ticket-read fixture returns allow; an unpermitted or unknown-tool fixture returns deny and executes no guarded tool delegate. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.4, minimum 4. All 17 tests passed on evaluator and publication reruns. Allow executed once; both deny fixtures executed zero delegates. | 2026-10-09 |
 | F004 | Identical manifest and snapshot inputs produce the same decision, stable reason, action identity, and transformed target, excluding telemetry timings. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Evaluator and publication reruns passed 22/22. Three fresh runtimes per case returned identical stable results; native normalization rewrote the delegate's arguments. | 2026-10-10 |
 | F005 | Malformed manifests, missing required snapshot paths, missing native payload, unavailable OPA, and policy evaluation errors all block startup or explicitly deny execution. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Exact verification passed 28/28 tests, zero skipped, and architecture check passed using the documented approved NuGet mirror. See F005 evidence and evaluator-rubric.md. | 2026-10-10 |
-| F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
+| F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | active | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Verified 31/31 tests, zero skipped; native pre/post allow, pre-tool deny and post-tool deny with result withholding. Default native runtime/OPA, dependency-failure tests preserved. Independent evaluation pending. | 2026-10-10 |
 | F007 | The final image contains the required runtime artifacts and can evaluate fixtures without downloading dependencies at runtime. | not-started | TBD | Not yet implemented or verified | Not tested |
 | F008 | Versions, Linux architecture, native and OPA packaging, source-build steps if used, and preview limitations are documented. | not-started | TBD | Not yet implemented or verified | Not tested |
 | F009 | Tests fail when a guarded operation executes after a deny or dependency failure. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
@@ -337,7 +337,7 @@ Startup tests require the specific error and absence of the delegate execution
 marker. The test harness removes dependencies only in disposable containers.
 No verification command was weakened, skipped, or changed.
 
-## Last session
+## F005 implementation and evaluation handoff
 
 * Date: 2026-10-10
 * Accomplished: published evaluator-PASS F004 as signed commit
@@ -388,3 +388,88 @@ No verification command was weakened, skipped, or changed.
   Reviewed `21d8d49` with the evaluated F005 changes; the approved NuGet mirror
   was explicit and no lockfile or implementation changed after evaluation.
 * F005 is pass and ready for the authorized signed commit and push.
+
+## F006 implementation
+
+* Published F005 as signed commit `3deb0429f6aabe9f836a6f20a1315afd8bb44920`.
+Origin matches and the tree was clean before F006. No CI run exists for
+that head; CI is unverified.
+* F006 is active: add a native post-tool denial case alongside pre-tool denial
+and pre/post allow evidence. The SDK exception supplies the blocked point
+and its result, not the earlier pre-tool result; report that earlier result
+as absent rather than fabricate it. Post-tool denial withholds a completed
+synthetic read's result and does not undo delegate execution.
+
+## F006 verification evidence
+
+All checks on 2026-10-10 reviewed
+`3deb0429f6aabe9f836a6f20a1315afd8bb44920` plus uncommitted F006 changes.
+Container builds used the documented approved `ACS_NUGET_SOURCE` mirror
+`https://packagefeedproxy.microsoft.io/nuget/v3/index.json`; TLS and locked
+hashes remain enabled. No dependency, manifest or Rego fixture changed.
+
+| Command | Result | Run ID |
+|---------|--------|--------|
+| `dotnet test tests/AcsSpike.Tests/AcsSpike.Tests.csproj --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 18 ACS tests, zero skipped | `2026-10-10T05-47-51-401Z-8e20e6a7-c4b4-481d-a85a-a93bd191bb98` |
+| `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 31 tests (13 Portal, 18 ACS), zero skipped | `2026-10-10T05-49-52-386Z-6c616890-cfa1-4fca-8ab1-b4153d9d7bfc` |
+| `bash scripts/check-architecture.sh` | Passed, exit 0 | `2026-10-10T05-49-47-835Z-6e0d52a5-eadf-495e-ac64-121c910671a3` |
+| `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; zero warnings/errors | `2026-10-10T05-50-54-873Z-4af2cf54-a43f-447c-a073-f808b2ab07be` |
+| `docker compose run --build --rm --no-deps --name agentgate-f006-startup-ae2e76a9 acs-spike` | Passed, exit 0; native validation and intervention output | `2026-10-10T05-51-00-576Z-08d8f829-edf1-420c-8345-253571259be5` |
+
+The new post-denied read has native `deny` / `ticket_result_not_permitted`,
+blocking stage `PostToolCall`, one delegate execution and `resultReturned:false`.
+The permitted case has native pre/post allow and returns its result. Pre-tool
+denial blocks at `PreToolCall`, executes zero delegates and has no post-tool
+result. Only the blocking exception result is exposed for a denied call.
+The official `AgentControl.FromPath` and default native/OPA dispatch remain
+unchanged. Existing dependency-removal tests still fail startup rather than
+substitute an engine. This is synthetic read evidence, not Gateway protection
+or rollback. No failed verification run occurred for F006.
+
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: confirmed F005 evaluator PASS (average 4.8, minimum 4), reran
+publication checks, signed and pushed F005 as `3deb042`, confirmed matching
+origin and clean tree, then implemented and verified F006.
+* Status: F001-F005 pass. F006 active pending fresh-session evaluation;
+F007-F009 remain not-started. No evaluator was invoked here.
+* Files modified: spike program, three native intervention tests, README,
+architecture, both progress logs and ignored checklist. No lockfile, normal
+manifest, Rego or failure YAML fixture changed.
+* Verification: exact tests, zero-warning build, architecture and native
+startup passed as recorded above, on `3deb042` plus uncommitted F006 changes.
+Only documentation/checklist evidence edits followed implementation checks.
+Final `node -e` handoff validation passed, exit 0 (run
+`2026-10-10T05-53-31-378Z-ca410c89-27be-47d3-859b-69a7a2841092`):
+four Markdown files, 20 relative links, frontmatter, whitespace, unchanged
+locks, feature states, completed reports, native intervention output,
+default runtime path and no remaining owned containers. Clean-state checklist
+completed for handoff; evaluation and publication remain pending.
+* Cleanup: startup container `agentgate-f006-startup-ae2e76a9` completed under
+shell 516 and `--rm` removed it; tests removed their unique containers.
+No long-lived service or temporary source directory was created.
+Local verification reports and Docker caches are intentionally retained.
+* Publication: F005 push succeeded. No CI run exists for that head; CI is
+unverified. F006 stays uncommitted for review.
+* Blockers: independent F006 evaluation gates completion and F007.
+Default nuget.org TLS remains unavailable on this network; explicit approved
+mirror verification succeeded. No new architectural decision was required.
+* Next action: open a fresh session in this checkout and run
+`/feature-evaluator Evaluate F006 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+* 2026-10-10: F006 evaluator verdict PASS (avg 4.8, min 4). See evaluator-rubric.md.
+
+## F006 publication checks
+
+* Evaluator PASS covers `3deb042` plus uncommitted F006 changes.
+  Exact tests passed 31/31, zero skipped, exit 0 (run
+  `2026-10-10T06-00-31-300Z-1e268cb3-72f8-49d1-8dc4-b01eae55171f`);
+  architecture passed, exit 0 (run
+  `2026-10-10T06-00-26-866Z-8c4f0407-22ac-452c-a16b-fc1f3b7708dc`).
+* Publication exact tests passed 31/31, zero skipped, exit 0 (run
+  `2026-10-10T06-07-03-772Z-d47c6c97-ec41-46d1-a9bb-965108a554d2`);
+  architecture passed, exit 0 (run
+  `2026-10-10T06-06-58-821Z-596a0971-178d-4b5f-8ba1-3327e384b315`).
+  Reviewed `3deb042` plus evaluated F006 changes using the explicit approved
+  mirror. Only status/evidence documentation changed after evaluation.
+* F006 is pass and ready for authorized signed publication.

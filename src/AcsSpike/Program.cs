@@ -74,7 +74,14 @@ Console.WriteLine(JsonSerializer.Serialize(new
     engine = "native-acs-opa",
     manifestValid = validation.Valid,
     fixtures = results,
-    determinism
+    determinism,
+    interventionChecks = new[]
+    {
+        results[0],
+        results[1],
+        await RunFixtureAsync(control,
+            new TicketFixture("post-denied-read", "tickets.read", true, ResultTitle: "Unapproved result"))
+    }
 }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 return 0;
 
@@ -109,7 +116,7 @@ static async Task<FixtureResult> RunFixtureAsync(
                     Console.Error.WriteLine("ACS_SPIKE_DELEGATE_EXECUTED");
                 }
                 delegateTicketId = effectiveArgs.ticketId;
-                return ValueTask.FromResult(new { ticketId = effectiveArgs.ticketId, title = "Synthetic ticket" });
+                return ValueTask.FromResult(new { ticketId = effectiveArgs.ticketId, title = fixture.ResultTitle });
             },
             toolCallId: fixture.Name,
             snapshot: snapshot,
@@ -122,7 +129,9 @@ static async Task<FixtureResult> RunFixtureAsync(
             result.PostToolCallResult.Verdict.Decision.ToWireName(),
             EvaluationResult.FromNative(result.PreToolCallResult),
             EvaluationResult.FromNative(result.PostToolCallResult),
-            delegateTicketId);
+            delegateTicketId,
+            true,
+            null);
     }
     catch (AgentControlBlockedException exception)
     {
@@ -131,18 +140,25 @@ static async Task<FixtureResult> RunFixtureAsync(
             exception.Result.Verdict.Decision.ToWireName(),
             exception.Result.Verdict.Reason,
             executions,
-            null,
-            EvaluationResult.FromNative(exception.Result),
-            null,
-            delegateTicketId);
+            exception.InterventionPoint == InterventionPoint.PostToolCall
+                ? exception.Result.Verdict.Decision.ToWireName() : null,
+            exception.InterventionPoint == InterventionPoint.PreToolCall
+                ? EvaluationResult.FromNative(exception.Result) : null,
+            exception.InterventionPoint == InterventionPoint.PostToolCall
+                ? EvaluationResult.FromNative(exception.Result) : null,
+            delegateTicketId,
+            false,
+            exception.InterventionPoint.ToString());
     }
 }
 
 internal sealed record TicketFixture(
-    string Name, string ToolName, bool Permitted, string TicketId = "SYN-001");
+    string Name, string ToolName, bool Permitted, string TicketId = "SYN-001",
+    string ResultTitle = "Synthetic ticket");
 internal sealed record FixtureResult(
     string Name, string Decision, string? Reason, int DelegateExecutions, string? PostToolDecision,
-    EvaluationResult PreToolEvaluation, EvaluationResult? PostToolEvaluation, string? DelegateTicketId);
+    EvaluationResult? PreToolEvaluation, EvaluationResult? PostToolEvaluation, string? DelegateTicketId,
+    bool ResultReturned, string? BlockedInterventionPoint);
 internal sealed record DeterminismResult(string Name, IReadOnlyList<FixtureResult> Attempts);
 internal sealed record EvaluationResult(
     string Decision, string? Reason, string? ActionIdentity,

@@ -21,10 +21,17 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* F005 signed publication succeeded as `3deb0429f6aabe9f836a6f20a1315afd8bb44920`.
+  Origin matches; the tree was clean before starting F006. CI is unverified.
+* Current increment: F006 passed independent evaluation (average 4.8, minimum
+  4). Native pre/post allow, pre-tool deny and post-tool
+  result withholding passed all 31 tests (13 Portal, 18 ACS), zero skipped.
+  Build, architecture and native Linux startup passed.
+
 * Branch: `issue-2-native-acs-runtime`, created from `main` for issue #2.
 * Harness changes from PR #28 merged into `main` on 2026-10-09; the earlier
   PR handoff below has been superseded.
-* Current increment: F005 passed independent evaluation (average 4.8, minimum
+* F005 passed independent evaluation (average 4.8, minimum
   4). Six isolated native failure cases block startup or explicitly
   deny without executing delegates. All 28 tests passed (13 Portal and 15 ACS),
   zero skipped; build, architecture and native startup passed.
@@ -111,7 +118,8 @@ final link and whitespace checks were repeated before commit.
   treat any endpoint as protected.
 * The ACS spike is isolated synthetic evidence, not a Gateway authorization
   boundary. F005 failure coverage passed independent evaluation; the remaining
-  issue #2 criteria are not yet complete.
+  issue #2 criteria are not yet complete. F006 intervention coverage is verified
+  locally and passed independent evaluation.
 * This network rejected nuget.org TLS during the container build. Local native
   tests used the explicit approved `ACS_NUGET_SOURCE` mirror override, without
   changing locked hashes or disabling TLS. Docker is now required for solution
@@ -121,7 +129,7 @@ final link and whitespace checks were repeated before commit.
 * `docs-check.yml` only warns, and does not fail, when code changes without a
   `docs/progress.md` update.
 
-## Last session
+## F005 evaluator and publication handoff
 
 Replace this section at the end of every session so the next one can pick up
 where you left off.
@@ -183,6 +191,59 @@ where you left off.
   `2026-10-10T05-42-26-314Z-86e31e8e-f4e1-40da-96a1-2ac9643bc965`).
   The explicit approved mirror was used; only evidence documentation followed.
 
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: published evaluator-PASS F005 as signed commit
+  `3deb0429f6aabe9f836a6f20a1315afd8bb44920`, confirmed matching origin
+  and clean tree, then implemented and verified F006.
+  F001-F005 pass; F006 active pending evaluation; F007-F009 not-started.
+* Files modified: spike program, three native intervention tests, README,
+  architecture, both progress logs and ignored feature checklist. No dependency
+  lockfile or manifest/Rego/failure fixture changed.
+* Verification on `3deb042` plus uncommitted F006 changes:
+  `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true`
+  passed 31/31, zero skipped, exit 0 (run
+  `2026-10-10T05-49-52-386Z-6c616890-cfa1-4fca-8ab1-b4153d9d7bfc`).
+  Targeted ACS tests passed 18/18, exit 0 (run
+  `2026-10-10T05-47-51-401Z-8e20e6a7-c4b4-481d-a85a-a93bd191bb98`).
+  `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true`
+  passed with zero warnings/errors, exit 0 (run
+  `2026-10-10T05-50-54-873Z-4af2cf54-a43f-447c-a073-f808b2ab07be`).
+  `bash scripts/check-architecture.sh` passed, exit 0 (run
+  `2026-10-10T05-49-47-835Z-6e0d52a5-eadf-495e-ac64-121c910671a3`).
+* Runtime: `docker compose run --build --rm --no-deps --name
+  agentgate-f006-startup-ae2e76a9 acs-spike` passed, exit 0 (run
+  `2026-10-10T05-51-00-576Z-08d8f829-edf1-420c-8345-253571259be5`).
+  Native pre/post allow returns a result; pre-tool denial executes zero
+  delegates; post-tool denial executes one read and withholds its result.
+  No rollback or earlier pre-tool result is fabricated. Default native runtime
+  and OPA dispatcher remain in use; dependency-removal tests are preserved.
+* Cleanup: startup container completed under shell 516 and `--rm` removed it.
+  Tests removed their unique containers. No long-lived service or temporary
+  source directory was created. Raw verification reports and Docker caches
+  remain local and ignored; unrelated processes are untouched.
+* Publication: F005 push succeeded; no workflow run exists for that head.
+  CI is unverified. F006 remains uncommitted for independent review.
+* Blockers: independent evaluation gates F006 completion and F007 work.
+  Explicit approved mirror checks succeeded; default nuget.org TLS restriction
+  remains. No new architectural decision was needed.
+* Final `node -e` handoff validation passed, exit 0 (run
+  `2026-10-10T05-53-31-378Z-ca410c89-27be-47d3-859b-69a7a2841092`):
+  four Markdown files, 20 relative links, frontmatter, whitespace, unchanged
+  locks, feature states, completed reports, native intervention output,
+  default runtime path and owned-container cleanup. Clean-state checklist
+  completed for handoff; evaluation and publication remain pending.
+* Next step: open a fresh session in this checkout and run
+  `/feature-evaluator Evaluate F006 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+* F006 subsequently passed independent evaluation (average 4.8, minimum 4).
+  Publication exact tests passed 31/31, zero skipped, exit 0 (run
+  `2026-10-10T06-07-03-772Z-d47c6c97-ec41-46d1-a9bb-965108a554d2`).
+  Architecture passed, exit 0 (run
+  `2026-10-10T06-06-58-821Z-596a0971-178d-4b5f-8ba1-3327e384b315`).
+  Reviewed `3deb042` with evaluated F006 changes; only evidence/status docs
+  followed. Ready for authorized signed publication.
+
 ## Built
 
 ### Foundation (Issue #1, merged in PR #27)
@@ -214,7 +275,7 @@ before milestone M0.
 
 ## In progress
 
-### Native ACS Linux spike (Issue #2)
+### Native ACS Linux spike (Issue #2, F006 active)
 
 * F001 provides a runnable .NET 10 Linux x64 container scaffold.
 * F002 adds a repeatable command for locked restore, container smoke, and
@@ -226,6 +287,8 @@ before milestone M0.
   It passed independent evaluation.
 * F005 verifies native failure paths in disposable Linux containers.
   It passed independent evaluation (average 4.8, minimum 4).
+* F006 verifies native pre/post allow and denial, including withholding an
+  executed read's rejected result. It remains active pending evaluation.
 * See the [issue #2 feature evidence](./features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md).
 
 ## Planned
