@@ -139,12 +139,9 @@ final link and whitespace checks were repeated before commit.
 
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
-* The ACS spike is isolated synthetic evidence, not a Gateway authorization
-  boundary. F005 failure coverage passed independent evaluation; the remaining
-  issue #2 criteria are not yet complete. F006 intervention coverage is verified
-  locally and passed independent evaluation. F007 offline packaging passed
-  independent evaluation and is published. F008 documentation passed local
-  verification and independent review; F009 passed independent review.
+* Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
+  is isolated synthetic evidence, not a Gateway authorization boundary; it
+  does not implement production authorization, identity, or ticket operations.
 * This network rejected nuget.org TLS during the container build. Local native
   tests used the explicit approved `ACS_NUGET_SOURCE` mirror override, without
   changing locked hashes or disabling TLS. Docker is now required for solution
@@ -154,7 +151,7 @@ final link and whitespace checks were repeated before commit.
 * `docs-check.yml` only warns, and does not fail, when code changes without a
   `docs/progress.md` update.
 
-## F005 evaluator and publication handoff
+## F005 evaluator and publication handoff (historical)
 
 Replace this section at the end of every session so the next one can pick up
 where you left off.
@@ -163,7 +160,7 @@ where you left off.
 * Accomplished: independently evaluated F005 PASS (average 4.8, minimum 4)
   against `21d8d49c6b04d2918c6307e27997cbebbb174a1c` plus its uncommitted
   changes, recorded its verification evidence, and updated the checklist.
-  F001-F005 are pass; F006-F009 remain not-started.
+  At that handoff, F001-F005 had passed and F006-F009 had not started.
 * Files modified: spike program, two failure YAML fixtures, native tests/shared
   container helper, README, architecture, both progress logs and ignored
   checklist. No lockfile or existing normal manifest/Rego fixture changed.
@@ -384,14 +381,13 @@ where you left off.
   unchanged. Editor diagnostics found no errors; clean-state checklist is
   complete for handoff, with evaluation and publication pending.
 
-## F009 implementation handoff
+## F009 implementation and publication record
 
 * Date: 2026-10-10
-* Accomplished: recorded F008 independent PASS (average 5.0, minimum 5),
-  signed/pushed `f64c72729e6f337e62e5b24e34f1157dde07133f`, confirmed matching
-  origin and clean tree, then implemented and verified F009.
-* Status: F001-F008 pass; F009 active pending fresh-session evaluation.
-  Issue #2 is not complete until that gate and publication finish.
+* Accomplished: implemented and verified F009, recorded the independent
+  evaluator PASS (average 5.0, minimum 5), then signed and published the
+  feature and its handoff documentation.
+* Status: F001-F009 pass; issue #2 is complete. PR #29 is open for review.
 * Files modified: native tests, README, architecture, both progress logs and
   ignored feature checklist. Runtime, images and lockfiles unchanged.
 * Verification on `f64c727` plus uncommitted F009 changes:
@@ -415,15 +411,15 @@ where you left off.
   to test-only changes. Existing cleanup removes owned containers.
   No long-lived service or temporary source file created. Keep local ignored
   reports, rubric and Docker caches; unrelated processes untouched.
-* Publication: F008 push succeeded. Exact-head CI has no run and is unverified.
-  Five tracked F009 test/documentation files remain uncommitted.
-* Blockers: independent evaluation gates F009 completion and publication.
-  Explicit approved NuGet mirror succeeded; default TLS restriction remains.
-  No failed or incomplete implementation check; only evidence notes followed.
+* Publication: the F009 implementation and evidence are published. PR #29
+  tracks the branch; review checks should be assessed on the latest PR head.
+* Blockers: none for issue #2. The default NuGet source's TLS restriction
+  remains environment-specific; verification succeeded with the documented
+  approved mirror and unchanged locked hashes.
 * Decisions: no new architectural decision; assertion mutation avoids adding
   unsafe bypass behavior to the spike.
-* Next step: open a fresh session in this checkout and run
-  `/feature-evaluator Evaluate F009 in slug willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging`.
+* Next step: review and merge PR #29 when its required checks and approvals
+  are satisfied.
 * Final handoff validation passed, exit 0 (run
   `2026-10-10T07-16-07-859Z-7f4347a9-5eaf-4192-8ba8-97fad01d578d`):
   four Markdown files, 34 links/anchors, unique handoffs, feature states,
@@ -435,11 +431,11 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-10
-* Accomplished: a separate fresh-context evaluator reviewed F009 and recorded
-  PASS (average 5.0, minimum 5), no required fixes. All nine issue #2 features
-  now pass. Only status/evidence notes followed evaluation.
-* Reviewed revision: `f64c72729e6f337e62e5b24e34f1157dde07133f` plus five
-  uncommitted test/documentation files. Runtime, images and locks unchanged.
+* Accomplished: resolved the valid PR review comment about stale issue #2
+  completion statements. All nine features passed independent evaluation;
+  the final PR update corrects the contradictory milestone summary.
+* Reviewed revision: `4fe0124c8648492330a6134599dedadc20d1f493` plus the
+  focused progress-document correction. Runtime, images and locks unchanged.
 * Exact verification: `dotnet test AgentGateLab.sln --no-restore
   --property:SkipClientBuild=true` passed 43/43, zero skipped, exit 0 (run
   `2026-10-10T07-20-24-793Z-7e0478a4-e98a-4a27-a901-3a68a70a318d`).
@@ -451,19 +447,19 @@ where you left off.
 * Cleanup: native/offline startup passed in tests; separate service startup
   not applicable. No owned containers remain, no long-lived service or
   temporary source artifact created. Local reports/caches retained.
-* Blockers: none for publication. Default NuGet TLS restriction persists;
-  explicit approved mirror verification succeeded, dependency locks preserved.
-* Publication: signed F009 commit `17f0cc33662532f55acbbc707665127c3fbfa8ff`
-  pushed successfully; origin matched and tree was clean. Exact-head
-  `gh run list` returned no runs; CI is unverified, not green.
-  Only this publication handoff follows in a documentation commit.
-* Next action: feature sequence complete. Review the published branch for a
-  future PR; no new architectural decision, PR creation or issue closure.
-* Publication prerequisite validation passed, exit 0 (run
-  `2026-10-10T07-27-07-850Z-b16bbe8c-6228-416a-b5aa-725777d38519`):
-  evaluator reports complete, all nine features pass, five scoped files,
-  35 relative links/anchors and unique handoffs. Clean-state checklist complete;
-  no source/test changes followed evaluation.
+* Blockers: none for the milestone. NuGet TLS remains restricted on this
+  network; explicit approved mirror verification succeeded with locks intact.
+* Publication: PR #29 targets `main`. After the initial docs-link fix, the
+  Docs check passed; the Build workflow was still running when last checked.
+  The PR reviewer identified this stale-status issue; checks must be refreshed
+  after the correction is pushed.
+* Validation: corrected milestone state, historical handoff labeling, relative
+  links and anchors passed (run
+  `2026-10-10T07-47-56-921Z-b0c651e7-1b22-43af-a426-6b12de471e01`, exit 0);
+  `git diff --check` passed. Documentation-only change; no service startup
+  applies, and no process or temporary source artifact was created.
+* Next action: verify PR #29 checks on the updated head and address any
+  remaining review feedback. No new architectural decision was required.
 
 ## Built
 
@@ -494,29 +490,22 @@ before milestone M0.
 * The [Harness Implementer](./harness-agent.md) works on one agreed feature
   and stops before independent evaluation.
 
-## In progress
+## Completed milestone
 
 ### Native ACS Linux spike (Issue #2, F001-F009 pass)
 
-* F001 provides a runnable .NET 10 Linux x64 container scaffold.
-* F002 adds a repeatable command for locked restore, container smoke, and
-  solution tests; its evaluator-PASS work is committed and pushed.
-* F003 adds real native ACS/OPA allow and deny fixtures, and four Linux
-  container integration tests. It passed independent evaluation.
-  The remaining acceptance criteria are not yet complete.
-* F004 verifies repeated-input stability, including a native target transform.
-  It passed independent evaluation.
-* F005 verifies native failure paths in disposable Linux containers.
-  It passed independent evaluation (average 4.8, minimum 4).
-* F006 verifies native pre/post allow and denial, including withholding an
-  executed read's rejected result. It passed independent evaluation and is
-  signed and pushed.
-* F007 verifies packaged runtime artifacts and native fixture evaluation
-  without network or mounts. Its full tests and independent evaluation passed.
-* F008 records verified packaging versions, paths and preview constraints.
-  Full tests, documentation verification and independent review passed.
-* F009 verifies no-execution assertion sensitivity using mutated copies of
-  native evidence. Full tests passed 43/43; independent review pending.
+* F001-F002 establish a runnable .NET 10 Linux x64 container spike and a
+  repeatable verification command.
+* F003-F004 prove native ACS/OPA allow and deny outcomes, stable repeated
+  decisions, and a transformed ticket target.
+* F005-F006 exercise dependency and policy failures, pre/post-tool checks, and
+  withholding a result when post-tool evaluation denies an already-run read.
+* F007 checks the packaged runtime works without network access or mounts.
+* F008 documents verified versions, Linux paths, artifact provenance and
+  preview limitations.
+* F009 proves execution-safety assertions fail when copied native evidence is
+  mutated. Its full tests passed 43/43 and independent evaluation passed
+  (average 5.0, minimum 5).
 * See the [issue #2 feature evidence](./features/willvelida-agentgate-lab-2-prove-native-acs-net-policy-evaluation-and-linux-packaging/agent-progress.md).
 
 ## Planned
