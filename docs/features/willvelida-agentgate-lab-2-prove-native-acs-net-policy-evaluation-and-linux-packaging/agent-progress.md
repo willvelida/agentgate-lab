@@ -20,7 +20,7 @@ ms.date: 2026-10-10
 | F002 | A documented command runs the containerized spike and its automated tests from a fresh clone after issue #1. | pass | `bash scripts/verify-acs-spike.sh` | Fresh-clone command restores the locked .NET and frontend dependencies, builds Portal assets, runs the Linux x64 container smoke, and passes all 13 solution tests. Independent evaluator PASS, average 5.0, minimum 5. | 2026-10-09 |
 | F003 | A permitted synthetic ticket-read fixture returns allow; an unpermitted or unknown-tool fixture returns deny and executes no guarded tool delegate. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.4, minimum 4. All 17 tests passed on evaluator and publication reruns. Allow executed once; both deny fixtures executed zero delegates. | 2026-10-09 |
 | F004 | Identical manifest and snapshot inputs produce the same decision, stable reason, action identity, and transformed target, excluding telemetry timings. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Evaluator and publication reruns passed 22/22. Three fresh runtimes per case returned identical stable results; native normalization rewrote the delegate's arguments. | 2026-10-10 |
-| F005 | Malformed manifests, missing required snapshot paths, missing native payload, unavailable OPA, and policy evaluation errors all block startup or explicitly deny execution. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
+| F005 | Malformed manifests, missing required snapshot paths, missing native payload, unavailable OPA, and policy evaluation errors all block startup or explicitly deny execution. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Exact verification passed 28/28 tests, zero skipped, and architecture check passed using the documented approved NuGet mirror. See F005 evidence and evaluator-rubric.md. | 2026-10-10 |
 | F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
 | F007 | The final image contains the required runtime artifacts and can evaluate fixtures without downloading dependencies at runtime. | not-started | TBD | Not yet implemented or verified | Not tested |
 | F008 | Versions, Linux architecture, native and OPA packaging, source-build steps if used, and preview limitations are documented. | not-started | TBD | Not yet implemented or verified | Not tested |
@@ -296,3 +296,95 @@ intervention points and transformed targets, with no telemetry timing fields.
   changes. The documented approved mirror was explicit; no TLS or hash bypass.
   Only status/evidence documentation changed after evaluation and reruns.
   F004 is pass and ready for authorized signed publication.
+
+## F005 implementation
+
+* F004 signed publication succeeded as
+  `21d8d49c6b04d2918c6307e27997cbebbb174a1c`; the tree was clean after push.
+  No workflow run exists for that head, so CI remains unverified.
+* F005 scope: malformed YAML, missing permission snapshot paths, missing native
+  Linux payload, missing OPA executable, and an undefined Rego query. Dependency
+  removal affects only a disposable test container, not the host or shared image.
+  Require explicit diagnostics and no guarded delegate execution.
+
+## F005 verification evidence
+
+Checks ran on 2026-10-10 against
+`21d8d49c6b04d2918c6307e27997cbebbb174a1c` plus uncommitted F005 changes.
+Container builds used the explicit approved `ACS_NUGET_SOURCE` mirror
+`https://packagefeedproxy.microsoft.io/nuget/v3/index.json`; locked hashes and
+TLS were preserved. No dependency lockfile changed.
+
+| Command or attempt | Result | Run ID |
+|--------------------|--------|--------|
+| Initial `dotnet test tests/AcsSpike.Tests/AcsSpike.Tests.csproj --no-restore --property:SkipClientBuild=true` | Failed, exit 1; 13 passed, 2 failed, zero skipped. Unverified expectations assumed a different YAML diagnostic and a runtime deny for missing OPA. | `2026-10-10T02-53-43-806Z-c8e19ed4-7e4d-42c7-8902-fb73e322d885` |
+| Malformed-manifest container diagnostic probe | Failed as expected, exit 1; native `manifest_parse_error`, validator `valid:false` | `2026-10-10T02-54-58-507Z-9521a0ee-1492-4469-932e-2f9948d87a3b` |
+| Missing-OPA container diagnostic probe | Failed as expected, exit 1; native `opa_execution_error`, validator `valid:false` | `2026-10-10T02-54-58-549Z-86e03535-351a-41d9-a0fb-c28a54847694` |
+| Undefined-query container probe | Passed, exit 0; native `deny` / `runtime_error:policy_invocation_failed`, zero delegates | `2026-10-10T02-55-47-495Z-4b559e1f-66e5-48f7-8160-51493ecacfc3` |
+| `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 28 tests (13 Portal, 15 ACS), zero failed/skipped | `2026-10-10T02-57-03-617Z-127d58e1-2c25-40ab-917b-0a216380e668` |
+| `bash scripts/check-architecture.sh` | Passed, exit 0 | `2026-10-10T02-56-59-984Z-ba62968b-c2c9-431e-bfbf-1891c6143fa2` |
+| `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; zero warnings/errors | `2026-10-10T02-58-07-320Z-8c677711-26f5-4140-9b6f-3e73a85f0ff9` |
+| `docker compose run --build --rm --no-deps --name agentgate-f005-startup-ae2e76a9 acs-spike` | Passed, exit 0; native validator, normal allow/deny and repeated transform outputs preserved | `2026-10-10T02-58-11-351Z-085c053c-416d-46ff-8243-323b3c0cbbe9` |
+
+The tests now assert actual native diagnostics, not a generic nonzero Docker
+exit. Missing native payload produces `DllNotFoundException` during startup.
+Missing OPA and malformed YAML produce structured invalid-artifact diagnostics.
+Missing `task` or `task.ticketReadPermitted` denies with
+`ticket_read_not_permitted`. An undefined verdict query passes artifact
+validation but native invocation denies with `runtime_error:policy_invocation_failed`.
+All denial results report zero delegates and no post-tool evaluation.
+Startup tests require the specific error and absence of the delegate execution
+marker. The test harness removes dependencies only in disposable containers.
+No verification command was weakened, skipped, or changed.
+
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: published evaluator-PASS F004 as signed commit
+  `21d8d49c6b04d2918c6307e27997cbebbb174a1c`, confirmed matching origin head
+  and clean tree, then implemented and verified F005.
+* Status: F001-F005 pass; F006-F009 remain not-started.
+* Files modified: spike program, two failure YAML fixtures, shared container
+  test helper and six failure tests, README, architecture, both progress logs,
+  and ignored local checklist. Existing normal fixtures and lockfiles are unchanged.
+* Verification: exact tests, zero-warning build, architecture and normal native
+  startup passed as recorded above. Initial incorrect diagnostic assumptions
+  and expected nonzero probes remain explicitly recorded. Only documentation
+  and checklist evidence changed after the successful implementation checks.
+  Final `node -e` documentation/evidence validation passed, exit 0 (run
+  `2026-10-10T03-01-07-275Z-f54fff8a-0339-4197-970b-3aa218889edc`):
+  four Markdown files, 20 relative links, frontmatter, whitespace, unchanged
+  lockfiles, feature states, completed reports and normal native output.
+  Editor diagnostics found no errors. Clean-state checklist completed for
+  handoff, with evaluation and publication intentionally pending.
+* Cleanup: tests removed uniquely named `agentgate-f003-<guid>` containers.
+  Probes `agentgate-f005-malformed-probe`, `agentgate-f005-opa-probe`, and
+  `agentgate-f005-query-probe` (shells 472-474), and normal startup
+  `agentgate-f005-startup-ae2e76a9` (shell 479) exited and `--rm` removed them.
+  A final container listing found no matching containers. No long-running
+  service or temporary source directory was created. Raw verification reports
+  and Docker caches are retained; unrelated processes are untouched.
+* Publication: F004 push succeeded. No workflow run exists for that exact head;
+  CI remains unverified. F005 changes remain uncommitted.
+* Blockers: no blocker for F005. The default nuget.org network restriction
+  remains; the documented approved mirror passed verification. No new
+  architectural decision was needed.
+* Next action: complete the authorized F005 publication workflow before
+  starting F006.
+* 2026-10-10: F005 evaluator verdict PASS (avg 4.8, min 4). See evaluator-rubric.md.
+
+## F005 publication checks
+
+* Independent evaluator PASS covers `21d8d49` plus uncommitted F005 changes.
+  Exact evaluator tests passed 28/28, zero skipped, exit 0 (run
+  `2026-10-10T03-25-20-243Z-a4ceb236-d130-4239-8913-9ec8fe9eb4f9`);
+  architecture passed, exit 0 (run
+  `2026-10-10T03-22-57-341Z-e0c0c850-a909-40b3-a2af-01555a929c3e`).
+* Publication rerun: `dotnet test AgentGateLab.sln --no-restore
+  --property:SkipClientBuild=true` passed 28/28, zero skipped, exit 0 (run
+  `2026-10-10T05-42-30-981Z-d2a05497-753f-4b5c-b72a-2ad4e7daf609`);
+  `bash scripts/check-architecture.sh` passed, exit 0 (run
+  `2026-10-10T05-42-26-314Z-86e31e8e-f4e1-40da-96a1-2ac9643bc965`).
+  Reviewed `21d8d49` with the evaluated F005 changes; the approved NuGet mirror
+  was explicit and no lockfile or implementation changed after evaluation.
+* F005 is pass and ready for the authorized signed commit and push.

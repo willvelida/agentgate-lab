@@ -9,7 +9,20 @@ if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Arch
 }
 
 var fixtureDirectory = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-var manifestPath = Path.Combine(fixtureDirectory, "manifest.yaml");
+var failureFixture = args.Length == 2 && args[0] == "--failure-fixture" ? args[1] : null;
+if (args.Length != 0 && failureFixture is not
+    ("malformed-manifest" or "missing-task" or "missing-permission" or
+     "missing-native-payload" or "unavailable-opa" or "policy-evaluation-error"))
+{
+    Console.Error.WriteLine("Use no arguments or --failure-fixture with a documented fixture name.");
+    return 1;
+}
+var manifestPath = failureFixture switch
+{
+    "malformed-manifest" => Path.Combine(fixtureDirectory, "failures", "malformed.yaml"),
+    "policy-evaluation-error" => Path.Combine(fixtureDirectory, "failures", "undefined-query.yaml"),
+    _ => Path.Combine(fixtureDirectory, "manifest.yaml")
+};
 var policyPath = Path.Combine(fixtureDirectory, "policy", "ticket-read.rego");
 var validation = ArtifactValidator.Validate(
     File.ReadAllText(manifestPath),
@@ -21,6 +34,15 @@ if (!validation.Valid)
 }
 
 var control = AgentControl.FromPath(manifestPath);
+if (failureFixture is not null)
+{
+    var failureResult = await RunFixtureAsync(
+        control, new TicketFixture(failureFixture, "tickets.read", true),
+        failureFixture);
+    Console.WriteLine(JsonSerializer.Serialize(failureResult,
+        new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    return 0;
+}
 var results = new List<FixtureResult>();
 var ticketFixtures = new[]
 {
@@ -56,7 +78,8 @@ Console.WriteLine(JsonSerializer.Serialize(new
 }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 return 0;
 
-static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFixture fixture)
+static async Task<FixtureResult> RunFixtureAsync(
+    AgentControl control, TicketFixture fixture, string? failureFixture = null)
 {
     var executions = 0;
     var args = new { ticketId = fixture.TicketId };
@@ -65,6 +88,14 @@ static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFix
     {
         ["task"] = new { ticketReadPermitted = fixture.Permitted }
     };
+    if (failureFixture == "missing-task")
+    {
+        snapshot.Remove("task");
+    }
+    else if (failureFixture == "missing-permission")
+    {
+        snapshot["task"] = new { };
+    }
     try
     {
         var result = await control.RunToolAsync(
@@ -73,6 +104,10 @@ static async Task<FixtureResult> RunFixtureAsync(AgentControl control, TicketFix
             (effectiveArgs, _) =>
             {
                 executions++;
+                if (failureFixture is not null)
+                {
+                    Console.Error.WriteLine("ACS_SPIKE_DELEGATE_EXECUTED");
+                }
                 delegateTicketId = effectiveArgs.ticketId;
                 return ValueTask.FromResult(new { ticketId = effectiveArgs.ticketId, title = "Synthetic ticket" });
             },

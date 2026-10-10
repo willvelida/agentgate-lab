@@ -86,6 +86,25 @@ compare all these stable fields, not telemetry timings. The pinned runtime
 rejects unknown tools before policy evaluation and returns no action identity;
 that absence must also remain stable rather than inventing a synthetic identity.
 
+Failure fixtures run individually with `--failure-fixture <name>`:
+
+| Name | Expected native outcome |
+|------|-------------------------|
+| `malformed-manifest` | Startup exits nonzero with `manifest_parse_error` |
+| `missing-task`, `missing-permission` | Missing snapshot path denies with `ticket_read_not_permitted` |
+| `policy-evaluation-error` | An undefined Rego verdict query denies with `runtime_error:policy_invocation_failed` |
+| `missing-native-payload` | Startup exits nonzero with `DllNotFoundException` after the test removes the Linux x64 payload |
+| `unavailable-opa` | Startup validation exits nonzero with `opa_execution_error` after the test removes OPA |
+
+For example, `docker compose run --rm acs-spike --failure-fixture missing-task`
+reports a native deny and zero delegate executions. The dependency-removal
+cases require the test harness: it removes one dependency only inside a
+disposable container, then starts the same spike. Running those names alone
+does not remove dependencies. Tests assert explicit failure diagnostics or
+native denial and no delegate execution. An undefined query passes artifact
+validation but fails native policy invocation; it is not an ordinary policy deny.
+These tests do not change the host, the shared image, or the default fixture run.
+
 The SDK is `AgentControlSpecification` 0.3.1-beta.1 (MIT), with its bundled
 `libagent_control_specification_core.so` Linux x64 payload and manifest schema
 `0.3.1-beta`. Package metadata identifies upstream revision

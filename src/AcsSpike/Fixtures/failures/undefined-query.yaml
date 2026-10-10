@@ -1,0 +1,26 @@
+agent_control_specification_version: 0.3.1-beta
+metadata:
+  name: agentgate-undefined-policy-query
+policies:
+  ticket_read:
+    type: rego
+    bundle: ../policy
+    query: data.agentgate.ticket_read.no_such_verdict
+intervention_points:
+  pre_tool_call:
+    policy_target: $.tool_call.args
+    policy_target_kind: tool_args
+    tool_name_from: $.tool_call.name
+    policy:
+      id: ticket_read
+  post_tool_call:
+    policy_target: $.tool_result
+    policy_target_kind: tool_result
+    tool_name_from: $.tool_call.name
+    policy:
+      id: ticket_read
+      query: data.agentgate.ticket_read.post_tool_verdict
+tools:
+  tickets.read:
+    type: Tool
+    id: tickets.read

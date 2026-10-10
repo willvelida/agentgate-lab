@@ -74,6 +74,11 @@ The solution file is `AgentGateLab.sln`.
   stable verdict, action identity and transformed-target evidence. An original
   normalization fixture exercises a non-null native transform and passes the
   rewritten ticket ID to the delegate.
+* Isolated failure fixtures cover malformed manifests, missing permission
+  snapshot paths, unavailable native/OPA dependencies, and an undefined policy
+  query. The native validator blocks startup or the runtime explicitly denies;
+  tests require no guarded delegate execution. Dependencies are removed only
+  inside disposable test containers.
 * This is an isolated spike, not Gateway authorization or real task grants.
 
 ### Tests
@@ -83,7 +88,8 @@ The solution file is `AgentGateLab.sln`.
 * No Gateway or AgentWorker tests exist yet.
 * `tests/AcsSpike.Tests` builds and runs the Linux spike through Docker Compose.
   These tests require Docker, verify native allow/deny reasons and delegate
-  counts, repeated-input stability and target transformation, and fail if the
+  counts, repeated-input stability, target transformation, and failure paths.
+  They fail if the
   container cannot evaluate its fixtures.
 
 ## Planned target architecture

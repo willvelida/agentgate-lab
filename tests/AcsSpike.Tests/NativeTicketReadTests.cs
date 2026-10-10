@@ -103,6 +103,49 @@ public sealed class NativeTicketReadTests(SpikeContainerFixture container) : ICl
             Assert.Equal(1, attempt.GetProperty("delegateExecutions").GetInt32());
         }
     }
+
+    [Theory]
+    [InlineData("missing-task", "ticket_read_not_permitted")]
+    [InlineData("missing-permission", "ticket_read_not_permitted")]
+    [InlineData("policy-evaluation-error", "runtime_error:policy_invocation_failed")]
+    public async Task GivenFailureFixture_WhenGuardedToolRuns_NativeDenialPreventsExecution(
+        string name, string reason)
+    {
+        var run = await container.RunFailureAsync(name);
+        Assert.True(run.ExitCode == 0, $"Failure fixture exited {run.ExitCode}.\n{run.Output}\n{run.Error}");
+        Assert.DoesNotContain("ACS_SPIKE_DELEGATE_EXECUTED", run.Error);
+        using var document = JsonDocument.Parse(run.Output.Trim());
+        var result = document.RootElement;
+        Assert.Equal("deny", result.GetProperty("decision").GetString());
+        Assert.Equal(reason, result.GetProperty("reason").GetString());
+        Assert.Equal("deny", result.GetProperty("preToolEvaluation").GetProperty("decision").GetString());
+        Assert.Equal(reason, result.GetProperty("preToolEvaluation").GetProperty("reason").GetString());
+        Assert.Equal(0, result.GetProperty("delegateExecutions").GetInt32());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("postToolEvaluation").ValueKind);
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("delegateTicketId").ValueKind);
+    }
+
+    [Theory]
+    [InlineData("malformed-manifest", "manifest_parse_error")]
+    [InlineData("missing-native-payload", "DllNotFoundException")]
+    [InlineData("unavailable-opa", "opa_execution_error")]
+    public async Task GivenInvalidStartupDependency_WhenContainerStarts_ExplicitFailurePreventsExecution(
+        string name, string diagnostic)
+    {
+        var run = await container.RunFailureAsync(name);
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains(diagnostic, run.Error);
+        Assert.DoesNotContain("ACS_SPIKE_DELEGATE_EXECUTED", run.Error);
+        Assert.DoesNotContain("\"delegateExecutions\":1", run.Output);
+        Assert.DoesNotContain("\"runtime\":", run.Output);
+        if (name != "missing-native-payload")
+        {
+            using var document = JsonDocument.Parse(run.Error.Trim());
+            Assert.False(document.RootElement.GetProperty("valid").GetBoolean());
+            var error = Assert.Single(document.RootElement.GetProperty("diagnostics").EnumerateArray());
+            Assert.Equal(diagnostic, error.GetProperty("code").GetString());
+        }
+    }
 }
 
 public sealed class SpikeContainerFixture : IAsyncLifetime
@@ -112,6 +155,47 @@ public sealed class SpikeContainerFixture : IAsyncLifetime
     public JsonElement Result { get; private set; }
 
     public async Task InitializeAsync()
+    {
+        var run = await RunDockerAsync(new[]
+        {
+            "compose", "run", "--build", "--rm", "--no-deps", "--name", _containerName, "acs-spike"
+        });
+        Assert.True(run.ExitCode == 0, $"Linux ACS container exited {run.ExitCode}.\n{run.Output}\n{run.Error}");
+        var resultLine = run.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Last(line => line.TrimStart().StartsWith('{'));
+        using var document = JsonDocument.Parse(resultLine);
+        Result = document.RootElement.Clone();
+    }
+
+    public async Task<ContainerRun> RunFailureAsync(string name)
+    {
+        var arguments = new List<string>
+        {
+            "compose", "run", "--rm", "--no-deps", "--name", _containerName
+        };
+        if (name is "missing-native-payload" or "unavailable-opa")
+        {
+            arguments.AddRange(["--entrypoint", "/bin/sh", "acs-spike", "-c"]);
+            var dependency = name == "missing-native-payload"
+                ? "/app/runtimes/linux-x64/native/libagent_control_specification_core.so"
+                : "/usr/local/bin/opa";
+            arguments.Add($"set -eu; test -f {dependency}; rm {dependency}; exec dotnet AcsSpike.dll --failure-fixture {name}");
+        }
+        else
+        {
+            arguments.AddRange(["acs-spike", "--failure-fixture", name]);
+        }
+        try
+        {
+            return await RunDockerAsync(arguments);
+        }
+        finally
+        {
+            await DisposeAsync();
+        }
+    }
+
+    private static async Task<ContainerRun> RunDockerAsync(IEnumerable<string> arguments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AgentGateLab.sln")))
@@ -127,10 +211,7 @@ public sealed class SpikeContainerFixture : IAsyncLifetime
             RedirectStandardError = true,
             UseShellExecute = false
         };
-        foreach (var argument in new[]
-        {
-            "compose", "run", "--build", "--rm", "--no-deps", "--name", _containerName, "acs-spike"
-        })
+        foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
         }
@@ -146,16 +227,15 @@ public sealed class SpikeContainerFixture : IAsyncLifetime
         catch (OperationCanceledException)
         {
             process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
             throw new TimeoutException("The Linux ACS container did not complete within ten minutes.");
         }
         var output = await stdout;
         var errors = await stderr;
-        Assert.True(process.ExitCode == 0, $"Linux ACS container exited {process.ExitCode}.\n{output}\n{errors}");
-        var resultLine = output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Last(line => line.TrimStart().StartsWith('{'));
-        using var document = JsonDocument.Parse(resultLine);
-        Result = document.RootElement.Clone();
+        return new ContainerRun(process.ExitCode, output, errors);
     }
+
+    public sealed record ContainerRun(int ExitCode, string Output, string Error);
 
     public async Task DisposeAsync()
     {
