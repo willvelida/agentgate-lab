@@ -1,7 +1,7 @@
 ---
 title: AgentGate Lab
 description: A credential-free repository foundation for an Entra Agent ID and ACS authorization gateway.
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Overview
@@ -23,10 +23,12 @@ publishes the React assets from the same origin.
 ```text
 src/
   AgentWorker/       Future agent job host
+  AcsSpike/          Linux x64 native ACS ticket-read fixtures
   Client/            React + TypeScript + Vite frontend
   Gateway/           Future private authorization gateway
   Portal/            ASP.NET Core BFF and published frontend host
 tests/
+  AcsSpike.Tests/    Native ACS container integration tests
   Portal.Tests/      Portal host smoke tests
 docs/                Research, design, threat model, and acceptance criteria
 ```
@@ -52,6 +54,177 @@ single dev container provides the .NET 10 SDK and Node.js 24, restores the
 locked .NET dependencies, and installs the frontend dependencies at creation.
 The Portal uses port 5031, the Gateway uses port 5077, and Vite uses port
 5173.
+
+## Native ACS Linux spike
+
+Build and run the .NET 10 spike from Windows using Docker Desktop with Linux
+containers enabled:
+
+```sh
+docker compose run --build --rm acs-spike
+```
+
+The service is constrained to Linux x64 and exits with an error on a different
+operating system or architecture. It validates the original manifest and Rego
+fixtures with the pinned ACS validator, then uses `AgentControl.FromPath` and
+`RunToolAsync` with the native runtime and bundled OPA dispatcher. No custom
+runtime or dispatcher is supplied.
+
+The JSON output reports three synthetic fixtures: a permitted `tickets.read`
+allows and executes its delegate once; an unpermitted read and an unknown
+`tickets.delete` deny and execute no delegate. The successful read also passes
+the post-tool policy. These fixture facts are not real identity or task grants,
+and this isolated spike does not protect the Gateway.
+
+The `determinism` array repeats each fixture three times, reloading the same
+manifest into a fresh native runtime each time with identical snapshot and
+tool-call inputs. A fourth case normalizes `syn-001` to `SYN-001` through a
+native Rego transform. Its guarded delegate receives the transformed arguments.
+Each attempt reports native pre-tool and post-tool decision, reason, action
+identity, transformed target, and whether the transform was applied. The tests
+compare all these stable fields, not telemetry timings. The pinned runtime
+rejects unknown tools before policy evaluation and returns no action identity;
+that absence must also remain stable rather than inventing a synthetic identity.
+
+Failure fixtures run individually with `--failure-fixture <name>`:
+
+| Name | Expected native outcome |
+|------|-------------------------|
+| `malformed-manifest` | Startup exits nonzero with `manifest_parse_error` |
+| `missing-task`, `missing-permission` | Missing snapshot path denies with `ticket_read_not_permitted` |
+| `policy-evaluation-error` | An undefined Rego verdict query denies with `runtime_error:policy_invocation_failed` |
+| `missing-native-payload` | Startup exits nonzero with `DllNotFoundException` after the test removes the Linux x64 payload |
+| `unavailable-opa` | Startup validation exits nonzero with `opa_execution_error` after the test removes OPA |
+
+For example, `docker compose run --rm acs-spike --failure-fixture missing-task`
+reports a native deny and zero delegate executions. The dependency-removal
+cases require the test harness: it removes one dependency only inside a
+disposable container, then starts the same spike. Running those names alone
+does not remove dependencies. Tests assert explicit failure diagnostics or
+native denial and no delegate execution. An undefined query passes artifact
+validation but fails native policy invocation; it is not an ordinary policy deny.
+These tests do not change the host, the shared image, or the default fixture run.
+
+Assertion-sensitivity tests also check that the integration suite would reject
+execution evidence after a pre-tool denial or startup dependency failure.
+They first require genuine native denied/startup-failure output, then alter a
+copy: five denied cases get a delegate count of one; three startup failures get
+an execution marker in stdout and stderr separately. The shared no-execution
+assertions must throw for each altered copy. These are assertion mutations, not
+an injected runtime bypass or a substitute policy engine. Normal native tests
+still require zero delegates, no post-tool evaluation, no returned result and
+no execution marker. A native post-tool denial is different: the read has
+already executed once, and its result is withheld.
+
+The default output also includes `interventionChecks`: pre/post allow returns
+the read result, pre-tool deny prevents execution, and `post-denied-read`
+allows execution but rejects an unapproved result title with
+`ticket_result_not_permitted`. `resultReturned` distinguishes a completed
+`RunToolAsync` call from a blocked one; `blockedInterventionPoint` identifies
+the SDK's blocking stage. A post-tool denial reports one delegate execution
+and withholds its result. It is not rollback or authorization before a write.
+The SDK exception exposes only the blocking result, so `preToolEvaluation`
+is null for that post-tool denial rather than reconstructed.
+
+The spike supplies no custom runtime or policy dispatcher. Tests assert native
+policy-specific pre/post outcomes and fail explicitly when the packaged native
+library or OPA is removed. The `engine` label alone is not evidence of native
+execution. This remains an isolated synthetic read, not Gateway enforcement.
+
+The SDK is `AgentControlSpecification` 0.3.1-beta.1 (MIT), with its bundled
+`libagent_control_specification_core.so` Linux x64 payload and manifest schema
+`0.3.1-beta`. Package metadata identifies upstream revision
+`c57d9d9a4849556a3c5347d359012d7a85bc3dfb`. The package lockfile pins its
+content hash. The native payload SHA-256 is
+`2deb429ec7bf5ea902e23717b1e991ad3b78a22a5ebcd26ca0682d5d2c424839`.
+OPA 1.4.2 uses the Linux amd64 static binary, checked during the image build
+against SHA-256
+`2c0ccdbbe0b8e2a5d12d9c42d92f1f34f494ffb32d1f3c4ddc36101be637d66f`.
+The final image includes upstream license texts under `/app/notices`.
+These are preview artifacts, not a production authorization boundary.
+
+### Verified packaging configuration
+
+| Component | Configuration | Source of truth |
+|-----------|---------------|-----------------|
+| Spike framework | .NET 10 (`net10.0`) | [AcsSpike.csproj](./src/AcsSpike/AcsSpike.csproj) |
+| Host SDK baseline | 10.0.101, `latestFeature` roll-forward, no prerelease SDK | [global.json](./global.json) |
+| Container build/runtime | `sdk:10.0-noble` / `runtime:10.0-noble` | [Dockerfile](./Dockerfile) |
+| Supported spike platform | Linux x64 (`linux/amd64` in Compose) | [compose.yaml](./compose.yaml), [startup guard](./src/AcsSpike/Program.cs) |
+| Managed ACS SDK | `AgentControlSpecification` 0.3.1-beta.1 | [project](./src/AcsSpike/AcsSpike.csproj), [package lock](./src/AcsSpike/packages.lock.json) |
+| Manifest schema | `0.3.1-beta` | [manifest.yaml](./src/AcsSpike/Fixtures/manifest.yaml) |
+| Native ACS payload | NuGet's Linux x64 `.so`, published to `/app/runtimes/linux-x64/native/libagent_control_specification_core.so` | [container integration tests](./tests/AcsSpike.Tests/NativeTicketReadTests.cs) |
+| Policy executable | OPA 1.4.2 Linux amd64 static, `/usr/local/bin/opa` | [Dockerfile](./Dockerfile) |
+| Policy configuration | `/app/Fixtures/manifest.yaml` and `/app/Fixtures/policy/ticket-read.rego` | [spike project](./src/AcsSpike/AcsSpike.csproj) |
+| Upstream notices | `/app/notices/ACS-LICENSE` and `/app/notices/OPA-LICENSE` | [Dockerfile](./Dockerfile) |
+
+The Docker base tags are mutable, not digest-pinned. The observed runtime was
+.NET 10.0.12; later builds can resolve a newer patch. That observation is not an
+exact runtime pin. ACS package content and the downloaded OPA binary are pinned
+separately as described above.
+
+No ACS or OPA source build is used. The image restores the published NuGet
+package with `--locked-mode`, publishes the managed app and bundled native
+payload with `--no-restore`, and copies the checksum-verified upstream OPA
+release binary into the final runtime stage. `ACS_OPA_PATH` points the default
+dispatcher at that executable. License downloads are also checksum-verified.
+There are no Rust or Go build steps to reproduce for this configuration.
+Changing package, schema, native payload or OPA versions requires new locked
+restore, compatibility and container evidence; mixing preview versions is not
+validated by this spike.
+
+### Preview and platform limits
+
+* Windows is the development host, not a supported native execution target for
+  this spike. Docker Desktop must use Linux containers. Startup rejects Windows
+  and non-x64 processes; Linux arm64, Alpine/musl and other base distributions
+  are not verified by these tests.
+* These synthetic fixtures demonstrate native validation, policy invocation,
+  argument transformation and pre/post checks for the pinned configuration.
+  They do not certify arbitrary policies, upgrades, or production suitability.
+* The preview SDK exposes only the blocking result on a denied call. A post-tool
+  denial withholds the result after execution; it does not undo side effects.
+* Authentication, Entra Agent ID integration, real task grants, approvals and
+  Gateway ticket authorization remain unimplemented. Fixture snapshots and
+  successful native evaluation are not a security boundary.
+
+### Offline runtime verification
+
+The offline-image test resolves the built image to its immutable ID and creates
+a container with `--pull never`, `--network none`, and no mounts. It checks the
+managed application and SDK, manifest, Rego, license texts, native library hash,
+and executable OPA hash before invoking the same spike. All native validation,
+fixture, determinism and intervention results must match the normal run, and
+the container must exit successfully. The test removes only its owned container.
+Build-time restore and pinned downloads still require network access; runtime
+evaluation does not download dependencies.
+
+After building the image, you can also run its normal entrypoint offline from
+PowerShell:
+
+```powershell
+$image = docker compose config --images
+docker run --pull never --network none --rm $image
+```
+
+The container build uses nuget.org by default. If your network requires an
+approved NuGet mirror, set `ACS_NUGET_SOURCE` to its service-index URL before
+running Compose or the tests. The override remains subject to locked restore
+and content-hash validation; TLS validation is not disabled. Do not put feed
+credentials in this variable or in build arguments.
+
+To restore dependencies, run the Linux container smoke, and execute the .NET
+solution tests from a fresh clone, use Bash, the .NET 10 SDK, Node.js 24.15.0
+or later within Node 24, npm 11, and Docker with Linux containers enabled:
+
+```sh
+bash scripts/verify-acs-spike.sh
+```
+
+The script restores locked dependencies, installs the locked frontend
+packages, builds the Portal assets required by its tests, builds and runs the
+container, then runs `dotnet test` for the solution. It does not require Azure
+credentials or start a long-running service.
 
 ## Restore and build
 
@@ -101,7 +274,9 @@ dotnet run --project src/AgentWorker/AgentWorker.csproj
 
 ## Test and publish
 
-Run the .NET smoke tests:
+Run the .NET smoke and native ACS integration tests with Docker and Linux
+containers available. The ACS tests build and run the real container, validate
+its fixture decisions and delegate counts, and remove their named container:
 
 ```sh
 dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true

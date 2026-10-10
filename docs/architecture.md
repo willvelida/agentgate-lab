@@ -1,7 +1,7 @@
 ---
 title: Architecture
 description: What exists in agentgate-lab today, how it is organized, and where the planned design lives
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Purpose
@@ -10,7 +10,8 @@ agentgate-lab will become an authorization gateway. It lets an AI agent act
 for a user only through short-lived, one-use tickets that the user has approved.
 Right now the repository holds the foundation only. No authentication,
 Agent Control Specification (ACS) enforcement, grant, approval, or ticket
-logic exists yet.
+logic exists in the application services yet. The isolated ACS spike evaluates
+synthetic fixtures but does not protect those services.
 
 This page separates what is **implemented** (verified against code) from what
 is **planned** (described in design docs only).
@@ -23,6 +24,8 @@ is **planned** (described in design docs only).
 | Client      | `src/Client`       | React + Vite single-page app | Foundation |
 | Gateway     | `src/Gateway`      | ASP.NET Core minimal API     | Foundation |
 | AgentWorker | `src/AgentWorker`  | .NET generic host worker     | Foundation |
+| AcsSpike    | `src/AcsSpike`     | .NET 10 console spike        | Native fixtures |
+| ACS tests   | `tests/AcsSpike.Tests` | xUnit container integration | Allow/deny |
 | Tests       | `tests/Portal.Tests` | xUnit host tests for Portal | Smoke only |
 
 The solution file is `AgentGateLab.sln`.
@@ -58,11 +61,54 @@ The solution file is `AgentGateLab.sln`.
 * Runs a background service that logs one message and waits. It does no
   agent work.
 
+### ACS spike
+
+* `src/AcsSpike` runs in a Linux x64 container through Docker Compose.
+* It validates its original manifest and Rego policy through the pinned
+  native ACS artifact validator.
+* The official .NET SDK loads its Linux x64 native payload and dispatches Rego
+  to packaged OPA. `RunToolAsync` enforces pre-tool and post-tool verdicts.
+* A permitted synthetic read executes once. Unpermitted reads and unknown
+  tools deny without running a guarded delegate.
+* Repeated fixture inputs reload the native runtime three times and expose
+  stable verdict, action identity and transformed-target evidence. An original
+  normalization fixture exercises a non-null native transform and passes the
+  rewritten ticket ID to the delegate.
+* Isolated failure fixtures cover malformed manifests, missing permission
+  snapshot paths, unavailable native/OPA dependencies, and an undefined policy
+  query. The native validator blocks startup or the runtime explicitly denies;
+  tests require no guarded delegate execution. Dependencies are removed only
+  inside disposable test containers.
+* This is an isolated spike, not Gateway authorization or real task grants.
+* Native intervention evidence covers pre/post allow, pre-tool denial before
+  execution, and post-tool denial after an executed read. The latter withholds
+  the result, not the side effect; no rollback is claimed. Blocking results
+  retain their SDK intervention point, without inventing an earlier result.
+* The built image evaluates the same fixtures without network access or mounted
+  dependencies. Container tests inspect `none` networking and empty mounts,
+  verify packaged managed artifacts, policies, notices and pinned native/OPA
+  hashes, then compare the full output to the normal run. Network access is
+  still required for build-time dependency downloads.
+* The [verified packaging configuration](../README.md#verified-packaging-configuration)
+  records the preview SDK/schema pairing, Linux x64 paths, published binary
+  provenance, and mutable .NET base tags. No ACS or OPA source build is used;
+  other architectures and base distributions are unverified.
+
 ### Tests
 
 * `tests/Portal.Tests` checks that deep links return the starter shell and
   that reserved routes return problems instead of HTML.
 * No Gateway or AgentWorker tests exist yet.
+* `tests/AcsSpike.Tests` builds and runs the Linux spike through Docker Compose.
+  These tests require Docker, verify native allow/deny reasons and delegate
+  counts, repeated-input stability, target transformation, and failure paths.
+  They also verify result withholding after native post-tool denial and fail
+  if the container cannot evaluate its fixtures. No custom runtime or dispatcher
+  is supplied; dependency-removal tests reject fallback success.
+* Assertion-sensitivity tests alter copies of actual native denial and startup
+  failure results. Shared assertions used by integration tests must reject
+  nonzero delegate counts or execution markers in either output stream.
+  They do not inject a runtime bypass or claim production authorization.
 
 ## Planned target architecture
 

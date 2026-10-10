@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-09
+ms.date: 2026-10-10
 ---
 
 ## Purpose
@@ -230,3 +230,60 @@ Each entry records:
   require user input. Evaluation-result handling belongs to a separate
   follow-up. Model and tools are not pinned; instructions are not a
   permission boundary. A real agent trial remains necessary to check behavior.
+
+## D015: F003 uses the published native ACS package
+
+* Date: 2026-10-09
+* Decision: use `AgentControlSpecification` 0.3.1-beta.1, its bundled Linux
+  x64 native payload, the matching `0.3.1-beta` manifest schema, and OPA 1.4.2.
+  Fixtures call the official validator and `RunToolAsync` without overriding
+  the runtime or policy dispatcher. Windows-hosted tests run the Linux
+  container rather than claiming native Windows support.
+* Why: this available package provides matching managed and native artifacts.
+  The researched 0.4.0-beta.0 package could not be restored from the configured
+  feed. The published package avoids an unnecessary source build.
+* Alternatives rejected: a custom dispatcher or mock engine, because neither
+  proves native ACS evaluation; mixing the newer schema with the older
+  payload, because manifest and ABI compatibility must be verified together.
+* Constraints: keep package content hashes locked, checksum the OPA download,
+  retain upstream license texts, and require explicit failures rather than a
+  fallback engine. An optional build-time `ACS_NUGET_SOURCE` selects an approved
+  mirror when nuget.org is unreachable, without disabling TLS or locked restore.
+  The spike remains credential-free and separate from Gateway authorization.
+
+## D016: F004 compares stable native results across fresh runtimes
+
+* Date: 2026-10-10
+* Decision: repeat each synthetic case three times with identical inputs and
+  a freshly loaded native runtime. Report the SDK's decision, reason, action
+  identity, transformed target and applied flag for each intervention point,
+  along with delegate execution evidence. Compare those fields without telemetry.
+  An original Rego normalization rule exercises a non-null target rewrite.
+* Why: a repeated null transform alone would not prove target rewriting is
+  deterministic. Fresh native instances avoid relying on an earlier instance's
+  state or on cached results; the guarded delegate proves the rewrite is applied.
+* Alternatives rejected: custom runtime projections that compute their own
+  identities, and comparing telemetry timings, because neither verifies the
+  stable native result contract.
+* Constraints: preserve existing allow/deny fixtures and dependency pins.
+  The native unknown-tool failure has no action identity; compare its absence
+  without fabricating one. Three matching repetitions are regression evidence
+  for these fixtures, not proof for every possible policy or snapshot.
+
+## D017: F007 verifies offline runtime separately from image build
+
+* Date: 2026-10-10
+* Decision: use the existing full solution test command for F007's previously
+  unset verification step. Add an integration test that resolves the built
+  image ID, creates it with no network or mounts, checks packaged artifacts
+  and native/OPA hashes, and compares its native output with the normal run.
+* Why: disabled networking demonstrates runtime dependency independence rather
+  than relying on the Dockerfile or a successful network-connected run.
+  The user authorized continuing one feature at a time but was unavailable
+  for the verification-command question; this choice is recorded explicitly.
+* Alternatives rejected: requiring an offline build, because the acceptance
+  criterion concerns runtime downloads; checking only file presence, because
+  files alone do not prove evaluation succeeds.
+* Constraints: no existing check is weakened; locked build-time downloads and
+  default native dispatch remain unchanged. F007 stays active until independent
+  evaluation. No production authorization or arbitrary-policy guarantee is made.
