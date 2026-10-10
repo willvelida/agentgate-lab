@@ -47,3 +47,5 @@ ms.date: 2026-10-10
   `2026-10-10T09-25-48-624Z-c7e14866-251f-4d8b-907e-2f32ba77b934`.
   One malformed wrapper invocation was rejected before the test launched; the
   corrected invocation produced the recorded passing run.
+* F001 was committed with sign-off as
+  `e84a6023f950fe5d0c4aa6b4e6bebd4dbe425249`. No push was performed.

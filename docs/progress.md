@@ -460,12 +460,14 @@ where you left off.
   `2026-10-10T09-25-48-624Z-c7e14866-251f-4d8b-907e-2f32ba77b934`.
   One malformed wrapper invocation was rejected before launching the test and
   was corrected by the recorded passing run.
-* Reviewed revision: repository HEAD plus uncommitted F001 changes; the tree
-  was clean before implementation and is intentionally dirty now.
+* Reviewed revision: the evaluator reviewed the prior repository HEAD plus
+  uncommitted F001 changes. The verified feature was committed with sign-off as
+  `e84a6023f950fe5d0c4aa6b4e6bebd4dbe425249`.
 * Cleanup: no long-lived process or temporary source artifact was created;
   local verification reports remain under ignored `.local/verification/`.
-* Blocker/next action: none for F001. Create its signed feature commit, confirm
-  the final tree state, then agree on F002 before implementation starts.
+* Publication: no push or pull request operation was performed.
+* Blocker/next action: none for F001. Agree on F002 before implementation
+  starts.
 
 ## Built
 
