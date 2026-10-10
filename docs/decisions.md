@@ -269,3 +269,21 @@ Each entry records:
   The native unknown-tool failure has no action identity; compare its absence
   without fabricating one. Three matching repetitions are regression evidence
   for these fixtures, not proof for every possible policy or snapshot.
+
+## D017: F007 verifies offline runtime separately from image build
+
+* Date: 2026-10-10
+* Decision: use the existing full solution test command for F007's previously
+  unset verification step. Add an integration test that resolves the built
+  image ID, creates it with no network or mounts, checks packaged artifacts
+  and native/OPA hashes, and compares its native output with the normal run.
+* Why: disabled networking demonstrates runtime dependency independence rather
+  than relying on the Dockerfile or a successful network-connected run.
+  The user authorized continuing one feature at a time but was unavailable
+  for the verification-command question; this choice is recorded explicitly.
+* Alternatives rejected: requiring an offline build, because the acceptance
+  criterion concerns runtime downloads; checking only file presence, because
+  files alone do not prove evaluation succeeds.
+* Constraints: no existing check is weakened; locked build-time downloads and
+  default native dispatch remain unchanged. F007 stays active until independent
+  evaluation. No production authorization or arbitrary-policy guarantee is made.

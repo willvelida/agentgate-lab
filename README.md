@@ -132,6 +132,23 @@ against SHA-256
 The final image includes upstream license texts under `/app/notices`.
 These are preview artifacts, not a production authorization boundary.
 
+The offline-image test resolves the built image to its immutable ID and creates
+a container with `--pull never`, `--network none`, and no mounts. It checks the
+managed application and SDK, manifest, Rego, license texts, native library hash,
+and executable OPA hash before invoking the same spike. All native validation,
+fixture, determinism and intervention results must match the normal run, and
+the container must exit successfully. The test removes only its owned container.
+Build-time restore and pinned downloads still require network access; runtime
+evaluation does not download dependencies.
+
+After building the image, you can also run its normal entrypoint offline from
+PowerShell:
+
+```powershell
+$image = docker compose config --images
+docker run --pull never --network none --rm $image
+```
+
 The container build uses nuget.org by default. If your network requires an
 approved NuGet mirror, set `ACS_NUGET_SOURCE` to its service-index URL before
 running Compose or the tests. The override remains subject to locked restore

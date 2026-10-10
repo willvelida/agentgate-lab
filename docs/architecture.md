@@ -84,6 +84,11 @@ The solution file is `AgentGateLab.sln`.
   execution, and post-tool denial after an executed read. The latter withholds
   the result, not the side effect; no rollback is claimed. Blocking results
   retain their SDK intervention point, without inventing an earlier result.
+* The built image evaluates the same fixtures without network access or mounted
+  dependencies. Container tests inspect `none` networking and empty mounts,
+  verify packaged managed artifacts, policies, notices and pinned native/OPA
+  hashes, then compare the full output to the normal run. Network access is
+  still required for build-time dependency downloads.
 
 ### Tests
 

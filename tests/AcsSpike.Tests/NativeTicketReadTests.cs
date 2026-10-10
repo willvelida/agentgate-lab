@@ -6,6 +6,19 @@ namespace AcsSpike.Tests;
 public sealed class NativeTicketReadTests(SpikeContainerFixture container) : IClassFixture<SpikeContainerFixture>
 {
     [Fact]
+    public async Task GivenPackagedImage_WhenNetworkingIsDisabled_NativeFixturesStillEvaluate()
+    {
+        var run = await container.RunOfflineAsync();
+        Assert.True(run.ExitCode == 0, $"Offline container exited {run.ExitCode}.\n{run.Output}\n{run.Error}");
+        Assert.Contains("ACS_SPIKE_PACKAGED_ARTIFACTS_VERIFIED", run.Output);
+        var resultLine = run.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Last(line => line.TrimStart().StartsWith('{'));
+        using var document = JsonDocument.Parse(resultLine);
+        Assert.True(JsonElement.DeepEquals(container.Result, document.RootElement),
+            $"Offline native results differ.\nOnline: {container.Result}\nOffline: {document.RootElement}");
+    }
+
+    [Fact]
     public void GivenAllowedInputAndOutput_WhenNativeChecksRun_BothVerdictsAllowResultReturn()
     {
         var result = container.Result.GetProperty("interventionChecks").EnumerateArray()
@@ -233,6 +246,55 @@ public sealed class SpikeContainerFixture : IAsyncLifetime
         try
         {
             return await RunDockerAsync(arguments);
+        }
+        finally
+        {
+            await DisposeAsync();
+        }
+    }
+
+    public async Task<ContainerRun> RunOfflineAsync()
+    {
+        var images = await RunDockerAsync(["compose", "config", "--images"]);
+        Assert.True(images.ExitCode == 0, $"{images.Output}\n{images.Error}");
+        var imageName = Assert.Single(images.Output.Split(
+            ['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Distinct());
+        var imageInspect = await RunDockerAsync(["image", "inspect", "--format", "{{.Id}}", imageName]);
+        Assert.True(imageInspect.ExitCode == 0, $"{imageInspect.Output}\n{imageInspect.Error}");
+        var image = imageInspect.Output.Trim();
+        Assert.StartsWith("sha256:", image);
+        const string command = """
+            set -eu
+            for artifact in AcsSpike.dll AcsSpike.deps.json AcsSpike.runtimeconfig.json AgentControlSpecification.dll Fixtures/manifest.yaml Fixtures/policy/ticket-read.rego notices/ACS-LICENSE notices/OPA-LICENSE; do
+                test -s "$artifact"
+            done
+            test -x /usr/local/bin/opa
+            printf '%s\n' '2deb429ec7bf5ea902e23717b1e991ad3b78a22a5ebcd26ca0682d5d2c424839  runtimes/linux-x64/native/libagent_control_specification_core.so' '2c0ccdbbe0b8e2a5d12d9c42d92f1f34f494ffb32d1f3c4ddc36101be637d66f  /usr/local/bin/opa' | sha256sum --check
+            echo ACS_SPIKE_PACKAGED_ARTIFACTS_VERIFIED
+            exec dotnet AcsSpike.dll
+            """;
+        try
+        {
+            var create = await RunDockerAsync([
+                "create", "--pull", "never", "--network", "none", "--name", _containerName,
+                "--entrypoint", "/bin/sh", image, "-c", command.ReplaceLineEndings("\n")]);
+            Assert.True(create.ExitCode == 0, $"{create.Output}\n{create.Error}");
+            var inspect = await RunDockerAsync(["inspect", _containerName]);
+            Assert.True(inspect.ExitCode == 0, $"{inspect.Output}\n{inspect.Error}");
+            using var document = JsonDocument.Parse(inspect.Output);
+            var configuration = Assert.Single(document.RootElement.EnumerateArray());
+            Assert.Equal("none", configuration.GetProperty("HostConfig").GetProperty("NetworkMode").GetString());
+            Assert.Empty(configuration.GetProperty("Mounts").EnumerateArray());
+            Assert.Equal(image, configuration.GetProperty("Image").GetString());
+            var run = await RunDockerAsync(["start", "--attach", _containerName]);
+            Assert.True(run.ExitCode == 0, $"Offline container exited {run.ExitCode}.\n{run.Output}\n{run.Error}");
+            var state = await RunDockerAsync(["inspect", "--format", "{{json .State}}", _containerName]);
+            Assert.True(state.ExitCode == 0, $"{state.Output}\n{state.Error}");
+            using var stateDocument = JsonDocument.Parse(state.Output);
+            Assert.False(stateDocument.RootElement.GetProperty("Running").GetBoolean());
+            Assert.True(stateDocument.RootElement.GetProperty("ExitCode").GetInt32() == 0,
+                $"Offline container state: {state.Output}\n{run.Output}\n{run.Error}");
+            return run;
         }
         finally
         {

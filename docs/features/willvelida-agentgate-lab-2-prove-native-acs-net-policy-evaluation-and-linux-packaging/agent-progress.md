@@ -21,8 +21,8 @@ ms.date: 2026-10-10
 | F003 | A permitted synthetic ticket-read fixture returns allow; an unpermitted or unknown-tool fixture returns deny and executes no guarded tool delegate. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.4, minimum 4. All 17 tests passed on evaluator and publication reruns. Allow executed once; both deny fixtures executed zero delegates. | 2026-10-09 |
 | F004 | Identical manifest and snapshot inputs produce the same decision, stable reason, action identity, and transformed target, excluding telemetry timings. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Evaluator and publication reruns passed 22/22. Three fresh runtimes per case returned identical stable results; native normalization rewrote the delegate's arguments. | 2026-10-10 |
 | F005 | Malformed manifests, missing required snapshot paths, missing native payload, unavailable OPA, and policy evaluation errors all block startup or explicitly deny execution. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4. Exact verification passed 28/28 tests, zero skipped, and architecture check passed using the documented approved NuGet mirror. See F005 evidence and evaluator-rubric.md. | 2026-10-10 |
-| F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | active | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Verified 31/31 tests, zero skipped; native pre/post allow, pre-tool deny and post-tool deny with result withholding. Default native runtime/OPA, dependency-failure tests preserved. Independent evaluation pending. | 2026-10-10 |
-| F007 | The final image contains the required runtime artifacts and can evaluate fixtures without downloading dependencies at runtime. | not-started | TBD | Not yet implemented or verified | Not tested |
+| F006 | Pre-tool and post-tool checks are both exercised; successful evaluation never silently substitutes a custom or mock engine. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4; 31/31 tests, zero skipped. Signed and pushed as `ba55bf3`. | 2026-10-10 |
+| F007 | The final image contains the required runtime artifacts and can evaluate fixtures without downloading dependencies at runtime. | pass | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Independent evaluator PASS, average 4.8, minimum 4; exact verification passed 32/32, zero skipped, run `2026-10-10T06-26-49-637Z-f841bbb2-5780-4c23-b41c-accf8818ae0f`, exit 0. Architecture passed. Offline image checks verify artifacts, hashes, no network or mounts, and matching native output. | 2026-10-10 |
 | F008 | Versions, Linux architecture, native and OPA packaging, source-build steps if used, and preview limitations are documented. | not-started | TBD | Not yet implemented or verified | Not tested |
 | F009 | Tests fail when a guarded operation executes after a deny or dependency failure. | not-started | `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Not yet implemented or verified | Not tested |
 
@@ -426,7 +426,7 @@ unchanged. Existing dependency-removal tests still fail startup rather than
 substitute an engine. This is synthetic read evidence, not Gateway protection
 or rollback. No failed verification run occurred for F006.
 
-## Last session
+## F006 implementation handoff
 
 * Date: 2026-10-10
 * Accomplished: confirmed F005 evaluator PASS (average 4.8, minimum 4), reran
@@ -473,3 +473,98 @@ mirror verification succeeded. No new architectural decision was required.
   Reviewed `3deb042` plus evaluated F006 changes using the explicit approved
   mirror. Only status/evidence documentation changed after evaluation.
 * F006 is pass and ready for authorized signed publication.
+
+## F007 implementation
+
+* F006 was signed and pushed as `ba55bf3aa7dbc7766215d0e9fd65aa714e6cbe16`;
+origin matches and the tree was clean before F007. CI has no run for that head.
+* F007's previously unset `TBD` verification command is explicitly defined as
+`dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true`.
+Asked for approval; the user was unavailable. Continuing the authorized
+sequence with this existing command and stronger offline-image coverage.
+No existing verification or test was weakened.
+* F007 active: resolve the already-built image by ID; create with `--pull never`
+and `--network none`, inspect disabled networking and no mounts, check packaged
+artifacts and pinned native/OPA hashes, then compare all native fixture
+results to the normal run. Downloads occur during build only.
+
+## F007 verification evidence
+
+Checks on 2026-10-10 reviewed `ba55bf3aa7dbc7766215d0e9fd65aa714e6cbe16`
+plus uncommitted F007 changes. Container builds used the explicit approved
+`ACS_NUGET_SOURCE=https://packagefeedproxy.microsoft.io/nuget/v3/index.json`.
+Default-source TLS remains unavailable. Locks, fixture policies, native
+dispatch and image packaging remain unchanged.
+
+| Command | Result | Run ID |
+|---------|--------|--------|
+| `dotnet test tests/AcsSpike.Tests/AcsSpike.Tests.csproj --no-restore --filter FullyQualifiedName~GivenPackagedImage_WhenNetworkingIsDisabled --property:SkipClientBuild=true` (initial) | Failed, exit 1; method was inserted inside an existing branch, causing compilation errors | `2026-10-10T06-12-20-244Z-dd2bc3af-2444-4e46-b0e9-25c84cf6665e` |
+| Same targeted command (retry) | Failed, exit 1; Linux shell exited 2 with Windows script line endings | `2026-10-10T06-13-53-275Z-879acfe1-71e4-4100-9367-fd4a3ddcfce5` |
+| Same targeted command (Linux line endings) | Passed, exit 0; 1 test, zero skipped | `2026-10-10T06-15-16-518Z-3ac00e48-c7e8-49ed-aa55-c5e805b93461` |
+| `dotnet test AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; 32/32 tests (13 Portal, 19 ACS), zero skipped | `2026-10-10T06-16-11-193Z-ec4f7235-f959-447c-a5d8-e1e015f70f44` |
+| `bash scripts/check-architecture.sh` | Passed, exit 0 | `2026-10-10T06-16-07-610Z-3ca48c77-1659-4fbb-978d-bf8658daccb4` |
+| `dotnet build AgentGateLab.sln --no-restore --property:SkipClientBuild=true` | Passed, exit 0; zero warnings/errors | `2026-10-10T06-18-08-847Z-bba2b8e0-5900-4ac5-8fa0-ab61c75871fb` |
+| `docker run --pull never --network none --rm --name agentgate-f007-startup-ae2e76a9 agentgate-lab-acs-spike` | Passed, exit 0; native validator and all normal, repeated and intervention fixtures | `2026-10-10T06-18-08-940Z-6fdebbbf-845f-4306-a3e4-43199d7dbb62` |
+
+The offline integration test resolves the built image ID, prohibits pulling,
+inspects `HostConfig.NetworkMode:none` and empty mounts, checks packaged
+managed/runtime configuration, manifest, Rego and licenses, and checks the
+pinned native and executable OPA hashes. Complete JSON results match the normal
+run. Both the Docker client and inspected container state must report success.
+The embedded Linux shell script normalizes line endings explicitly; no test
+expectation was weakened. Only whitespace and documentation followed full tests.
+
+## Last session
+
+* Date: 2026-10-10
+* Accomplished: signed and pushed evaluator-PASS F006 as `ba55bf3`, confirmed
+  matching origin and a clean tree, then implemented and verified F007.
+* Status: F001-F007 pass after independent F007 evaluation;
+  F008-F009 not-started. No evaluator was invoked in this implementation session.
+* Files modified: native container test/helper, README, architecture,
+  decisions, both progress logs and ignored checklist. Runtime code, policies,
+  image definition and dependency locks are unchanged.
+* Verification: exact full tests, build, architecture and default offline
+  startup passed with the run IDs above on `ba55bf3` plus uncommitted F007
+  changes. Initial compilation and Linux script failures remain recorded.
+  Only documentation/checklist and whitespace changes followed successful tests.
+* Decisions: D017 records the explicitly selected verification command for
+  the previously unset F007 step and the offline-runtime, not offline-build,
+  scope. Asked for approval but the user was unavailable; no approval is claimed.
+* Cleanup: test-owned `agentgate-f003-<guid>` containers are removed in
+  `finally`; default startup container `agentgate-f007-startup-ae2e76a9` exited
+  under shell 546 and `--rm` removed it. No long-lived service or temporary
+  source file was created. Raw reports and Docker caches remain local.
+* Publication: F006 push succeeded; exact-head CI query returned no workflow
+  runs, so CI is unverified. F007 is ready for authorized publication.
+* Blockers: no F007 blocker remains after independent evaluation.
+  Default-source TLS restriction remains; explicit approved mirror succeeded.
+* Next action: publish F007 before starting F008.
+* Final handoff validation passed, exit 0 (run
+  `2026-10-10T06-21-26-093Z-2c16d9a0-684c-4fe8-8aa5-bc499777f396`):
+  five Markdown files, 31 relative links, unique handoffs, feature states,
+  unchanged locks, seven completed reports, offline native startup and no
+  remaining test/startup containers. Editor diagnostics found no errors.
+  Initial validation used a nonexistent report field (run
+  `2026-10-10T06-20-47-686Z-3adf5532-940c-46cd-abbd-583aeac6c4c2`, failed,
+  exit 1); inspecting the report and using `before.workingTree` fixed the
+  validator, without changing the runner. Clean-state checklist is complete
+  for handoff, with evaluation and publication pending. Only evidence notes
+  followed the final validation.
+* 2026-10-10: F007 evaluator verdict PASS (avg 4.8, min 4). See evaluator-rubric.md.
+
+## F007 publication handoff
+
+* Independent evaluator PASS covers `ba55bf3` plus the six-file F007 diff.
+  Exact verification passed 32/32 tests, zero skipped, exit 0 (run
+  `2026-10-10T06-26-49-637Z-f841bbb2-5780-4c23-b41c-accf8818ae0f`).
+  Architecture passed, exit 0 (run
+  `2026-10-10T06-26-47-352Z-df58f640-c4ce-472f-81d3-f613aab4df11`).
+* Synchronized the feature evidence row as requested by the evaluator, and
+  reconciled the historical F006 row with its recorded PASS and publication.
+  Only status and evidence documentation changed after evaluation; runtime,
+  tests and locks are unchanged.
+* Publication evidence/status check passed, exit 0 (run
+  `2026-10-10T06-36-57-017Z-b9d6eb53-3da7-4c4d-bd18-28587f29a3d8`),
+  confirming completed evaluator reports, reviewed revision, synchronized
+  feature statuses and whitespace. Raw reports and ignored rubric stay local.
