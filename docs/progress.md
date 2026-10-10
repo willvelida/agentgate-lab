@@ -21,8 +21,8 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* Issue #30 F001-F003 are committed. F004 passed independent evaluation after
-  two repaired FAIL verdicts. F005 is unblocked; F005-F006 are not started.
+* Issue #30 F001-F004 are evaluator-PASS and committed. F005 is active as a
+  focused test-only feature; F006 is not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -494,8 +494,18 @@ where you left off.
   `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`.
 * F004 was committed with sign-off as
   `e36bde0ad1ce16a4a20e038fa5270208a01081c3`. No push was performed.
-* Blockers and next action: none for F004. Agree on F005 before implementation
-  starts.
+* F005 started with user agreement to add only missing outcome-matrix tests.
+  Existing tests already cover PASS, FAIL and retry, blocked work, exhausted
+  limits, no progress, and stale checker results. The focused addition covers
+  interruption and resume without repeating the completed maker round.
+* F005 passed fresh evaluation with average and minimum 5.0 and no required
+  fixes. Final outcome-matrix tests passed 13/13, exit 0, run
+  `2026-10-10T22-21-47-831Z-b101da44-5b4d-4475-b264-137691629dc8`;
+  architecture passed, exit 0, run
+  `2026-10-10T22-21-50-614Z-389b6966-c3de-4ced-bfb3-9380a7dfaab3`.
+* F005 was committed with sign-off as
+  `11dd6bb5ccf65ff8a26d62807b7c8148eb41d6cf`. No push was performed.
+* Blockers and next action: none for F005. Agree on F006.
 * Result: no commit, push, pull-request operation, branch change, or merge was
   performed in the working repository.
 
