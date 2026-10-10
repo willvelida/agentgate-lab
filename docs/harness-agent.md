@@ -1,7 +1,7 @@
 ---
 title: Harness Implementer
-description: Use the custom agent to implement one feature and hand off for independent evaluation.
-ms.date: 2026-10-09
+description: Use the custom agent directly or through the bounded maker-checker controller.
+ms.date: 2026-10-11
 ---
 
 ## What it does
@@ -82,6 +82,114 @@ This first implementer version stops before evaluation. In a separate
 follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or
 mark `pass` only after PASS covers the unchanged reviewed implementation.
 Commit and publish only when explicitly approved, and confirm exact-head CI.
+
+## Run the bounded loop
+
+The local controller can coordinate one agreed feature through alternating
+maker and checker rounds. It uses the Harness Implementer for maker work and a
+fresh Feature Evaluator process for each check. It persists completed rounds
+outside chat context so an interrupted run can continue without repeating a
+successful round.
+
+> [!IMPORTANT]
+> The controller is a local capability boundary, not an operating-system
+> sandbox or an application security boundary. It does not implement
+> authentication, ACS enforcement, model access, task grants, or human
+> approval. Review its state and repository diff before accepting any result.
+
+### Define the goal
+
+Create a JSON goal file that follows
+[`goal-contract.schema.json`](../scripts/goal-contract.schema.json). Keep the
+active feature ID, slug, exact verification command, constraints, and finite
+limits explicit:
+
+```json
+{
+  "schemaVersion": 1,
+  "issue": 30,
+  "featureSlug": "willvelida-agentgate-lab-30-add-a-bounded-goal-driven-maker-checker-loop",
+  "featureId": "F005",
+  "goal": "Cover every required maker-checker loop outcome.",
+  "verificationCommand": "node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs",
+  "constraints": [
+    "Work on F005 only.",
+    "Do not commit or publish."
+  ],
+  "limits": {
+    "maxRounds": 6,
+    "maxElapsedTimeMs": 600000,
+    "noProgressLimit": 2
+  }
+}
+```
+
+The controller validates the contract before its first dispatch. The focused
+validator tests are available with `node --test scripts/goal-contract.test.mjs`.
+
+The controller enforces the declared maximum rounds, elapsed time, and repeated
+no-progress limit. It also stops for blocked or ambiguous work, stale checker
+input, dispatch failure, protected changes, or work that needs human approval.
+
+### Start the loop
+
+Run from the repository root and store state under the ignored `.local`
+directory:
+
+```sh
+node scripts/maker-checker-loop.mjs \
+  --goal path/to/goal.json \
+  --state .local/maker-checker/F005-state.json
+```
+
+A live run requires the GitHub Copilot CLI and the repository custom agents.
+The dispatcher removes shell access, denies direct URL and `.git` metadata
+writes, disables built-in MCP servers, and discovers then disables every
+configured local, remote, or HTTP MCP server. Dispatch fails closed if MCP
+inventory cannot be read or contains an unknown format.
+
+Use a scripted dry run to exercise controller behavior without starting
+Copilot sessions. The fixture is a JSON array of actor results:
+
+```json
+[
+  { "outcome": "completed", "feedback": "fixture maker completed" },
+  { "outcome": "pass", "feedback": "fixture checker passed" }
+]
+```
+
+```sh
+node scripts/maker-checker-loop.mjs \
+  --goal path/to/goal.json \
+  --state .local/maker-checker/F005-dry-run-state.json \
+  --dry-run path/to/fixture.json
+```
+
+### Observe and resume
+
+The command prints the final result as JSON. During or after a run, inspect the
+state file for each round's actor, timestamps, reviewed commit and dirty state,
+outcome, feedback, next action, and human-intervention reason. Inspect the Git
+diff separately because persisted state is evidence, not approval.
+
+To resume, run the same start command with the same goal and state paths. The
+controller reads the persisted state and selects the next actor. For example,
+a completed maker round resumes at the checker; a recorded checker PASS remains
+stopped instead of dispatching another round.
+
+### Stop safely
+
+Stop the local controller process with your terminal's interrupt command. Only
+completed persisted rounds are resumable. Before restarting, inspect the state
+file and working tree for partial work from an interrupted agent process.
+
+Terminal results such as `pass`, `blocked`, `ambiguous`, `stale`, `stalled`,
+`limit-exhausted`, and `approval-required` require no hidden automatic action.
+A dispatch exception is persisted and returned as `blocked` with human
+intervention required. Resolve the reported condition or revise the goal with human
+approval before starting another run. The controller cannot commit, push,
+create or edit a pull request, merge, weaken verification, change acceptance
+criteria, or start another feature without explicit human approval.
 
 ## Try it before relying on it
 

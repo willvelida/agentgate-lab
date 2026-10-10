@@ -21,8 +21,8 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* Issue #30 F001-F004 are evaluator-PASS and committed. F005 is active as a
-  focused test-only feature; F006 is not started.
+* Issue #30 F001-F005 are evaluator-PASS and committed. F006 passed fresh
+  reevaluation after repair; every issue #30 feature now passes.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -505,7 +505,32 @@ where you left off.
   `2026-10-10T22-21-50-614Z-389b6966-c3de-4ced-bfb3-9380a7dfaab3`.
 * F005 was committed with sign-off as
   `11dd6bb5ccf65ff8a26d62807b7c8148eb41d6cf`. No push was performed.
-* Blockers and next action: none for F005. Agree on F006.
+* F006 started with user agreement to extend the existing harness guide and
+  link it from the README. The guide documents verified CLI inputs, persisted
+  state, resume and stop behavior, finite limits, terminal outcomes, and the
+  local capability boundary without presenting it as an application security
+  boundary.
+* F006 architecture passed, exit 0, run
+  `2026-10-10T22-32-01-606Z-b7611891-bf6a-4277-a586-752bdf4617a7`.
+  `git diff --check` passed. The CI-only `lychee` executable was unavailable
+  locally, so the offline Markdown-link workflow was not reproduced.
+* The first F006 evaluator returned FAIL (average 3.6, minimum 2): the guide
+  named an unsupported `dispatch-failed` result and Current State was stale.
+  The repair documents dispatch exceptions as persisted `blocked` outcomes and
+  updates Current State to F006 active.
+* Repaired F006 architecture passed, exit 0, run
+  `2026-10-10T22-48-49-234Z-f4fdcca8-1193-4c5d-9740-31b231b3c7d2`;
+  `git diff --check` passed.
+* F006 passed fresh reevaluation (average 4.8, minimum 4) with no required
+  fixes. Evaluator verification passed, exit 0, run
+  `2026-10-10T23-04-43-992Z-b7220c27-8cb0-49d2-a607-10216d55dc64`;
+  evaluator architecture passed, exit 0, run
+  `2026-10-10T23-04-44-009Z-e2ad2dca-210f-4513-a5fa-4108c27281a5`.
+* Final F006 post-verdict architecture passed, exit 0, run
+  `2026-10-10T23-17-15-560Z-bb8839bb-2b41-4ef4-84f8-f492284d772a`;
+  `git diff --check` passed.
+* Blockers and next action: none for F006. Commit F006, run issue-level checks,
+  then complete the clean-state handoff.
 * Result: no commit, push, pull-request operation, branch change, or merge was
   performed in the working repository.
 

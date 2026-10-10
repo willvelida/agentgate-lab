@@ -21,7 +21,7 @@ ms.date: 2026-10-10
 | F003 | Controller coordinates maker/checker rounds and bounded stops. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Fresh-session evaluator PASS: average 4.8, minimum 4, no required fixes. Final verification passed 8/8, exit 0, run `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`. Final architecture passed, exit 0, run `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`. | 2026-10-10 |
 | F004 | Serial execution and publication/verification safety boundaries are enforced. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final safety tests passed 12/12, exit 0, run `2026-10-10T19-36-43-923Z-9a659e65-9327-4880-b599-64829a21ee77`. Final architecture passed, exit 0, run `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`. | 2026-10-10 |
 | F005 | Required loop outcomes are covered by automated tests. | pass | `node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Evaluator verification passed 13/13, exit 0, run `2026-10-10T22-11-59-192Z-6d7012fd-31cf-4c67-a089-52699f739256`. Evaluator architecture passed, exit 0, run `2026-10-10T22-11-59-192Z-93eaf392-efee-4618-8779-e5e84edeab6b`. | 2026-10-10 |
-| F006 | Documentation, progress, and architecture decisions describe the loop. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
+| F006 | Documentation, progress, and architecture decisions describe the loop. | pass | `bash scripts/check-architecture.sh` | Fresh-session evaluator PASS after repair: average 4.8, minimum 4, no required fixes. Evaluator verification passed, exit 0, run `2026-10-10T23-04-43-992Z-b7220c27-8cb0-49d2-a607-10216d55dc64`; architecture passed, exit 0, run `2026-10-10T23-04-44-009Z-e2ad2dca-210f-4513-a5fa-4108c27281a5`. | 2026-10-11 |
 
 ## 2026-10-10 update
 
@@ -197,3 +197,8 @@ ms.date: 2026-10-10
   `2026-10-10T22-21-50-614Z-389b6966-c3de-4ced-bfb3-9380a7dfaab3`.
 * F005 was committed with sign-off as
   `11dd6bb5ccf65ff8a26d62807b7c8148eb41d6cf`. No push was performed.
+* 2026-10-11: F006 evaluator verdict PASS (avg 4.8, min 4). See evaluator-rubric.md.
+* F006 is now `pass`; every issue #30 feature is evaluator-PASS. Final
+  post-verdict architecture passed, exit 0, run
+  `2026-10-10T23-17-15-560Z-bb8839bb-2b41-4ef4-84f8-f492284d772a`;
+  `git diff --check` passed.
