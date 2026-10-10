@@ -321,3 +321,44 @@ Each entry records:
 * Constraints: F003 preserves the implementer and evaluator's explicit
   boundaries but does not add F004 publication-safety enforcement. Evaluator
   progress and rubric writes do not make reviewed implementation content stale.
+
+## D020: F004 combines command denial with repository transition checks
+
+* Date: 2026-10-10
+* Decision: enforce the serial loop boundary in two places. Copilot CLI
+  sessions disable built-in GitHub MCP tools and receive explicit denials for
+  commit, push, merge, rebase, cherry-pick, and pull-request commands. A
+  default-deny launcher accepts only the controller's fixed Copilot invocation.
+  Before and after each round, the controller compares the branch, HEAD,
+  feature checklist, goal contract, and verification files.
+* Why: prompts describe expected behavior but cannot enforce it. CLI
+  permissions prevent the named publication actions, while repository checks
+  stop the loop and request human approval if an agent changes protected
+  scope or state.
+* Alternatives rejected: prompt-only restrictions, because an agent could
+  ignore them; post-round Git checks alone, because a push has no required
+  local diff; a general sandbox, because F004 is a focused local harness
+  boundary rather than an operating-system security boundary.
+* Constraints: ordinary implementation files may change. The active feature
+  can move to `pass` only during a checker round. Any other feature change,
+  acceptance or verification change, protected-file change, commit, or branch
+  change stops as `approval-required`. Explicit approval and override
+  processing are not automated.
+
+## D021: F004 removes publication capabilities instead of matching commands
+
+* Date: 2026-10-10
+* Decision: replace D020's direct-command denial list with a fail-closed
+  capability boundary. Loop sessions exclude the shell, deny direct URL
+  access and Git metadata writes, disable built-in MCP servers, and enumerate
+  then disable every configured MCP server before launch.
+* Why: command spellings are not a security boundary. Git global options,
+  plumbing commands, `gh api`, HTTP clients, and configured MCP tools can
+  perform equivalent commits, pushes, pull-request mutations, or merges.
+* Alternatives rejected: expanding the blacklist, because executable aliases
+  and alternate clients would keep creating bypasses; post-round checks alone,
+  because remote mutations cannot be undone reliably.
+* Constraints: configured MCP discovery must succeed before a session starts.
+  Repository transition checks remain defense in depth. The boundary is local
+  controller enforcement, not an operating-system sandbox or authorization
+  implementation.

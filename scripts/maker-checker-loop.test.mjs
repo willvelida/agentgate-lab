@@ -12,6 +12,7 @@ import {
   ScriptedDispatcher,
   runMakerCheckerLoop,
 } from './maker-checker-loop.mjs';
+import { CopilotCapabilityBoundary } from './maker-checker-safety.mjs';
 
 function goal(overrides = {}) {
   return {
@@ -59,6 +60,16 @@ function revision(fingerprint, dirty = true) {
   };
 }
 
+function runLoop(options) {
+  return runMakerCheckerLoop({
+    ...options,
+    safetyBoundary: {
+      capture: () => ({}),
+      assertTransition: () => {},
+    },
+  });
+}
+
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
   const calls = [];
   const processRunner = async (executable, args, options) => {
@@ -72,6 +83,10 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
   const dispatcher = new CopilotCliDispatcher({
     repositoryRoot: 'C:\\repo',
     processRunner,
+    capabilityBoundary: new CopilotCapabilityBoundary({
+      repositoryRoot: 'C:\\repo',
+      mcpServerProvider: () => [],
+    }),
   });
 
   await dispatcher.dispatch({
@@ -102,7 +117,7 @@ test('stops successfully on checker pass for unchanged work', async (t) => {
     { outcome: 'completed', feedback: 'maker finished' },
     { outcome: 'pass', feedback: 'checker passed' },
   ]);
-  const result = await runMakerCheckerLoop({
+  const result = await runLoop({
     goal: goal(),
     statePath: fixture(t),
     dispatcher,
@@ -127,7 +142,7 @@ test('returns checker fail feedback to a new maker while limits permit', async (
     { outcome: 'completed', feedback: 'second maker' },
     { outcome: 'pass', feedback: 'checker passed' },
   ]);
-  const result = await runMakerCheckerLoop({
+  const result = await runLoop({
     goal: goal(),
     statePath: fixture(t),
     dispatcher,
@@ -157,7 +172,7 @@ test('stops for blocked or ambiguous work', async (t) => {
     const dispatcher = new ScriptedDispatcher([
       { outcome, feedback: `${outcome} work` },
     ]);
-    const result = await runMakerCheckerLoop({
+    const result = await runLoop({
       goal: goal(),
       statePath: join(fixture(t), outcome, 'state.json'),
       dispatcher,
@@ -174,7 +189,7 @@ test('stops when checker work is stale', async (t) => {
   const dispatcher = new ScriptedDispatcher([
     { outcome: 'completed', feedback: 'maker finished' },
   ]);
-  const result = await runMakerCheckerLoop({
+  const result = await runLoop({
     goal: goal(),
     statePath: fixture(t),
     dispatcher,
@@ -200,7 +215,7 @@ test('stops after repeated maker rounds make no progress', async (t) => {
     { outcome: 'no-progress', feedback: 'still unchanged' },
   ]);
   const same = revision('same');
-  const result = await runMakerCheckerLoop({
+  const result = await runLoop({
     goal: goal({ maxRounds: 8, noProgressLimit: 2 }),
     statePath: fixture(t),
     dispatcher,
@@ -214,7 +229,7 @@ test('stops after repeated maker rounds make no progress', async (t) => {
 });
 
 test('stops when round or elapsed-time limits are exhausted', async (t) => {
-  const roundLimited = await runMakerCheckerLoop({
+  const roundLimited = await runLoop({
     goal: goal({ maxRounds: 1 }),
     statePath: fixture(t),
     dispatcher: new ScriptedDispatcher([
@@ -226,7 +241,7 @@ test('stops when round or elapsed-time limits are exhausted', async (t) => {
   assert.equal(roundLimited.status, 'limit-exhausted');
 
   let tick = 0;
-  const elapsed = await runMakerCheckerLoop({
+  const elapsed = await runLoop({
     goal: goal({ maxElapsedTimeMs: 1 }),
     statePath: join(fixture(t), 'elapsed', 'state.json'),
     dispatcher: new ScriptedDispatcher([]),
@@ -242,7 +257,7 @@ test('dry-run dispatcher leaves deterministic persisted evidence', async (t) => 
     { outcome: 'completed', feedback: 'fixture maker' },
     { outcome: 'pass', feedback: 'fixture checker' },
   ]);
-  await runMakerCheckerLoop({
+  await runLoop({
     goal: goal(),
     statePath,
     dispatcher,

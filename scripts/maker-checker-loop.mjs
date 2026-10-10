@@ -10,6 +10,11 @@ import {
   recordRound,
   saveLoopState,
 } from './loop-state.mjs';
+import {
+  CopilotCapabilityBoundary,
+  DenyByDefaultCommandPolicy,
+  RepositorySafetyBoundary,
+} from './maker-checker-safety.mjs';
 
 const resultMarker = 'MAKER_CHECKER_RESULT:';
 const makerOutcomes = new Set([
@@ -115,10 +120,20 @@ export class CopilotCliDispatcher {
     repositoryRoot = process.cwd(),
     executable = 'copilot',
     processRunner = runProcess,
+    commandPolicy,
+    capabilityBoundary,
   } = {}) {
     this.repositoryRoot = resolve(repositoryRoot);
     this.executable = executable;
     this.processRunner = processRunner;
+    this.commandPolicy = commandPolicy ?? new DenyByDefaultCommandPolicy({
+      executable,
+      repositoryRoot: this.repositoryRoot,
+    });
+    this.capabilityBoundary = capabilityBoundary ?? new CopilotCapabilityBoundary({
+      executable,
+      repositoryRoot: this.repositoryRoot,
+    });
   }
 
   async dispatch({ actor, goal, feedback, timeoutMs }) {
@@ -140,6 +155,7 @@ export class CopilotCliDispatcher {
           'and a non-empty feedback string.',
         ].join(' ');
 
+    const capabilityArguments = await this.capabilityBoundary.copilotArguments();
     const args = [
       '-C',
       this.repositoryRoot,
@@ -148,13 +164,16 @@ export class CopilotCliDispatcher {
       'off',
       '--output-format',
       'text',
-      '--allow-all-tools',
+      ...capabilityArguments,
     ];
     if (actor === 'maker') {
       args.push('--agent', 'Harness Implementer');
     }
     args.push('--prompt', prompt);
 
+    this.commandPolicy.assertAllowed(this.executable, args, {
+      cwd: this.repositoryRoot,
+    });
     const { stdout } = await this.processRunner(this.executable, args, {
       cwd: this.repositoryRoot,
       timeoutMs,
@@ -264,6 +283,7 @@ export async function runMakerCheckerLoop({
   statePath,
   dispatcher = new CopilotCliDispatcher(),
   getRevision,
+  safetyBoundary = new RepositorySafetyBoundary(),
   now = () => new Date(),
 }) {
   if (typeof getRevision !== 'function') {
@@ -322,6 +342,26 @@ export async function runMakerCheckerLoop({
       }
     }
 
+    let safetyBefore;
+    try {
+      safetyBefore = safetyBoundary.capture(goal);
+    } catch (error) {
+      state = persistRound(
+        statePath,
+        state,
+        terminalRound(
+          actor,
+          before,
+          startedAt,
+          'blocked',
+          error.message,
+          'Restore the approved feature scope before resuming.',
+        ),
+        startedAt,
+      );
+      return { status: 'approval-required', state };
+    }
+
     let result;
     try {
       result = await dispatcher.dispatch({
@@ -350,6 +390,29 @@ export async function runMakerCheckerLoop({
 
     const finishedAt = now();
     const after = getRevision();
+    try {
+      safetyBoundary.assertTransition(
+        safetyBefore,
+        safetyBoundary.capture(goal, { requireActive: false }),
+        goal,
+        actor,
+      );
+    } catch (error) {
+      state = persistRound(
+        statePath,
+        state,
+        terminalRound(
+          actor,
+          after,
+          finishedAt,
+          'blocked',
+          error.message,
+          'Review and explicitly approve or revert the prohibited change before resuming.',
+        ),
+        finishedAt,
+      );
+      return { status: 'approval-required', state };
+    }
     if (actor === 'checker' && !sameRevision(before, after)) {
       state = persistRound(
         statePath,
@@ -452,6 +515,10 @@ async function main() {
     goal,
     statePath: resolve(args.state),
     dispatcher,
+    safetyBoundary: new RepositorySafetyBoundary({
+      repositoryRoot: process.cwd(),
+      protectedPaths: [resolve(args.goal)],
+    }),
     getRevision: () => getGitRevision(
       process.cwd(),
       (gitArgs) => execFileSync('git', gitArgs, { encoding: 'utf8' }),
