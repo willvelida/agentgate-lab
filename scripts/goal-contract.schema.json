@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgate-lab.local/schemas/goal-contract.v1.json",
+  "title": "AgentGate Lab maker-checker goal contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "issue",
+    "featureSlug",
+    "featureId",
+    "goal",
+    "verificationCommand",
+    "constraints",
+    "limits"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "issue": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "featureSlug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "featureId": {
+      "type": "string",
+      "pattern": "^F[0-9]{3}$"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verificationCommand": {
+      "type": "string",
+      "minLength": 1
+    },
+    "constraints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxRounds",
+        "maxElapsedTimeMs",
+        "noProgressLimit"
+      ],
+      "properties": {
+        "maxRounds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxElapsedTimeMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "noProgressLimit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

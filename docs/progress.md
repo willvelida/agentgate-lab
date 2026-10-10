@@ -21,6 +21,9 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* Issue #30 F001 passed independent evaluation with an average and minimum
+  score of 5.0 and no required fixes. The versioned goal-contract schema and
+  validation tests are complete. F002 is unblocked; F002-F006 are not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -137,6 +140,9 @@ final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
+* Issue #30's controller has not been implemented yet. Only F001's goal
+  contract validation exists, and it is not a security boundary or an
+  authorization implementation.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
@@ -431,35 +437,35 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-10
-* Accomplished: resolved the valid PR review comment about stale issue #2
-  completion statements. All nine features passed independent evaluation;
-  the final PR update corrects the contradictory milestone summary.
-* Reviewed revision: `4fe0124c8648492330a6134599dedadc20d1f493` plus the
-  focused progress-document correction. Runtime, images and locks unchanged.
-* Exact verification: `dotnet test AgentGateLab.sln --no-restore
-  --property:SkipClientBuild=true` passed 43/43, zero skipped, exit 0 (run
-  `2026-10-10T07-20-24-793Z-7e0478a4-e98a-4a27-a901-3a68a70a318d`).
-  `bash scripts/check-architecture.sh` passed, exit 0 (run
-  `2026-10-10T07-20-18-211Z-865218c0-9492-4cfb-8ab2-85e8bd7f5e0d`).
-  Implementation build passed with zero warnings/errors; final handoff
-  validation run `2026-10-10T07-16-07-859Z-7f4347a9-5eaf-4192-8ba8-97fad01d578d`
-  passed before evaluator and status notes.
-* Cleanup: native/offline startup passed in tests; separate service startup
-  not applicable. No owned containers remain, no long-lived service or
-  temporary source artifact created. Local reports/caches retained.
-* Blockers: none for the milestone. NuGet TLS remains restricted on this
-  network; explicit approved mirror verification succeeded with locks intact.
-* Publication: PR #29 targets `main`. After the initial docs-link fix, the
-  Docs check passed; the Build workflow was still running when last checked.
-  The PR reviewer identified this stale-status issue; checks must be refreshed
-  after the correction is pushed.
-* Validation: corrected milestone state, historical handoff labeling, relative
-  links and anchors passed (run
-  `2026-10-10T07-47-56-921Z-b0c651e7-1b22-43af-a426-6b12de471e01`, exit 0);
-  `git diff --check` passed. Documentation-only change; no service startup
-  applies, and no process or temporary source artifact was created.
-* Next action: verify PR #29 checks on the updated head and address any
-  remaining review feedback. No new architectural decision was required.
+* Accomplished: implemented F001's versioned goal contract and validator,
+  received a fresh-session evaluator PASS with an average and minimum score of
+  5.0, and marked F001 `pass` without changing application services.
+* Files modified: `scripts/goal-contract.schema.json`,
+  `scripts/goal-contract.mjs`, `scripts/goal-contract.test.mjs`, issue #30's
+  feature progress log and ignored checklist, plus this progress entry.
+* Verification: `node --test scripts/goal-contract.test.mjs` passed 3/3,
+  exit 0, run `2026-10-10T08-29-20-233Z-9baae97d-99db-4283-8b84-f49b563f0e1d`.
+  `bash scripts/check-architecture.sh` passed, exit 0, run
+  `2026-10-10T08-29-21-312Z-91dc5ca4-8837-4ed4-8466-05ca84445fbc`.
+  JSON parsing and ignore-rule validation passed. Baseline harness tests
+  passed 9/9, exit 0, run
+  `2026-10-10T08-27-08-195Z-47cb87cc-5779-4e41-b135-c4f849922498`.
+  Evaluator verification passed 3/3, exit 0, run
+  `2026-10-10T09-20-23-268Z-ba4e7aa7-10f4-4b6b-bcea-e280776dfc88`;
+  evaluator architecture passed, exit 0, run
+  `2026-10-10T09-20-22-604Z-3016794a-0a5d-4542-9498-96c5be8fea0d`.
+  Final goal-contract tests passed 3/3, exit 0, run
+  `2026-10-10T09-26-09-834Z-f1040b4c-cbdb-46cc-82cf-d18443f072f8`;
+  final architecture passed, exit 0, run
+  `2026-10-10T09-25-48-624Z-c7e14866-251f-4d8b-907e-2f32ba77b934`.
+  One malformed wrapper invocation was rejected before launching the test and
+  was corrected by the recorded passing run.
+* Reviewed revision: repository HEAD plus uncommitted F001 changes; the tree
+  was clean before implementation and is intentionally dirty now.
+* Cleanup: no long-lived process or temporary source artifact was created;
+  local verification reports remain under ignored `.local/verification/`.
+* Blocker/next action: none for F001. Create its signed feature commit, confirm
+  the final tree state, then agree on F002 before implementation starts.
 
 ## Built
 

@@ -287,3 +287,20 @@ Each entry records:
 * Constraints: no existing check is weakened; locked build-time downloads and
   default native dispatch remain unchanged. F007 stays active until independent
   evaluation. No production authorization or arbitrary-policy guarantee is made.
+
+## D018: Issue 30 uses a Node.js JSON controller
+
+* Date: 2026-10-10
+* Decision: implement the first local maker-checker loop beside the existing
+  Node.js verification harness, using versioned JSON contracts and persisted
+  JSON state.
+* Why: the repository already has Node-based tests and a cross-platform
+  verification runner, so this avoids introducing a new runtime or project
+  format for a local harness controller.
+* Alternatives rejected: PowerShell, because it would make the controller
+  harder to exercise from the existing Node test suite; a .NET console app,
+  because it would add a project and restore surface for a local orchestration
+  tool.
+* Constraints: the controller remains local and serial. It must not commit,
+  push, publish, merge, weaken verification, alter acceptance criteria, or
+  start another feature without explicit human approval.
