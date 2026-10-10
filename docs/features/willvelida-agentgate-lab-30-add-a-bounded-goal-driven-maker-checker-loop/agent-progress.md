@@ -18,8 +18,8 @@ ms.date: 2026-10-10
 | --- | --- | --- | --- | --- | --- |
 | F001 | Versioned goal contract declares the loop goal and limits. | pass | `node --test scripts/goal-contract.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final verification passed 3/3, exit 0, run `2026-10-10T09-26-09-834Z-f1040b4c-cbdb-46cc-82cf-d18443f072f8`. Final architecture passed, exit 0, run `2026-10-10T09-25-48-624Z-c7e14866-251f-4d8b-907e-2f32ba77b934`. | 2026-10-10 |
 | F002 | Persisted loop state records rounds and supports resume. | pass | `node --test scripts/loop-state.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final verification passed 4/4, exit 0, run `2026-10-10T09-43-04-551Z-29499005-62c8-4b6f-9560-967a17948b4b`. Final architecture passed, exit 0, run `2026-10-10T09-43-02-831Z-09238404-edb3-4973-98cb-2bc6e55f7c60`. | 2026-10-10 |
-| F003 | Controller coordinates maker/checker rounds and bounded stops. | active | `node --test scripts/maker-checker-loop.test.mjs` | Implemented and verified 8/8, exit 0, run `2026-10-10T10-53-41-776Z-b8c51005-22b5-4fff-97d9-dd719e5c3e3a`; awaiting fresh-session evaluation. | 2026-10-10 |
-| F004 | Serial execution and publication/verification safety boundaries are enforced. | not-started | `node --test scripts/maker-checker-safety.test.mjs` | Not yet implemented or verified | Not tested |
+| F003 | Controller coordinates maker/checker rounds and bounded stops. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Fresh-session evaluator PASS: average 4.8, minimum 4, no required fixes. Final verification passed 8/8, exit 0, run `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`. Final architecture passed, exit 0, run `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`. | 2026-10-10 |
+| F004 | Serial execution and publication/verification safety boundaries are enforced. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final safety tests passed 12/12, exit 0, run `2026-10-10T19-36-43-923Z-9a659e65-9327-4880-b599-64829a21ee77`. Final architecture passed, exit 0, run `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`. | 2026-10-10 |
 | F005 | Required loop outcomes are covered by automated tests. | not-started | `node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs` | Not yet implemented or verified | Not tested |
 | F006 | Documentation, progress, and architecture decisions describe the loop. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
 
@@ -122,3 +122,68 @@ ms.date: 2026-10-10
   `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`.
 * F003 was committed with sign-off as
   `3acaba5c081b5b825894f17f8d66c92d0f91f725`. No push was performed.
+* F004 started with the approved deny-by-default command policy and
+  before/after repository checks. Its baseline controller tests passed 8/8,
+  exit 0, run
+  `2026-10-10T11-19-14-449Z-3bdc6a43-b0ae-4bc9-ae6a-28383252e961`;
+  architecture passed, exit 0, run
+  `2026-10-10T11-19-14-449Z-8f494370-34fa-41ae-99b0-c823998de974`.
+  Both runs reviewed clean commit
+  `0fdcdcadf9994ed3cba03f703ecffe0cde7e345e`.
+* F004 adds a default-deny controller launcher, Copilot CLI permission denials,
+  disabled built-in GitHub MCP tools, and before/after repository checks.
+  Commits, branch changes, acceptance or verification changes, protected goal
+  or verification-file changes, and changes to another feature stop the loop
+  with `approval-required`. A checker may record PASS for the active feature.
+  F005's scenario matrix remains `not-started`.
+* Exact F004 verification passed 8/8, exit 0, run
+  `2026-10-10T11-28-10-613Z-3ca3cc16-37ca-4210-b24c-2319daabf25a`.
+  Controller and loop-state regressions passed 12/12, exit 0, run
+  `2026-10-10T11-28-10-697Z-4b1bfe40-c47c-4a28-9500-21b410a25ecb`.
+  Architecture passed, exit 0, run
+  `2026-10-10T11-28-10-686Z-5fa08a2b-2acb-4422-a45d-4acb9c27a2da`.
+  All final runs reviewed commit
+  `0fdcdcadf9994ed3cba03f703ecffe0cde7e345e` plus uncommitted F004
+  changes. Only these evidence references changed afterward. F004 remains
+  `active` pending fresh-session evaluation.
+* 2026-10-10: F004 evaluator verdict FAIL (avg 3.4, min 2). See evaluator-rubric.md.
+* F004 repair replaced the bypassable direct-command blacklist with a
+  capability boundary. Loop sessions cannot use the shell or direct URL
+  capability, cannot write Git metadata, and cannot access built-in or
+  configured MCP servers. Configured server discovery fails closed.
+* Negative tests attempt Git aliases, plumbing commands, push and merge forms,
+  `gh api`, direct GitHub URL access, a configured MCP mutation, and a direct
+  `.git` write. The test checks that local HEAD and refs, bare-remote refs,
+  merge state, and simulated pull-request mutations remain unchanged.
+* Pre-repair exact tests passed 8/8, exit 0, run
+  `2026-10-10T18-27-42-550Z-237b5f01-377a-4ab3-9bcf-7d629b8c9b83`.
+  Pre-repair controller regressions passed 12/12, exit 0, run
+  `2026-10-10T18-27-42-550Z-57945e47-cf7b-4fd7-a9fa-bd882daa9d06`.
+  Pre-repair architecture passed, exit 0, run
+  `2026-10-10T18-27-42-542Z-1acbc1d7-78ed-4621-8b01-03228eafd694`.
+* Final repaired exact F004 tests passed 11/11, exit 0, run
+  `2026-10-10T18-35-35-333Z-bbf0aa8c-edfc-4428-8d5a-acab02351a2e`.
+  Controller and loop-state regressions passed 12/12, exit 0, run
+  `2026-10-10T18-30-53-013Z-f81428dc-dca0-4ba1-a093-d753381bd27a`.
+  Final architecture passed after the handoff updates, exit 0, run
+  `2026-10-10T18-34-04-404Z-6a565960-0590-49fe-a6ae-8f91375ff66c`.
+  All runs reviewed commit
+  `0fdcdcadf9994ed3cba03f703ecffe0cde7e345e` plus uncommitted F004
+  changes. Only the final architecture evidence reference changed afterward.
+  F004 remains `active`; F005 remains `not-started`.
+* 2026-10-11: F004 evaluator verdict FAIL (avg 4.0, min 2). MCP listing parsing silently omits unrecognized protocol entries such as `(http)`; require fail-closed discovery and test dispatch arguments. See evaluator-rubric.md.
+* F004 MCP inventory repair recognizes `(http)` servers and rejects every
+  unrecognized non-heading inventory line. Exact safety tests passed 12/12,
+  exit 0, run
+  `2026-10-10T18-52-31-585Z-014e8190-abda-4d24-96b7-633f77fb8a6d`;
+  architecture passed, exit 0, run
+  `2026-10-10T18-52-30-189Z-886ef0a0-4b7a-4478-810b-8db383964148`.
+  F004 remains `active` pending a fresh evaluation of the repaired parser.
+* 2026-10-11: F004 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+* F004 is now `pass`. F005 is unblocked but has not started.
+* Final F004 post-verdict checks passed: safety tests 12/12, exit 0, run
+  `2026-10-10T19-36-43-923Z-9a659e65-9327-4880-b599-64829a21ee77`;
+  architecture, exit 0, run
+  `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`.
+* F004 was committed with sign-off as
+  `e36bde020d2a86083c35759808b985dbce312e8bc`. No push was performed.

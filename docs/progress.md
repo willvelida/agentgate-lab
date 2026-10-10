@@ -21,9 +21,8 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* Issue #30 F001 and F002 are committed. F003 passed independent evaluation
-  with an average 4.8 and minimum 4. F004 is unblocked; F004-F006 are not
-  started.
+* Issue #30 F001-F003 are committed. F004 passed independent evaluation after
+  two repaired FAIL verdicts. F005 is unblocked; F005-F006 are not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -140,12 +139,11 @@ final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
-* Issue #30 F003 is implemented and evaluator-PASS. The live Copilot CLI path
-  was validated
-  through injected process arguments and a deterministic command-line dry run,
-  not by launching a recursive live maker session. F004 publication-safety
-  enforcement is not implemented. None of this is a security boundary or
-  authorization implementation.
+* Issue #30 F004 is a local controller capability boundary, not an
+  operating-system sandbox or authorization implementation. It removes shell,
+  direct URL, Git metadata write, and MCP capabilities from loop sessions and
+  detects protected repository transitions. It does not constrain processes
+  started outside the controller.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
@@ -440,55 +438,66 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-10
-* Accomplished: implemented F003's bounded maker-checker controller. It invokes
-  the installed `copilot` CLI with Harness Implementer for maker sessions and
-  fresh Feature Evaluator sessions for checkers. It retries checker failures
-  and persists terminal decisions for PASS, blocked, ambiguous, stale,
-  stalled, dispatch-failed, and exhausted-limit outcomes.
-* Scope: only F003 changed. F004 publication-safety enforcement remains
-  `not-started`; current agent boundaries are preserved rather than extended.
+* Accomplished: repaired the fresh evaluator FAIL for F004. The controller now
+  removes shell access, denies direct URL access and Git metadata writes,
+  enumerates and disables configured MCP servers, disables built-in MCP
+  servers, and fails closed if MCP discovery fails.
+* Scope: only F004 changed. F005's full scenario matrix was not started.
 * Files modified: `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, `scripts/loop-state.mjs`,
-  `docs/decisions.md`, this progress log, issue #30's retained progress log,
-  and its ignored feature checklist.
-* Baseline: goal-contract and loop-state tests passed 7/7, exit 0, run
-  `2026-10-10T10-46-25-175Z-d61b0eac-6a01-47c5-aadc-4db762bb2ac3`;
-  architecture passed, exit 0, run
-  `2026-10-10T10-46-25-143Z-dfd523cf-f3de-480a-b1e9-cf6d5676da1d`.
-* Verification: final exact F003 tests passed 8/8, exit 0, run
-  `2026-10-10T10-53-41-776Z-b8c51005-22b5-4fff-97d9-dd719e5c3e3a`.
-  The command-line dry run completed one deterministic maker-checker cycle,
-  exit 0, run
-  `2026-10-10T10-50-56-653Z-75c0763d-fd98-42fe-ab46-09b65c59c6c1`.
-  Loop-state regression tests passed 4/4, exit 0, run
-  `2026-10-10T10-51-19-441Z-6913049f-07a5-45c5-b1d6-95ea0d0b1c0a`.
-  Final architecture passed, exit 0, run
-  `2026-10-10T10-53-41-768Z-a085b03e-5821-48bc-84df-1208e4d3e33f`.
-  Only evidence references changed after these final checks.
-* Reviewed revision and tree: the evaluator reviewed commit
-  `09b84c9ef03319536ba5a08c77d7252450be5ff6` plus uncommitted F003
-  changes. Duplicate F002 evaluator lines were removed after the evaluator
-  identified them.
-* Startup: not applicable. F003 changes finite local scripts and does not
+  `scripts/maker-checker-loop.test.mjs`,
+  `scripts/maker-checker-safety.mjs`,
+  `scripts/maker-checker-safety.test.mjs`, `docs/decisions.md`, this progress
+  log, issue #30's retained progress log, and its ignored feature checklist.
+* Failed evaluation: fresh evaluation scored average 3.4, minimum 2. It found
+  the direct-command blacklist bypassable through alternate Git forms,
+  `gh api`, HTTP clients, and configured non-built-in MCP servers.
+* Baseline: exact safety tests passed 8/8, exit 0, run
+  `2026-10-10T18-27-42-550Z-237b5f01-377a-4ab3-9bcf-7d629b8c9b83`.
+  Controller regressions passed 12/12, exit 0, run
+  `2026-10-10T18-27-42-550Z-57945e47-cf7b-4fd7-a9fa-bd882daa9d06`.
+  Architecture passed, exit 0, run
+  `2026-10-10T18-27-42-542Z-1acbc1d7-78ed-4621-8b01-03228eafd694`.
+* Verification: final exact F004 safety tests passed 11/11, exit 0, run
+  `2026-10-10T18-35-35-333Z-bbf0aa8c-edfc-4428-8d5a-acab02351a2e`.
+  Controller and loop-state regressions passed 12/12, exit 0, run
+  `2026-10-10T18-30-53-013Z-f81428dc-dca0-4ba1-a093-d753381bd27a`.
+  Final architecture passed after the handoff updates, exit 0, run
+  `2026-10-10T18-34-04-404Z-6a565960-0590-49fe-a6ae-8f91375ff66c`.
+  Negative tests confirmed no local HEAD or ref change, remote ref change,
+  merge state, or simulated pull-request mutation. Only the final architecture
+  evidence reference changed afterward.
+* Second failed evaluation: average 4.0, minimum 2. The evaluator found that
+  MCP inventory parsing omitted the CLI's `(http)` protocol and did not reject
+  unknown listing formats.
+* Final parser repair: exact safety tests passed 12/12, exit 0, run
+  `2026-10-10T18-52-31-585Z-014e8190-abda-4d24-96b7-633f77fb8a6d`.
+  Architecture passed, exit 0, run
+  `2026-10-10T18-52-30-189Z-886ef0a0-4b7a-4478-810b-8db383964148`.
+  The parser now recognizes `(http)` and rejects unrecognized inventory lines.
+* Reviewed revision and tree: commit
+  `0fdcdcadf9994ed3cba03f703ecffe0cde7e345e` plus the uncommitted F004 files
+  listed above. No unrelated pre-existing changes were present.
+* Startup: not applicable. F004 changes finite local scripts and does not
   affect a service startup path.
-* Cleanup: no live Copilot agent or long-lived process was started. Node test
-  fixtures removed their temporary directories. Named dry-run fixture and
-  state files under `.local/` were removed after evidence capture. Ignored
-  verification reports were intentionally retained.
-* Evaluation: F003 passed fresh-session evaluation with average 4.8, minimum
-  4, and no required fixes. Evaluator verification passed 8/8, exit 0, run
-  `2026-10-10T11-03-28-781Z-070ddfb4-ed11-4b20-a0a0-9f0a0b6de903`;
+* Cleanup: no live Copilot session or long-lived process was started. Node
+  fixtures removed their temporary repositories and bare remotes. Named help,
+  search, and diff captures in the system temporary directory were removed.
+  Ignored verification reports were intentionally retained.
+* Final evaluation: F004 passed with average and minimum 5.0 and no required
+  fixes. Evaluator safety tests passed 12/12, exit 0, run
+  `2026-10-10T18-56-03-418Z-b560b66b-db3c-458d-a3b6-d5d0ba62df50`;
   evaluator architecture passed, exit 0, run
-  `2026-10-10T11-03-28-870Z-987dfea2-48c2-46cc-8cce-0fecd604ef84`.
-  Final controller tests passed 8/8, exit 0, run
-  `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`;
-  final architecture passed, exit 0, run
-  `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`.
-* Blockers and next action: none for F003. Agree on F004 before implementation
+  `2026-10-10T18-56-03-413Z-e486b866-4164-4562-8e6c-8ac5e1809d5c`.
+* Final post-verdict checks: safety tests passed 12/12, exit 0, run
+  `2026-10-10T19-36-43-923Z-9a659e65-9327-4880-b599-64829a21ee77`;
+  architecture passed, exit 0, run
+  `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`.
+* F004 was committed with sign-off as
+  `e36bde020d2a86083c35759808b985dbce312e8bc`. No push was performed.
+* Blockers and next action: none for F004. Agree on F005 before implementation
   starts.
-* Result: F003 was committed with sign-off as
-  `3acaba5c081b5b825894f17f8d66c92d0f91f725`. No push was performed. Agree
-  on F004 before implementation starts.
+* Result: no commit, push, pull-request operation, branch change, or merge was
+  performed in the working repository.
 
 ## Built
 
