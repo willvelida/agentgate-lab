@@ -29,6 +29,9 @@ jobs:
           cache: npm
           cache-dependency-path: src/Client/package-lock.json
 
+      - name: Build verification sandbox
+        run: docker build -f scripts/verification-sandbox.Dockerfile -t agentgate-verification:node24 scripts
+
       - name: Check project boundaries
         run: bash scripts/check-architecture.sh
 
@@ -37,6 +40,9 @@ jobs:
 
       - name: Test verification evidence capture
         run: node --test scripts/run-verification.test.mjs
+
+      - name: Test maker-checker harness
+        run: node --test scripts/goal-contract.test.mjs scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs scripts/maker-checker-safety.test.mjs
 
       - name: Restore .NET dependencies
         run: dotnet restore AgentGateLab.sln --locked-mode

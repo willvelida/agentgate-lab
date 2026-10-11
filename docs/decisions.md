@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-10
+ms.date: 2026-10-11
 ---
 
 ## Purpose
@@ -287,3 +287,345 @@ Each entry records:
 * Constraints: no existing check is weakened; locked build-time downloads and
   default native dispatch remain unchanged. F007 stays active until independent
   evaluation. No production authorization or arbitrary-policy guarantee is made.
+
+## D018: Issue 30 uses a Node.js JSON controller
+
+* Date: 2026-10-10
+* Decision: implement the first local maker-checker loop beside the existing
+  Node.js verification harness, using versioned JSON contracts and persisted
+  JSON state.
+* Why: the repository already has Node-based tests and a cross-platform
+  verification runner, so this avoids introducing a new runtime or project
+  format for a local harness controller.
+* Alternatives rejected: PowerShell, because it would make the controller
+  harder to exercise from the existing Node test suite; a .NET console app,
+  because it would add a project and restore surface for a local orchestration
+  tool.
+* Constraints: the controller remains local and serial. It must not commit,
+  push, publish, merge, weaken verification, alter acceptance criteria, or
+  start another feature without explicit human approval.
+
+## D019: F003 dispatches fresh Copilot CLI sessions
+
+* Date: 2026-10-10
+* Decision: invoke the installed GitHub Copilot CLI directly. Maker processes
+  select the existing Harness Implementer custom agent. Checker processes are
+  new sessions that invoke the Feature Evaluator skill. A scripted dispatcher
+  supplies deterministic dry-run and test outcomes.
+* Why: separate CLI processes provide the required fresh checker context while
+  reusing the repository's existing implementer and evaluator instructions.
+  Dependency injection tests orchestration without launching live agents.
+* Alternatives rejected: simulating every session in the controller, because
+  that would not dispatch the installed Copilot CLI; resuming checker sessions,
+  because that would weaken independent evaluation.
+* Constraints: F003 preserves the implementer and evaluator's explicit
+  boundaries but does not add F004 publication-safety enforcement. Evaluator
+  progress and rubric writes do not make reviewed implementation content stale.
+
+## D020: F004 combines command denial with repository transition checks
+
+* Date: 2026-10-10
+* Decision: enforce the serial loop boundary in two places. Copilot CLI
+  sessions disable built-in GitHub MCP tools and receive explicit denials for
+  commit, push, merge, rebase, cherry-pick, and pull-request commands. A
+  default-deny launcher accepts only the controller's fixed Copilot invocation.
+  Before and after each round, the controller compares the branch, HEAD,
+  feature checklist, goal contract, and verification files.
+* Why: prompts describe expected behavior but cannot enforce it. CLI
+  permissions prevent the named publication actions, while repository checks
+  stop the loop and request human approval if an agent changes protected
+  scope or state.
+* Alternatives rejected: prompt-only restrictions, because an agent could
+  ignore them; post-round Git checks alone, because a push has no required
+  local diff; a general sandbox, because F004 is a focused local harness
+  boundary rather than an operating-system security boundary.
+* Constraints: ordinary implementation files may change. The active feature
+  can move to `pass` only during a checker round. Any other feature change,
+  acceptance or verification change, protected-file change, commit, or branch
+  change stops as `approval-required`. Explicit approval and override
+  processing are not automated.
+
+## D021: F004 removes publication capabilities instead of matching commands
+
+* Date: 2026-10-10
+* Decision: replace D020's direct-command denial list with a fail-closed
+  capability boundary. Loop sessions exclude the shell, deny direct URL
+  access and Git metadata writes, disable built-in MCP servers, and enumerate
+  then disable every configured MCP server before launch.
+* Why: command spellings are not a security boundary. Git global options,
+  plumbing commands, `gh api`, HTTP clients, and configured MCP tools can
+  perform equivalent commits, pushes, pull-request mutations, or merges.
+* Alternatives rejected: expanding the blacklist, because executable aliases
+  and alternate clients would keep creating bypasses; post-round checks alone,
+  because remote mutations cannot be undone reliably.
+* Constraints: configured MCP discovery must succeed before a session starts.
+  Repository transition checks remain defense in depth. The boundary is local
+  controller enforcement, not an operating-system sandbox or authorization
+  implementation.
+
+## D022: the loop controller runs verification instead of the agents
+
+* Date: 2026-10-11
+* Decision: the controller runs the goal contract's `verificationCommand`
+  itself through the evidence runner after each completed maker round,
+  records the command, status, run ID, exit code, and report path in that
+  round, and dispatches the checker only when the run passes. A failed run
+  returns the work to the maker; a runner that cannot start stops the loop
+  for human intervention.
+* Why: D021 removes shell access from loop sessions, so an agent cannot run
+  the verification its own instructions require. Trusting a model-emitted
+  `completed` or `pass` would let unverified work reach the checker and the
+  persisted evidence.
+* Alternatives rejected: restoring a narrow shell for verification, because
+  a shell reintroduces the publication bypasses D021 removed; trusting agent
+  self-reports, because the report is unevidenced text.
+* Constraints: round `verification` is optional and nullable so existing
+  state files still load. Resuming with a goal contract that differs from the
+  recorded one is refused, because the recorded contract defines the
+  verification that was run.
+
+## D023: rounds record a list of verification results
+
+* Date: 2026-10-11
+* Decision: a round's `verification` field holds a list of records instead of
+  a single record. The controller runs the goal contract's
+  `verificationCommand` and `bash scripts/check-architecture.sh` through the
+  evidence runner, appends one record per command, and dispatches the checker
+  only when every record passes. A resumed round whose recorded evidence is
+  missing or not fully passing is verified again before the checker runs.
+  Verification commands are tokenized with POSIX-style quoting so quoted
+  arguments reach the runner as single arguments.
+* Why: D022 recorded only the feature command, so a loop-driven checker could
+  reach a `pass` outcome without architecture evidence the evaluator rubric
+  requires. State written before D022 carried no evidence at all and resumed
+  straight to the checker, bypassing the gate.
+* Alternatives rejected: letting the loop-dispatched evaluator rerun the
+  architecture check, because D021 leaves loop sessions without a shell;
+  stopping permanently on state that predates the evidence, because that
+  would brick existing state files.
+* Constraints: `verification` stays optional and nullable for backward
+  compatibility, so the resume-time rerun, not the schema, enforces the gate.
+
+## D024: preserve schema v1 state and one shared elapsed-time deadline
+
+* Date: 2026-10-11
+* Decision: loading schema version 1 state migrates an object-shaped
+  `verification` value to a one-entry list before validation. The controller
+  also recalculates the remaining elapsed-time budget before each verification
+  command and before dispatch; exhaustion stops the loop as
+  `limit-exhausted`. Repository transition checks reject duplicate feature IDs
+  before comparing checklist entries by ID.
+* Why: D023 changed the verification shape without changing the schema
+  version, so interrupted state written by D022 otherwise became unreadable.
+  Reusing one timeout for multiple sequential operations also allowed a round
+  to exceed the goal's total elapsed-time limit. Duplicate IDs made ID-based
+  added-feature detection ambiguous.
+* Alternatives rejected: rejecting all D022 state, because D023 explicitly
+  preserves resume compatibility; incrementing only the state schema without
+  a migration, because existing local state would still be stranded; treating
+  the full remaining duration as an independent timeout for every operation,
+  because that is not a bounded total deadline.
+* Constraints: migration applies only while loading schema version 1 state.
+  Newly written state remains list-shaped and strict validation still rejects
+  malformed verification entries.
+
+## D025: fail closed on unverifiable or failed-dispatch transitions
+
+* Date: 2026-10-11
+* Decision: dirty revisions without fingerprints never compare as unchanged;
+  only clean fingerprint-less revisions at the same commit do. The controller
+  validates the repository transition after a dispatch exception and returns
+  `approval-required` when protected state changed. The production safety
+  boundary protects `scripts/check-architecture.sh` alongside the goal file.
+* Why: the same commit and dirty flag cannot identify the contents of two
+  dirty working trees. A failed dispatcher may have changed the repository
+  before throwing, and the architecture script is trusted verification code
+  whose weakening must not be treated as an ordinary implementation change.
+* Alternatives rejected: treating two dirty fingerprint-less revisions as
+  equal, because that bypasses stale-work detection; returning immediately on
+  dispatch failure, because it skips transition enforcement; trusting the
+  architecture script without protecting it, because the controller would
+  record weakened evidence as passing.
+* Constraints: persisted schema version 1 revisions remain readable. A dirty
+  legacy maker round stops as stale and requires human review rather than
+  being silently accepted.
+
+## D026: protect all verification inputs and Git metadata descendants
+
+* Date: 2026-10-11
+* Decision: verification commands protect every existing repository-local path
+  they reference, including absolute paths and statically imported local test
+  helpers. Node test contracts reject dynamic imports and non-built-in package
+  imports so the controller can enumerate verification inputs. Copilot dispatch
+  denies writes to both the `.git` directory and every descendant below it
+  using the CLI's recursive path pattern.
+* Why: skipping absolute command paths allowed a verification file inside the
+  repository to be changed without detection. Denying only the `.git`
+  directory itself did not cover writes to nested refs and other metadata.
+* Alternatives rejected: relying on relative command spelling, because
+  absolute paths are valid runner inputs; relying on post-round repository
+  checks alone, because Git metadata mutations can affect publication before
+  the controller observes the transition.
+* Constraints: ordinary implementation files under `src/` remain writable for
+  the maker; changes to verification inputs and Git metadata still require
+  explicit human approval. Node tests use explicit `.test.mjs` or `.spec.mjs`
+  files and statically enumerated repository-local helpers. The source scanner
+  rejects slash tokens after a closing brace when regex-versus-division context
+  cannot be classified safely.
+* Superseded in part by D034: absolute verification paths are now rejected
+  instead of protected.
+
+## D027: controller verification requires trusted repository code
+
+* Date: 2026-10-11
+* Decision: the host verification runner launches repository test commands
+  inside the `agentgate-verification:node24` Docker image. The container runs
+  as non-root, with networking disabled, a read-only repository mount, no
+  inherited host environment or credentials, no Docker socket, dropped
+  capabilities, and ephemeral writable locations. The runner and sandbox
+  launcher themselves execute on the host and are protected verification
+  inputs.
+* Why: maker-edited tests and imported implementation code need a constrained
+  environment, while the trusted host runner must retain access to Docker to
+  create and clean up the container.
+* Alternatives rejected: describing the test process as inheriting the
+  caller's credentials and network, because the configured container
+  explicitly excludes them; claiming the sandbox is a complete security
+  boundary, because its safety depends on the host kernel, Docker daemon, and
+  verification image.
+* Constraints: users must trust the protected runner, sandbox launcher,
+  Docker daemon, host kernel, and image. The image provides Node.js 24, Bash,
+  and Git only, with no network-fetched dependencies. This local harness is
+  not an application authentication or authorization boundary.
+
+## D028: process cleanup takes precedence over controller liveness
+
+* Date: 2026-10-11
+* Decision: after a dispatch timeout or controller interrupt, keep the
+  controller pending and retry process-tree termination until cleanup succeeds
+  and the direct child closes. On POSIX, also wait until the child's process
+  group no longer exists.
+* Why: returning from a cleanup failure can let the controller exit while a
+  detached child may still act. Keeping cleanup pending prevents another
+  maker/checker round from starting and preserves controller supervision.
+* Alternatives rejected: bounded cleanup retries followed by controller exit,
+  because the remaining child could continue acting after supervision ends.
+* Constraints: the dispatch and productive loop work remain bounded, but the
+  controller's total lifetime is intentionally unbounded if the operating
+  system cannot confirm process-tree termination. A hard lifetime bound needs
+  OS-enforced containment, such as a kill-on-close process group or job object,
+  in a separate design.
+
+## D029: serialize controllers and preserve interrupted actors
+
+* Date: 2026-10-11
+* Decision: acquire an exclusive lock directory keyed by the resolved state
+  path before loading state, and hold it until the controller returns. Never
+  remove a stale lock automatically based only on its recorded process ID.
+  After a verified controller interruption and successful safety-transition
+  check, record an `interrupted` round that resumes the same actor.
+* Why: concurrent controllers can dispatch the same actor and overwrite
+  persisted evidence. A controller PID can stop while a detached child remains
+  active, so PID-based stale-lock recovery could admit concurrent work. An
+  interruption is recoverable and should not become a permanent human stop.
+* Alternatives rejected: allowing multiple controllers to share a state file;
+  automatically clearing a lock when its PID is absent, because that does not
+  prove the dispatched process tree has stopped.
+* Constraints: after a crash, an operator must verify that the controller and
+  all dispatched child processes have stopped before manually removing the
+  lock directory.
+
+## D030: isolate controller verification in Docker
+
+* Date: 2026-10-11
+* Decision: run controller verification commands in a locally built Node 24
+  Docker image with the repository mounted read-only, networking disabled,
+  no host environment variables or credentials, no Docker socket, and only
+  ephemeral writable filesystems. Keep report capture on the host.
+* Why: the controller previously executed verification code with the caller's
+  permissions, allowing a test or imported file to modify Git state or use
+  available credentials and network. A container with no host write mount or
+  egress removes those ordinary side-effect paths while retaining the exact
+  verification command.
+* Alternatives rejected: trusting repository code (D027), because the
+  verification code changes as part of the feature workflow; disabling
+  verification, because fresh independent checks are a required controller
+  gate.
+* Constraints: Docker and the prebuilt image are required before dispatch.
+  The image supports Node.js 24, Bash, and Git verification commands; it does
+  not expose arbitrary host toolchains or network package downloads.
+  Each run records its container ID outside the repository and explicitly
+  removes the container after completion, timeout, or interruption. Failed
+  cleanup is reported and retains the ID file for operator recovery.
+  The Docker daemon, host kernel, and image remain trusted; this is not
+  protection against container-runtime or kernel escapes. D030 supersedes
+  D027.
+
+## D031: deny agent writes to active loop state and lease files
+
+* Date: 2026-10-12
+* Decision: keep loop state under ignored `.local`, and include exact write
+  denials for the active state file, its atomic-save temporary siblings, and
+  its lock directory and descendants in every Copilot agent dispatch.
+* Why: dispatched agents retain general workspace write access. Protecting
+  only `.git` does not prevent them from replacing persisted state or lock
+  ownership metadata, which could admit concurrent controllers or forged
+  resume evidence.
+* Alternatives rejected: relocating state outside the repository, because
+  callers choose state paths and the current local convention is usable;
+  denying all writes beneath `.local`, because unrelated local outputs do not
+  need the same restriction.
+* Constraints: dispatch requires a non-empty state path and resolves it
+  against the repository root before constructing denials. The denial set
+  must cover state replacement, atomic-save sidecars, and every lock entry.
+
+## D032: allowlist sandbox-compatible shell verification
+
+* Date: 2026-10-12
+* Decision: accept only explicitly allowlisted shell verification scripts
+  that use the tools provided by the verification image. The initial allowlist
+  contains only `scripts/check-architecture.sh`.
+* Why: accepting arbitrary repository shell scripts lets a contract pass
+  validation even when the script requires unavailable toolchains, such as
+  .NET and Docker, so the maker can be dispatched before verification fails.
+* Alternatives rejected: accepting every `scripts/*.sh` file and relying on
+  later retries, because unsupported commands are known before dispatch;
+  statically inferring each shell script's complete toolchain, because shell
+  behavior and indirect command use are difficult to enumerate safely.
+* Constraints: additions to the allowlist require review that the script's
+  behavior and tool requirements fit the verification image. Unsupported
+  scripts fail during safety-boundary capture before agent dispatch.
+
+## D033: keep regex-based verification import scanning for issue #30
+
+* Date: 2026-10-12
+* Decision: keep the existing fail-closed, regex-based scanner for
+  verification imports in PR #31. Reject known dynamic and reflective
+  loader forms, and defer a parser or content-hash boundary to issue #32.
+* Why: each review round found another JavaScript loading form. A
+  replacement boundary is a larger design change than issue #30's loop and
+  needs its own acceptance criteria.
+* Alternatives rejected: adding a JavaScript parser dependency in this PR,
+  because it changes dependencies and the scanner design late in review;
+  moving loop state outside the repository, because D031's exact write
+  denials address the reported lease risk.
+* Constraints: the scanner is a local harness control, not an application
+  security boundary. Unknown loader forms that the scanner does not
+  recognize remain an accepted limit until issue #32 is resolved.
+
+## D034: reject absolute paths in verification commands
+
+* Date: 2026-10-12
+* Decision: verification commands must use repository-relative paths. Any
+  absolute token, including the executable, a Node test file, or a shell
+  script, fails safety capture before an agent is dispatched. This replaces
+  D026's acceptance and protection of absolute paths.
+* Why: the controller runs verification in a container that mounts the
+  repository at `/workspace`. A host-absolute path passed validation but did
+  not exist inside the container, so an approved contract could never pass.
+* Alternatives rejected: translating repository-local absolute paths to
+  `/workspace/...`, because it adds path-rewriting logic for a form that
+  human-authored contracts do not need; deferring the issue, because the
+  failure is deterministic and the fix is small.
+* Constraints: Windows (`C:\...`, `C:/...`) and POSIX (`/...`) absolute forms
+  are both rejected on every platform.

@@ -320,3 +320,4 @@ unintentional dependency changes.
 * [Threat model](./docs/threat-model.md)
 * [Acceptance tests](./docs/acceptance-tests.md)
 * [Five-minute gateway demo](./docs/demo.md)
+* [Harness Implementer and bounded maker-checker loop](./docs/harness-agent.md)

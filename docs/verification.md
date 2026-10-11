@@ -1,7 +1,7 @@
 ---
 title: Verification Evidence
 description: Capture local command results without committing raw output.
-ms.date: 2026-10-09
+ms.date: 2026-10-11
 ---
 
 ## Run a focused check
@@ -30,6 +30,27 @@ Arguments are passed separately, not evaluated as a shell expression.
 Windows uses PowerShell to launch native commands and command shims such as
 npm. Standard input is disabled; do not use the runner for interactive tools
 or background services.
+
+The controller adds `--sandbox` when it runs verification. This mode requires
+Docker and the local `agentgate-verification:node24` image, built with:
+
+```bash
+docker build -f scripts/verification-sandbox.Dockerfile \
+  -t agentgate-verification:node24 scripts
+```
+
+Sandboxed commands run with the repository mounted read-only, networking
+disabled, no host environment variables or credentials, and no Docker socket.
+Only `/tmp`, the container home directory, and `.local` are writable, using
+ephemeral container filesystems. The host-side evidence runner keeps reports
+and raw output outside those filesystems. Direct use of the wrappers remains
+unsandboxed unless `--sandbox` is supplied explicitly.
+The image provides Node.js 24, Bash, and Git; commands needing another
+toolchain or network-fetched dependencies are not supported by this sandbox.
+Each run records the Docker container ID in a unique temporary file outside
+the repository. The controller explicitly removes the container after success,
+timeout, or interruption; a cleanup failure is reported and retains that file
+for operator recovery.
 
 [init.sh](../init.sh) uses the Bash wrapper for each initialization step,
 including the runner's tests. It stops on the first failed step. A complete

@@ -1,7 +1,7 @@
 ---
 title: Progress
 description: Repository-level snapshot of what is built, what is in progress, and what is planned for AgentGate Lab.
-ms.date: 2026-10-10
+ms.date: 2026-10-12
 ---
 
 ## Purpose
@@ -21,6 +21,29 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* PR #31's latest F003/F004 review follow-up is implemented locally on
+  `feat/harness-extension`, based on `8ab121a440e49ed86baa8684289b07e822fc8f6a`.
+  It validates the safety boundary before resumed-checker verification,
+  protects active state and lease paths on every dispatch, traverses
+  protected test imports, rejects reflective module-loader paths, and
+  allowlists only sandbox-compatible shell verification. Checker prompts
+  now include structured controller verification records, and interrupted
+  resumed-checker verification remains resumable. Exact F003 tests passed
+  38/38 (run
+  `2026-10-11T21-56-46-054Z-104ac39c-ab6e-448c-ae3f-f0c685e7d3c3`);
+  exact F004 tests passed 33/33 (run
+  `2026-10-11T21-56-46-109Z-5dd6fe40-2b86-4cc1-9621-37ca5d7b3ed6`);
+  architecture passed (run
+  `2026-10-11T21-56-46-747Z-28d134b1-f42d-40dc-963d-e834087e7df2`).
+  Fresh-session evaluation of the final diff passed F003 (avg 4.8, min 4;
+  38/38, run `2026-10-11T22-12-23-106Z-d6829766-5ae4-4d85-b7a9-4ea5cbed6b5e`)
+  and F004 (avg 4.8, min 4; 33/33, run
+  `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`). These
+  fixes are batched into one review-response commit. The PR description is
+  the source of truth for the pushed SHA and its exact-head CI.
+* Harness improvements that would reduce review churn, including replacing
+  regex import scanning, are tracked in issue #32 and are out of scope for
+  PR #31 (D033).
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -137,8 +160,23 @@ final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
+* Issue #30 F004 runs controller verification in a Docker container with a
+  read-only repository mount, no network, no host environment variables or
+  credentials, and no Docker socket. The Docker daemon, host kernel, and
+  sandbox image remain trusted; container-runtime or kernel escapes are not
+  addressed. The image supports Node.js 24, Bash, and Git only; other
+  toolchains and network-fetched dependencies are unavailable. The controller
+  is not an application authentication or authorization boundary.
+* If the operating system cannot terminate a child process tree, the controller
+  remains pending and retries cleanup rather than exiting. This preserves
+  supervision and blocks new work, but controller lifetime is unbounded until
+  termination is confirmed. A hard lifetime bound requires OS-enforced process
+  containment; it is not implemented by the current Node.js launcher.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
+* The verification import scanner is regex-based. It fails closed for known
+  dynamic and reflective loader forms, but loader forms it does not recognize
+  are an accepted limit until issue #32 replaces it (D033).
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
   is isolated synthetic evidence, not a Gateway authorization boundary; it
   does not implement production authorization, identity, or ticket operations.
@@ -430,36 +468,87 @@ where you left off.
 
 ## Last session
 
-* Date: 2026-10-10
-* Accomplished: resolved the valid PR review comment about stale issue #2
-  completion statements. All nine features passed independent evaluation;
-  the final PR update corrects the contradictory milestone summary.
-* Reviewed revision: `4fe0124c8648492330a6134599dedadc20d1f493` plus the
-  focused progress-document correction. Runtime, images and locks unchanged.
-* Exact verification: `dotnet test AgentGateLab.sln --no-restore
-  --property:SkipClientBuild=true` passed 43/43, zero skipped, exit 0 (run
-  `2026-10-10T07-20-24-793Z-7e0478a4-e98a-4a27-a901-3a68a70a318d`).
-  `bash scripts/check-architecture.sh` passed, exit 0 (run
-  `2026-10-10T07-20-18-211Z-865218c0-9492-4cfb-8ab2-85e8bd7f5e0d`).
-  Implementation build passed with zero warnings/errors; final handoff
-  validation run `2026-10-10T07-16-07-859Z-7f4347a9-5eaf-4192-8ba8-97fad01d578d`
-  passed before evaluator and status notes.
-* Cleanup: native/offline startup passed in tests; separate service startup
-  not applicable. No owned containers remain, no long-lived service or
-  temporary source artifact created. Local reports/caches retained.
-* Blockers: none for the milestone. NuGet TLS remains restricted on this
-  network; explicit approved mirror verification succeeded with locks intact.
-* Publication: PR #29 targets `main`. After the initial docs-link fix, the
-  Docs check passed; the Build workflow was still running when last checked.
-  The PR reviewer identified this stale-status issue; checks must be refreshed
-  after the correction is pushed.
-* Validation: corrected milestone state, historical handoff labeling, relative
-  links and anchors passed (run
-  `2026-10-10T07-47-56-921Z-b0c651e7-1b22-43af-a426-6b12de471e01`, exit 0);
-  `git diff --check` passed. Documentation-only change; no service startup
-  applies, and no process or temporary source artifact was created.
-* Next action: verify PR #29 checks on the updated head and address any
-  remaining review feedback. No new architectural decision was required.
+* Date: 2026-10-12
+* Accomplished: addressed every open PR #31 finding in one batch. That covers
+  six inline threads and two findings in the latest Copilot review summary's
+  "Previously missed" section. Changes: capture the safety boundary before
+  resumed-checker verification; deny agent writes to the state file, its
+  save sidecars, and its lock directory; traverse imports under protected
+  roots; treat comments as trivia in static `require`; reject reflective and
+  `module`/`node:module` loaders; allowlist only sandbox-compatible shell
+  scripts; pass structured verification records to the checker; and keep
+  interrupted resumed-checker verification resumable.
+* Decisions: D031 (state and lease write denials), D032 (shell allowlist),
+  and D033 (keep the regex scanner for this PR, defer a parser or hashing
+  boundary to issue #32).
+* Out of scope: replacing regex import scanning, moving loop state outside
+  the repository, and the other harness process improvements. These are
+  tracked in issue #32.
+* Files: `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
+  `scripts/maker-checker-safety.mjs`, `scripts/maker-checker-safety.test.mjs`,
+  `docs/harness-agent.md`, `docs/decisions.md`, `docs/progress.md`, and the
+  slug's `agent-progress.md`. Ignored `features_list.json` and
+  `evaluator-rubric.md` were updated locally.
+* Verification, reviewed on HEAD `8ab121a440e49ed86baa8684289b07e822fc8f6a`
+  plus the eight-file dirty diff now committed:
+  * F003 exact command passed 38/38, exit 0, run
+    `2026-10-11T21-56-46-054Z-104ac39c-ab6e-448c-ae3f-f0c685e7d3c3`.
+  * F004 exact command passed 33/33, exit 0, run
+    `2026-10-11T21-56-46-109Z-5dd6fe40-2b86-4cc1-9621-37ca5d7b3ed6`.
+  * Architecture passed, exit 0, run
+    `2026-10-11T21-56-46-747Z-28d134b1-f42d-40dc-963d-e834087e7df2`.
+  * Fresh-session evaluator PASS: F003 avg 4.8, min 4 (run
+    `2026-10-11T22-12-23-106Z-d6829766-5ae4-4d85-b7a9-4ea5cbed6b5e`); F004
+    avg 4.8, min 4 (run
+    `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`).
+* Follow-up: Build failed on `8923ede` (run `38180374482`). Two new dispatch
+  test assertions used hard-coded Windows paths that resolve differently on
+  Linux. A second commit fixes those tests and also fixes the maker-path
+  verification interrupt (`scripts/maker-checker-loop.mjs` near line 993),
+  which still stopped as `blocked`. It now records an `interrupted` maker round
+  that resumes at the checker gate. Fresh-session evaluator PASS on that diff:
+  F003 avg 4.8, min 4, 39/39 (run
+  `2026-10-11T22-35-11-296Z-7bb40904-5462-4515-9016-84b0c231f5bd`); F004 avg
+  4.8, min 4, 33/33 (run
+  `2026-10-11T22-35-11-367Z-7f3bb9bc-e03e-4dee-950d-88654476014d`);
+  architecture passed (run
+  `2026-10-11T22-35-11-459Z-39c7c292-c36b-460f-9190-50ad18d6e89a`).
+* Published head `f8e478beb6baa823d21c67e1e3712d3fbe3ebb45`: Build run
+  `38181357738` passed, Docs check run `38181357767` passed (links and
+  progress-reminder), and DCO passed.
+* Copilot's review of `f8e478b` found one High in-scope issue. A resumed maker
+  round counted as verified when every recorded entry passed, even if the
+  architecture check was missing (for example, after schema v1 migration).
+  The checker gate now requires a passed record for every required command,
+  with regression `reruns verification when a migrated round lacks the
+  architecture check`. Fresh-session evaluator PASS: F003 avg 4.8, min 4,
+  40/40 (run `2026-10-11T22-51-13-387Z-50b1360a-c977-4ff0-9301-cb95533ba412`);
+  F004 avg 4.6, min 4, 33/33 (run
+  `2026-10-11T22-51-13-360Z-0c36d383-6489-4f3e-88c7-d9d23e2496e2`);
+  architecture passed (run
+  `2026-10-11T22-51-13-347Z-d93ca6ab-b79e-4d38-bd60-c4150e6c23bc`). The
+  exact-head CI for this commit is recorded in the PR description, because a
+  commit cannot contain its own CI results. Each addressed thread has a reply
+  and is resolved.
+* Published head `a884cc40dd6961d9fd7fdfe774efd9ec67522be5`: Build run
+  `38182284745`, Docs check run `38182284773`, and DCO passed. Copilot's
+  review of that head found one High issue: host-absolute verification paths
+  passed validation but do not exist inside the `/workspace` sandbox mount. The
+  maintainer chose to reject them (D034, partly superseding D026). The old
+  absolute-path protection test was replaced, with approval, by `repository
+  boundary rejects absolute verification paths`. Fresh-session evaluator PASS:
+  F004 avg 5.0, min 5, 33/33 (run
+  `2026-10-11T23-09-55-718Z-9bf31b7b-451f-4613-8269-6b75efe62b48`); F003 avg
+  5.0, min 5, 40/40 (run
+  `2026-10-11T23-10-23-296Z-448aab3e-564f-4a4b-b095-5dc85b4ff2a7`);
+  architecture passed (run
+  `2026-10-11T23-10-38-008Z-051e7d8f-030a-437d-a7cf-804aa33e0158`). A stray
+  end-of-file marker was removed from the slug's progress log.
+* Cleanup: runtime startup is not applicable. No long-lived service was
+  started. Tests removed their own fixtures. Local evidence remains under
+  ignored `.local/verification/`.
+* Next: wait for the next Copilot review on the new head. Fix only
+  high-severity, in-scope findings, and route the rest to issue #32.
 
 ## Built
 

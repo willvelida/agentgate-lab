@@ -15,7 +15,12 @@ function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'agentgate-verification-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'scripts'));
-  for (const file of ['run-verification.mjs', 'run-verification.sh', 'Invoke-Verification.ps1']) {
+  for (const file of [
+    'run-verification.mjs',
+    'verification-sandbox.mjs',
+    'run-verification.sh',
+    'Invoke-Verification.ps1',
+  ]) {
     cpSync(join(scriptDirectory, file), join(root, 'scripts', file));
   }
   execFileSync('git', ['init', '--quiet', root]);

@@ -1,0 +1,910 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { builtinModules } from 'node:module';
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+} from 'node:fs';
+import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
+
+const shellExclusion = '--excluded-tools=shell';
+const urlDenial = '--deny-tool=url';
+const javascriptTrivia = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
+const sandboxCompatibleShellScripts = new Set([
+  'scripts/check-architecture.sh',
+]);
+const executableLoaderModules = new Set([
+  'child_process',
+  'node:child_process',
+  'cluster',
+  'node:cluster',
+  'worker_threads',
+  'node:worker_threads',
+]);
+const nodeBuiltins = new Set(
+  builtinModules.flatMap((moduleName) => [
+    moduleName,
+    moduleName.replace(/^node:/, ''),
+    `node:${moduleName.replace(/^node:/, '')}`,
+  ]),
+);
+
+function stableJson(value) {
+  return JSON.stringify(value);
+}
+
+function fileDigest(path) {
+  let rootStat;
+  try {
+    rootStat = lstatSync(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+  const hash = createHash('sha256');
+  const updatePath = (currentPath, pathStat = lstatSync(currentPath)) => {
+    const stat = pathStat;
+    if (stat.isSymbolicLink()) {
+      throw new Error(`Protected path contains a symbolic link: ${currentPath}`);
+    }
+    if (stat.isDirectory()) {
+      hash.update('directory\0');
+      for (const entry of readdirSync(currentPath, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name))) {
+        hash.update(entry.name).update('\0');
+        updatePath(resolve(currentPath, entry.name));
+      }
+      return;
+    }
+    hash.update('file\0').update(readFileSync(currentPath));
+  };
+  updatePath(path, rootStat);
+  return hash.digest('hex');
+}
+
+function controllerProtectedPaths(repositoryRoot) {
+  return [
+    'AGENTS.md',
+    '.github/agents',
+    '.github/skills',
+    '.github/instructions',
+    '.github/prompts',
+    '.github/copilot-instructions.md',
+    'scripts/goal-contract.mjs',
+    'scripts/goal-contract.schema.json',
+    'scripts/loop-state.mjs',
+    'scripts/maker-checker-loop.mjs',
+    'scripts/maker-checker-safety.mjs',
+    'scripts/run-verification.mjs',
+    'scripts/verification-sandbox.mjs',
+  ].map((path) => resolve(repositoryRoot, path));
+}
+
+function shellUsesCommandMode(shell, argument) {
+  const normalized = argument.toLowerCase();
+  const option = normalized.split(/[:=]/, 1)[0];
+  if ([
+    '-c',
+    '/c',
+    '/k',
+    '/command',
+    '-encodedcommand',
+    '/encodedcommand',
+  ].includes(option)) {
+    return true;
+  }
+  if (shell === 'bash' || shell === 'sh' || shell === 'dash' || shell === 'zsh') {
+    return option === '--command' || /^-[a-z]*c[a-z]*$/.test(option);
+  }
+  if (shell === 'powershell' || shell === 'pwsh') {
+    const name = option.replace(/^--?/, '');
+    return name.length > 0
+      && ('command'.startsWith(name) || 'encodedcommand'.startsWith(name));
+  }
+  return false;
+}
+
+function maskJavaScriptNonCode(source) {
+  const characters = source.split('');
+  let index = 0;
+  const regexPrefixKeywords = new Set([
+    'await',
+    'case',
+    'delete',
+    'do',
+    'else',
+    'in',
+    'instanceof',
+    'new',
+    'of',
+    'return',
+    'throw',
+    'typeof',
+    'void',
+    'yield',
+  ]);
+  const controlKeywords = new Set(['catch', 'for', 'if', 'switch', 'while', 'with']);
+
+  function mask(start, end) {
+    for (let offset = start; offset < end; offset += 1) {
+      if (characters[offset] !== '\n' && characters[offset] !== '\r') {
+        characters[offset] = ' ';
+      }
+    }
+  }
+
+  function scanQuotedString(quote) {
+    const start = index;
+    index += 1;
+    while (index < characters.length) {
+      if (characters[index] === '\\') {
+        index += 2;
+      } else if (characters[index] === quote) {
+        index += 1;
+        break;
+      } else {
+        index += 1;
+      }
+    }
+    mask(start, Math.min(index, characters.length));
+  }
+
+  function scanTemplate() {
+    const start = index;
+    index += 1;
+    mask(start, index);
+    let textStart = index;
+    while (index < characters.length) {
+      if (characters[index] === '\\') {
+        index += 2;
+      } else if (characters[index] === '`') {
+        index += 1;
+        mask(textStart, Math.min(index, characters.length));
+        return;
+      } else if (characters[index] === '$' && characters[index + 1] === '{') {
+        mask(textStart, index);
+        mask(index, index + 2);
+        index += 2;
+        scanCode(true);
+        textStart = index;
+      } else {
+        index += 1;
+      }
+    }
+    mask(textStart, characters.length);
+  }
+
+  function scanRegexLiteral() {
+    const start = index;
+    index += 1;
+    let inCharacterClass = false;
+    while (index < characters.length) {
+      const current = characters[index];
+      if (current === '\\') {
+        index += 2;
+      } else if (current === '\n' || current === '\r') {
+        break;
+      } else if (current === '[' && !inCharacterClass) {
+        inCharacterClass = true;
+        index += 1;
+      } else if (current === ']' && inCharacterClass) {
+        inCharacterClass = false;
+        index += 1;
+      } else if (current === '/' && !inCharacterClass) {
+        index += 1;
+        while (/[A-Za-z]/.test(characters[index] ?? '')) index += 1;
+        break;
+      } else {
+        index += 1;
+      }
+    }
+    mask(start, Math.min(index, characters.length));
+  }
+
+  function scanCode(templateExpression = false) {
+    let braceDepth = 0;
+    let canStartRegex = true;
+    let pendingControlParen = false;
+    let previousTokenWasClosingBrace = false;
+    const controlParens = [];
+    while (index < characters.length) {
+      const current = characters[index];
+      const next = characters[index + 1];
+      if (templateExpression && current === '}' && braceDepth === 0) {
+        index += 1;
+        return;
+      }
+      if (/\s/.test(current)) {
+        index += 1;
+      } else if (current === '/' && next === '/') {
+        const start = index;
+        index += 2;
+        while (index < characters.length && characters[index] !== '\n') {
+          index += 1;
+        }
+        mask(start, index);
+      } else if (current === '/' && next === '*') {
+        const start = index;
+        index += 2;
+        while (
+          index < characters.length
+          && !(characters[index] === '*' && characters[index + 1] === '/')
+        ) {
+          index += 1;
+        }
+        index = Math.min(index + 2, characters.length);
+        mask(start, index);
+      } else if (current === '/' && previousTokenWasClosingBrace) {
+        throw new Error(
+          'Node verification source has an ambiguous slash after a closing brace',
+        );
+      } else if (current === "'" || current === '"') {
+        previousTokenWasClosingBrace = false;
+        scanQuotedString(current);
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (current === '`') {
+        previousTokenWasClosingBrace = false;
+        scanTemplate();
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (current === '/' && (canStartRegex || next === '\\')) {
+        previousTokenWasClosingBrace = false;
+        scanRegexLiteral();
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (/[A-Za-z_$]/.test(current)) {
+        previousTokenWasClosingBrace = false;
+        const start = index;
+        index += 1;
+        while (/[\w$]/.test(characters[index] ?? '')) index += 1;
+        const identifier = characters.slice(start, index).join('');
+        const wasPendingControlParen = pendingControlParen;
+        canStartRegex = regexPrefixKeywords.has(identifier);
+        pendingControlParen = controlKeywords.has(identifier)
+          || identifier === 'await' && wasPendingControlParen;
+      } else if (/[0-9]/.test(current)) {
+        previousTokenWasClosingBrace = false;
+        index += 1;
+        while (/[\w.]/.test(characters[index] ?? '')) index += 1;
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (current === '(') {
+        previousTokenWasClosingBrace = false;
+        controlParens.push(pendingControlParen);
+        index += 1;
+        canStartRegex = true;
+        pendingControlParen = false;
+      } else if (current === ')') {
+        previousTokenWasClosingBrace = false;
+        const isControlParen = controlParens.pop();
+        index += 1;
+        canStartRegex = isControlParen === true;
+        pendingControlParen = false;
+      } else if (current === '/' && next !== '/' && next !== '*') {
+        previousTokenWasClosingBrace = false;
+        index += 1;
+        canStartRegex = true;
+        pendingControlParen = false;
+      } else {
+        if (templateExpression && current === '{') {
+          braceDepth += 1;
+        } else if (templateExpression && current === '}') {
+          braceDepth -= 1;
+        }
+        if (current === '+' && next === '+' || current === '-' && next === '-') {
+          index += 2;
+          canStartRegex = false;
+        } else if (current === '=' && next === '>') {
+          index += 2;
+          canStartRegex = true;
+        } else {
+          index += 1;
+          canStartRegex = ![')', ']', '}', '.'].includes(current);
+        }
+        previousTokenWasClosingBrace = current === '}';
+        pendingControlParen = false;
+      }
+    }
+  }
+
+  scanCode();
+  return characters.join('');
+}
+
+function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
+  if (specifier === 'module'
+      || specifier === 'node:module'
+      || specifier === 'vm'
+      || specifier === 'node:vm') {
+    throw new Error(
+      `Node verification imports unsupported module loader: ${specifier}`,
+    );
+  }
+  if (specifier.startsWith('node:') || nodeBuiltins.has(specifier)) {
+    return null;
+  }
+  if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
+    throw new Error(
+      `Node verification imports unsupported package input: ${specifier}`,
+    );
+  }
+
+  const importPath = resolve(dirname(importerPath), specifier);
+  const candidates = extname(importPath)
+    ? [importPath]
+    : [
+      importPath,
+      `${importPath}.mjs`,
+      `${importPath}.js`,
+      `${importPath}.cjs`,
+      `${importPath}.json`,
+    ];
+  const importedPath = candidates.find((candidate) => existsSync(candidate));
+  if (!importedPath) {
+    throw new Error(`Unable to enumerate Node verification import: ${specifier}`);
+  }
+  const repositoryRelative = relative(repositoryRoot, importedPath);
+  if (repositoryRelative.startsWith('..') || isAbsolute(repositoryRelative)) {
+    throw new Error(`Node verification import is outside the repository: ${specifier}`);
+  }
+  const importedStat = lstatSync(importedPath);
+  if (!importedStat.isFile() && !importedStat.isSymbolicLink()) {
+    throw new Error(`Node verification import is not a file: ${specifier}`);
+  }
+  return importedPath;
+}
+
+function isPathWithin(root, candidate) {
+  const repositoryRelative = relative(root, candidate);
+  return repositoryRelative === ''
+    || (!repositoryRelative.startsWith('..') && !isAbsolute(repositoryRelative));
+}
+
+function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
+  const paths = new Set();
+  const visited = new Set();
+  const queue = [...testFiles];
+  while (queue.length > 0) {
+    const importerPath = queue.shift();
+    if (visited.has(importerPath)) continue;
+    visited.add(importerPath);
+    const source = readFileSync(importerPath, 'utf8');
+    const executableSource = maskJavaScriptNonCode(source);
+    const dynamicImport = new RegExp(`\\bimport${javascriptTrivia}\\(`);
+    const dynamicRequire = new RegExp(
+      `\\brequire${javascriptTrivia}\\(${javascriptTrivia}(?!['"][^'"]*['"]${javascriptTrivia}\\))`,
+      'g',
+    );
+    const indirectModuleLoader = new RegExp(
+      `\\b(?:createRequire|getBuiltinModule|_load)\\b|\\brequire\\b${javascriptTrivia}(?!\\()`,
+    );
+    const hasDynamicRequire = [...source.matchAll(dynamicRequire)].some((match) => (
+      executableSource[match.index] !== ' '
+    ));
+    if (dynamicImport.test(executableSource)
+        || hasDynamicRequire
+        || indirectModuleLoader.test(executableSource)) {
+      throw new Error(
+        `Node verification input has an indirect module loader that cannot be protected: ${importerPath}`,
+      );
+    }
+    if (/\b(?:eval|Function)\b/.test(executableSource)) {
+      throw new Error(
+        `Node verification input uses unsupported dynamic code execution: ${importerPath}`,
+      );
+    }
+    if (/\b(?:Reflect|Proxy|getOwnPropertyDescriptor|getOwnPropertyDescriptors)\b/
+      .test(executableSource)) {
+      throw new Error(
+        `Node verification input uses unsupported reflective dynamic code execution: ${importerPath}`,
+      );
+    }
+    const computedGlobalLookup = /\b(?:globalThis|global|window|self)\s*\[/g;
+    const computedObjectLookup = /\bObject\s*\[/g;
+    if ([...source.matchAll(computedGlobalLookup), ...source.matchAll(computedObjectLookup)]
+      .some((match) => (
+        executableSource[match.index] !== ' '
+      ))) {
+      throw new Error(
+        `Node verification input uses unsupported dynamic code execution: ${importerPath}`,
+      );
+    }
+    const reflectiveDynamicCodeExecution = new RegExp(
+      `(?:\\.${javascriptTrivia}constructor\\b|\\[${javascriptTrivia}(['"])constructor\\1${javascriptTrivia}\\])`,
+      'g',
+    );
+    if ([...source.matchAll(reflectiveDynamicCodeExecution)].some((match) => (
+      executableSource[match.index] !== ' '
+    ))) {
+      throw new Error(
+        `Node verification input uses unsupported reflective dynamic code execution: ${importerPath}`,
+      );
+    }
+    const staticImports = new RegExp(
+      `\\b(?:from|import)${javascriptTrivia}['"]([^'"]+)['"]`,
+      'g',
+    );
+    const staticRequires = new RegExp(
+      `\\brequire${javascriptTrivia}\\(${javascriptTrivia}['"]([^'"]+)['"]${javascriptTrivia}\\)`,
+      'g',
+    );
+    const specifiers = [
+      ...source.matchAll(staticImports),
+      ...source.matchAll(staticRequires),
+    ].filter((match) => executableSource[match.index] !== ' ')
+      .map((match) => match[1]);
+    for (const specifier of specifiers) {
+      if (executableLoaderModules.has(specifier)
+          && !protectedRoots.some((root) => (
+            relative(repositoryRoot, root).replaceAll('\\', '/') === 'scripts'
+            && isPathWithin(root, importerPath)
+          ))) {
+        throw new Error(
+          `Node verification input imports unsupported executable loader: ${specifier}`,
+        );
+      }
+      if (specifier === 'module' || specifier === 'node:module') {
+        if (importerPath === resolve(repositoryRoot, 'scripts/maker-checker-safety.mjs')) {
+          continue;
+        }
+        throw new Error(
+          `Node verification input imports unsupported module loader: ${specifier}`,
+        );
+      }
+      const importedPath = resolveVerificationImport(repositoryRoot, importerPath, specifier);
+      if (!importedPath) continue;
+      const alreadyProtected = protectedRoots.some(
+        (root) => isPathWithin(root, importedPath),
+      );
+      if (!alreadyProtected) {
+        const relativePath = relative(repositoryRoot, importedPath);
+        if (relativePath.split(/[\\/]/)[0] === 'src') continue;
+        paths.add(importedPath);
+      }
+      queue.push(importedPath);
+    }
+  }
+  return [...paths];
+}
+
+function verificationPaths(repositoryRoot, verificationCommand) {
+  const tokens = (verificationCommand.match(/"[^"]+"|'[^']+'|\S+/g) ?? [])
+    .map((token) => token.replace(/^(['"])(.*)\1$/, '$2'));
+  const shells = new Set(['bash', 'sh', 'dash', 'zsh', 'cmd', 'powershell', 'pwsh']);
+  for (let index = 0; index < tokens.length; index += 1) {
+    const executable = tokens[index].split(/[\\/]/).at(-1)
+      .replace(/\.exe$/i, '')
+      .toLowerCase();
+    if (shells.has(executable)
+        && tokens.slice(index + 1).some((argument) => shellUsesCommandMode(
+          executable,
+          argument,
+        ))) {
+      throw new Error(
+        'Shell command verification forms are not supported because their inputs cannot be protected.',
+      );
+    }
+  }
+
+  const paths = [];
+  const absoluteToken = tokens.find((token) => /^(?:[A-Za-z]:)?[\\/]/.test(token));
+  if (absoluteToken) {
+    throw new Error(
+      'Verification commands must use repository-relative paths because the sandbox mounts '
+        + `the repository at a different location: ${absoluteToken}`,
+    );
+  }
+  const executable = tokens[0]?.split(/[\\/]/).at(-1)
+    .replace(/\.exe$/i, '')
+    .toLowerCase();
+  if (shells.has(executable)) {
+    const scriptPath = tokens[1]?.replaceAll('\\', '/');
+    if (executable !== 'bash'
+        || tokens.length !== 2
+        || !sandboxCompatibleShellScripts.has(scriptPath)) {
+      throw new Error(
+        'Shell verification must invoke one explicitly allowlisted sandbox-compatible script.',
+      );
+    }
+    paths.push(resolve(repositoryRoot, 'scripts'));
+  } else if (executable === 'node') {
+    if (tokens[1] !== '--test'
+        || tokens.length < 3
+        || !tokens.slice(2).every((token) => /\.(?:test|spec)\.mjs$/i.test(token)
+          && !/[*?\[\]]/.test(token))) {
+      throw new Error(
+        'Node verification must use node --test with explicit .test.mjs or .spec.mjs files.',
+      );
+    }
+    const testFiles = [];
+    const protectedRoots = [];
+    for (const token of tokens.slice(2)) {
+      const path = resolve(repositoryRoot, token);
+      const repositoryRelative = relative(repositoryRoot, path);
+      if (repositoryRelative.startsWith('..')
+          || isAbsolute(repositoryRelative)
+          || !existsSync(path)
+          || !lstatSync(path).isFile()) {
+        throw new Error(`Node verification test file is not a repository file: ${token}`);
+      }
+      const segments = repositoryRelative.split(/[\\/]/);
+      const testDirectoryIndex = segments.slice(0, -1).findIndex((segment) => (
+        /^(?:__tests__|tests?)$/i.test(segment) || /\.tests?$/i.test(segment)
+      ));
+      const rootIndex = segments[0] === 'scripts'
+        ? 0
+        : testDirectoryIndex;
+      if (rootIndex < 0) {
+        throw new Error(
+          `Node verification test file must be under scripts/ or a test directory: ${token}`,
+        );
+      }
+      const protectedRoot = resolve(repositoryRoot, ...segments.slice(0, rootIndex + 1));
+      protectedRoots.push(protectedRoot);
+      paths.push(protectedRoot);
+      paths.push(path);
+      testFiles.push(path);
+    }
+    paths.push(...verificationImportPaths(repositoryRoot, testFiles, protectedRoots));
+  } else {
+    throw new Error(
+      'Verification command form is not supported; use explicit node tests, a scripts/*.sh '
+        + 'script.',
+    );
+  }
+
+  for (const unquoted of tokens) {
+    if (unquoted.startsWith('-')) continue;
+    const path = resolve(repositoryRoot, unquoted);
+    const repositoryRelative = relative(repositoryRoot, path);
+    if (repositoryRelative.startsWith('..') || isAbsolute(repositoryRelative)) continue;
+    if (existsSync(path)) paths.push(path);
+  }
+  return [...new Set(paths)];
+}
+
+function featureById(features, featureId) {
+  return features.find((feature) => feature.id === featureId);
+}
+
+function duplicateFeatureId(features) {
+  const seen = new Set();
+  return features.find((feature) => {
+    if (seen.has(feature.id)) return true;
+    seen.add(feature.id);
+    return false;
+  })?.id ?? null;
+}
+
+function assertSafeStartingChecklist(checklist, goal) {
+  if (checklist.issue?.number !== goal.issue) {
+    throw new Error('Goal issue does not match its feature checklist.');
+  }
+  const target = featureById(checklist.features, goal.featureId);
+  if (!target) {
+    throw new Error(`Feature ${goal.featureId} is missing from its checklist.`);
+  }
+  if (target.status !== 'active') {
+    throw new Error(`Feature ${goal.featureId} must be active before the loop starts.`);
+  }
+  if (target.verification !== goal.verificationCommand) {
+    throw new Error('Goal verification does not match the active feature checklist.');
+  }
+  const otherActive = checklist.features.find(
+    (feature) => feature.id !== goal.featureId && feature.status === 'active',
+  );
+  if (otherActive) {
+    throw new Error(`Feature ${otherActive.id} is already active.`);
+  }
+}
+
+function isGitMetadataPath(repositoryRoot, path) {
+  const gitDirectory = resolve(repositoryRoot, '.git');
+  const candidate = resolve(path);
+  const repositoryRelative = relative(gitDirectory, candidate);
+  return repositoryRelative === ''
+    || (!repositoryRelative.startsWith('..') && !isAbsolute(repositoryRelative));
+}
+
+function gitMetadataWriteDenials(repositoryRoot) {
+  const gitDirectory = resolve(repositoryRoot, '.git').replaceAll('\\', '/');
+  return [
+    `--deny-tool=write(${gitDirectory})`,
+    `--deny-tool=write(${gitDirectory}/**)`,
+  ];
+}
+
+function stateWriteDenials(statePath) {
+  const stateFile = resolve(statePath).replaceAll('\\', '/');
+  return [
+    `--deny-tool=write(${stateFile})`,
+    `--deny-tool=write(${stateFile}.*)`,
+    `--deny-tool=write(${stateFile}.lock)`,
+    `--deny-tool=write(${stateFile}.lock/**)`,
+  ];
+}
+
+function mcpServerDisableArgument(serverName) {
+  if (!/^[A-Za-z0-9._-]+$/.test(serverName)) {
+    throw new Error(`Unsupported MCP server name: ${serverName}`);
+  }
+  return `--disable-mcp-server=${serverName}`;
+}
+
+function hasOnlyApprovedCopilotArguments(args, repositoryRoot, protectedWritePaths) {
+  const approvedFlags = new Set([
+    '--silent',
+    '--allow-all-tools',
+    '--disable-builtin-mcps',
+    shellExclusion,
+    urlDenial,
+    ...gitMetadataWriteDenials(repositoryRoot),
+    ...protectedWritePaths.flatMap(stateWriteDenials),
+  ]);
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (approvedFlags.has(argument)) continue;
+    if (argument.startsWith('--disable-mcp-server=')
+        && argument.length > '--disable-mcp-server='.length) {
+      continue;
+    }
+    if (argument === '-C') {
+      index += 1;
+      if (resolve(args[index]) !== repositoryRoot) return false;
+      continue;
+    }
+    if (argument === '--stream') {
+      index += 1;
+      if (args[index] !== 'off') return false;
+      continue;
+    }
+    if (argument === '--output-format') {
+      index += 1;
+      if (args[index] !== 'text') return false;
+      continue;
+    }
+    if (argument === '--agent') {
+      index += 1;
+      if (args[index] !== 'Harness Implementer') return false;
+      continue;
+    }
+    if (argument === '--prompt') {
+      index += 1;
+      if (typeof args[index] !== 'string' || args[index].length === 0) return false;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+export function parseConfiguredMcpServers(output) {
+  const serverNames = [];
+  for (const line of output.split(/\r?\n/)) {
+    if (line.trim().length === 0 || /^[^:\r\n]+:\s*$/.test(line)) continue;
+    const match = line.match(/^\s{2}(.+?)\s+\((?:local|remote|http)\)\s*$/);
+    if (!match) {
+      throw new Error(`Unrecognized Copilot MCP inventory entry: ${line}`);
+    }
+    serverNames.push(match[1]);
+  }
+  return [...new Set(serverNames)].sort();
+}
+
+export function listConfiguredMcpServers(
+  executable = 'copilot',
+  repositoryRoot = process.cwd(),
+  commandRunner = (command, args, options) => execFileSync(command, args, options),
+) {
+  const output = commandRunner(executable, ['mcp', 'list'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  return parseConfiguredMcpServers(output);
+}
+
+export function copilotCapabilityArguments(
+  repositoryRoot,
+  mcpServerNames = [],
+  protectedWritePaths = [],
+) {
+  return [
+    '--allow-all-tools',
+    shellExclusion,
+    urlDenial,
+    ...gitMetadataWriteDenials(repositoryRoot),
+    ...protectedWritePaths.flatMap(stateWriteDenials),
+    '--disable-builtin-mcps',
+    ...mcpServerNames.map(mcpServerDisableArgument),
+  ];
+}
+
+export class CopilotCapabilityBoundary {
+  constructor({
+    executable = 'copilot',
+    repositoryRoot = process.cwd(),
+    mcpServerProvider,
+  } = {}) {
+    this.executable = executable;
+    this.repositoryRoot = resolve(repositoryRoot);
+    this.mcpServerProvider = mcpServerProvider
+      ?? (() => listConfiguredMcpServers(this.executable, this.repositoryRoot));
+  }
+
+  async copilotArguments(protectedWritePaths = []) {
+    const serverNames = await this.mcpServerProvider();
+    return copilotCapabilityArguments(
+      this.repositoryRoot,
+      serverNames,
+      protectedWritePaths,
+    );
+  }
+
+  assertToolInvocationAllowed(invocation) {
+    if (invocation.kind === 'shell') {
+      throw new Error('Shell capability is unavailable without explicit human approval.');
+    }
+    if (invocation.kind === 'url') {
+      throw new Error('URL capability is unavailable without explicit human approval.');
+    }
+    if (invocation.kind === 'mcp') {
+      throw new Error(`MCP server ${invocation.server} is disabled without explicit human approval.`);
+    }
+    if (invocation.kind === 'write'
+        && isGitMetadataPath(this.repositoryRoot, invocation.path)) {
+      throw new Error('Writes to Git metadata require explicit human approval.');
+    }
+  }
+}
+
+export class DenyByDefaultCommandPolicy {
+  constructor({ executable, repositoryRoot }) {
+    this.executable = executable;
+    this.repositoryRoot = resolve(repositoryRoot);
+  }
+
+  assertAllowed(executable, args, options) {
+    const protectedWritePaths = options.protectedWritePaths ?? [];
+    const requiredArguments = copilotCapabilityArguments(
+      this.repositoryRoot,
+      [],
+      protectedWritePaths,
+    );
+    const allowed = executable === this.executable
+      && resolve(options.cwd) === this.repositoryRoot
+      && args.includes('--prompt')
+      && args.includes('--silent')
+      && hasOnlyApprovedCopilotArguments(args, this.repositoryRoot, protectedWritePaths)
+      && requiredArguments.every((argument) => args.includes(argument));
+    if (!allowed) {
+      throw new Error(`Command policy denied ${executable}. Explicit human approval is required.`);
+    }
+  }
+}
+
+export class RepositorySafetyBoundary {
+  constructor({
+    repositoryRoot = process.cwd(),
+    protectedPaths = [],
+    commandRunner = (args) => execFileSync('git', args, {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    }),
+  } = {}) {
+    this.repositoryRoot = resolve(repositoryRoot);
+    this.protectedPaths = protectedPaths.map((path) => resolve(path));
+    this.commandRunner = commandRunner;
+  }
+
+  capture(goal, { requireActive = true } = {}) {
+    const checklistPath = resolve(
+      this.repositoryRoot,
+      'docs',
+      'features',
+      goal.featureSlug,
+      'features_list.json',
+    );
+    const checklist = JSON.parse(readFileSync(checklistPath, 'utf8'));
+    if (requireActive) {
+      assertSafeStartingChecklist(checklist, goal);
+    }
+    const protectedPaths = new Set([
+      ...this.protectedPaths,
+      ...controllerProtectedPaths(this.repositoryRoot),
+      ...verificationPaths(this.repositoryRoot, goal.verificationCommand),
+    ]);
+    return {
+      branch: this.commandRunner(['branch', '--show-current']).trim(),
+      commit: this.commandRunner(['rev-parse', 'HEAD']).trim(),
+      checklist,
+      protectedFiles: Object.fromEntries(
+        [...protectedPaths].sort().map((path) => [path, fileDigest(path)]),
+      ),
+    };
+  }
+
+  violations(before, after, goal, actor, {
+    checkerOutcome = null,
+    reviewedRevisionValid = false,
+  } = {}) {
+    const violations = [];
+    if (before.commit !== after.commit) {
+      violations.push('Repository HEAD changed; commit and merge actions require approval.');
+    }
+    if (before.branch !== after.branch) {
+      violations.push('The active branch changed; branch-changing actions require approval.');
+    }
+
+    if (stableJson(before.checklist.issue) !== stableJson(after.checklist.issue)) {
+      violations.push('Issue acceptance metadata changed.');
+    }
+    const beforeDuplicate = duplicateFeatureId(before.checklist.features);
+    const afterDuplicate = duplicateFeatureId(after.checklist.features);
+    if (beforeDuplicate || afterDuplicate) {
+      violations.push(
+        `Duplicate feature ID ${afterDuplicate ?? beforeDuplicate} is not allowed in the checklist.`,
+      );
+      return violations;
+    }
+    for (const beforeFeature of before.checklist.features) {
+      const afterFeature = featureById(after.checklist.features, beforeFeature.id);
+      if (!afterFeature) {
+        violations.push(`Feature ${beforeFeature.id} was removed from the checklist.`);
+        continue;
+      }
+      for (const field of ['description', 'verification', 'dependsOn']) {
+        if (stableJson(beforeFeature[field]) !== stableJson(afterFeature[field])) {
+          violations.push(`Feature ${beforeFeature.id} ${field} changed.`);
+        }
+      }
+      if (beforeFeature.id !== goal.featureId
+          && stableJson(beforeFeature) !== stableJson(afterFeature)) {
+        violations.push(`Feature ${beforeFeature.id} changed while ${goal.featureId} was active.`);
+      }
+    }
+    const addedFeature = after.checklist.features.find(
+      (feature) => !featureById(before.checklist.features, feature.id),
+    );
+    if (addedFeature) {
+      violations.push(`Feature ${addedFeature.id} was added while ${goal.featureId} was active.`);
+    }
+    const otherActive = after.checklist.features.find(
+      (feature) => feature.id !== goal.featureId && feature.status === 'active',
+    );
+    if (otherActive) {
+      violations.push(`Feature ${otherActive.id} was started without approval.`);
+    }
+    const beforeTarget = featureById(before.checklist.features, goal.featureId);
+    const afterTarget = featureById(after.checklist.features, goal.featureId);
+    if (beforeTarget && afterTarget && beforeTarget.status !== afterTarget.status) {
+      const checkerPassed = actor === 'checker'
+        && beforeTarget.status === 'active'
+        && afterTarget.status === 'pass'
+        && checkerOutcome === 'pass'
+        && reviewedRevisionValid;
+      if (!checkerPassed) {
+        violations.push(`Feature ${goal.featureId} status changed outside checker PASS.`);
+      }
+    }
+
+    for (const [path, digest] of Object.entries(before.protectedFiles)) {
+      if (after.protectedFiles[path] !== digest) {
+        violations.push(`Protected file ${relative(this.repositoryRoot, path)} changed.`);
+      }
+    }
+    return [...new Set(violations)];
+  }
+
+  assertTransition(before, after, goal, actor, context) {
+    const violations = this.violations(before, after, goal, actor, context);
+    if (violations.length > 0) {
+      throw new Error(
+        `Safety boundary requires explicit human approval:\n${violations.join('\n')}`,
+      );
+    }
+  }
+}
