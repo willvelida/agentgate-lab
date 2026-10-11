@@ -487,3 +487,21 @@ Each entry records:
 * Constraints: users must review verification commands and imported code
   before running the loop. Do not describe the loop as a security boundary or
   use it to execute untrusted repository changes.
+
+## D028: process cleanup takes precedence over controller liveness
+
+* Date: 2026-10-11
+* Decision: after a dispatch timeout or controller interrupt, keep the
+  controller pending and retry process-tree termination until cleanup succeeds
+  and the direct child closes. On POSIX, also wait until the child's process
+  group no longer exists.
+* Why: returning from a cleanup failure can let the controller exit while a
+  detached child may still act. Keeping cleanup pending prevents another
+  maker/checker round from starting and preserves controller supervision.
+* Alternatives rejected: bounded cleanup retries followed by controller exit,
+  because the remaining child could continue acting after supervision ends.
+* Constraints: the dispatch and productive loop work remain bounded, but the
+  controller's total lifetime is intentionally unbounded if the operating
+  system cannot confirm process-tree termination. A hard lifetime bound needs
+  OS-enforced containment, such as a kill-on-close process group or job object,
+  in a separate design.

@@ -23,14 +23,15 @@ health before it changes anything.
 
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
   The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
-  check, and DCO. A follow-up now keeps the controller pending and retries
-  process-tree cleanup after termination errors; it is not yet verified or
-  independently evaluated, and remains uncommitted and unpublished.
-* The earlier F003/F004 evaluator verdicts do not cover this follow-up change.
-  Feature checklist states remain unchanged; obtain fresh verification and
-  independent evaluation before treating the new cleanup behavior as accepted.
-  The interrupt-cleanup review thread remains open; exact-head CI for local
-  changes is pending.
+  check, and DCO. Follow-up commit
+  `5c1f9dc580723224b0fc11375e7008ca7810ec60` is pushed to
+  `origin/feat/harness-extension`; the interrupt-cleanup review thread was
+  answered and resolved.
+* F003 and F004 passed 23/23 and 15/15; architecture passed, and fresh
+  independent evaluations returned PASS (averages 4.6 and 4.8, minimum 4).
+  For code head `5c1f9dc`, Build run `38112705410`, links and progress-reminder
+  in run `38112705413`, and DCO all passed. A documentation handoff commit
+  remains to be published and checked before the PR is considered ready.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -453,37 +454,51 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: changed cleanup-failure handling so the controller retries
-  termination and stays pending rather than exiting while the child may still
-  act. POSIX cleanup waits for the process group to disappear.
-* Scope: issue #30's controller process lifecycle, its failure-path regression,
-  and directly related cleanup and decision documentation. Feature checklist
-  states and existing evaluator verdict records were not changed in this
-  implementation turn; those verdicts predate this diff and do not evaluate it.
+* Accomplished: handled controller SIGINT/SIGTERM by terminating the detached
+  child process tree and waiting for cleanup; documented the intentional
+  cleanup-first lifecycle; added regression coverage; obtained fresh F003/F004
+  evaluator PASS verdicts; and answered and resolved the new PR review thread.
+* Scope: issue #30's controller process lifecycle, its regression tests, and
+  directly related operator and decision documentation. Feature checklist
+  statuses remain unchanged.
 * Files modified: `scripts/maker-checker-loop.mjs`,
   `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
-  `docs/decisions.md`, and this progress log. No rubric, feature list, or
-  evaluator verdict was edited in this implementation turn.
-* Verification: pending. Run the exact F003 command and
-  `bash scripts/check-architecture.sh` through the evidence runner, then
-  request a fresh F003 evaluation for this diff. F004 code is unchanged, but
-  the shared controller change should be included in renewed F004 evidence
-  before its prior evaluation is relied on.
-* Boundedness: dispatch and further loop work stop at their existing limits.
-  Cleanup retry has no elapsed-time cap, because exiting while a child may act
-  would violate the safety invariant. A persistent OS cleanup failure can keep
-  the controller pending indefinitely; a hard total-lifetime guarantee needs
-  OS-enforced containment.
-* Reviewed revision: `cc0eec3d0e46102f8493915f21756716a5ef89a4` plus the
-  current uncommitted changes. No startup check applies to harness scripts.
-* Cleanup: no test was run in this session yet; processes and temporary
-  artifacts created by this session: none. Preserve local ignored verification
-  reports and prior evaluator artifacts.
-* Publication: no commit or push. Existing PR #31 and its interrupt-cleanup
-  thread remain pending; do not rely on old evaluator results for the new diff.
-* Next steps: run focused evidence-captured checks, repair any failures, obtain
-  fresh independent evaluation, then update PR review context and only commit
-  or publish when authorized.
+  `docs/decisions.md` (D028), this progress log, and the issue #30
+  `agent-progress.md`. The evaluator rubric is ignored.
+* Verification on code commit `5c1f9dc580723224b0fc11375e7008ca7810ec60`:
+  * F003 passed 23/23, exit 0, run
+    `2026-10-11T04-49-29-113Z-9592a27f-9e16-4335-ae26-111dcefcb22d`.
+  * F004 passed 15/15, exit 0, run
+    `2026-10-11T04-47-37-865Z-1b944add-9f7a-48f0-9e7e-d629646766ce`.
+  * `bash scripts/check-architecture.sh` passed, exit 0, run
+    `2026-10-11T04-49-29-208Z-b0037ac8-fb1c-40b1-9c31-910346b35487`.
+  * `git diff --check` passed, exit 0, run
+    `2026-10-11T04-51-02-025Z-5b9a7004-a9fe-4c6f-9152-b5c44069d1e5`.
+  * The initial Windows interrupt test failed because signaling the nested
+    process terminated it before its handler ran (run
+    `2026-10-11T04-20-24-084Z-0c8445c2-0580-4c18-8696-63df711ea403`, exit 1).
+    The test was changed to exercise the handler on Windows and now verifies
+    child exit on both platforms; the F003 reruns passed.
+* Fresh-session evaluation: F003 PASS (average 4.6, minimum 4); F004 PASS
+  (average 4.8, minimum 4). The feature evidence and ignored evaluator rubric
+  record their run IDs and scores.
+* Boundedness: dispatch and productive loop work stop at their existing
+  limits. Cleanup retry has no elapsed-time cap; a persistent OS cleanup
+  failure can keep the controller pending indefinitely. D028 records this
+  decision.
+* Reviewed code commit: `5c1f9dc580723224b0fc11375e7008ca7810ec60`, pushed to
+  `feat/harness-extension`; this handoff and D028 are documentation follow-ups
+  to publish. No startup check applies to harness scripts.
+* Publication: the interrupt-cleanup review thread was answered and resolved.
+  For exact code head `5c1f9dc`, Build run `38112705410`, links and
+  progress-reminder in run `38112705413`, and DCO all passed. The final
+  documentation head's CI status remains to be checked.
+* Cleanup: no long-lived process or service remains. The interrupt regression
+  verified child exit; fixtures removed their temporary directories. Ignored
+  verification reports and evaluator rubric are intentionally retained.
+* Next steps: publish D028 and this updated handoff, confirm CI for that final
+  pushed head, update the PR validation summary without changing its template
+  structure, and confirm the working-tree state.
 
 ## Built
 
