@@ -21,17 +21,16 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31 is at pushed head `b7c7202515933b9991e662484f6bb7299080f090` on
-  `feat/harness-extension`. Docs check and DCO passed on that head; Build
-  failed because the F004 test depended on an ignored local feature list, now
-  replaced by an isolated fixture. Review follow-ups address dynamic loaders,
-  unsupported sandbox toolchains, first-turn no-progress accounting, and
-  progress evidence. A fresh F004 evaluation then found reflective
-  `constructor.constructor` loading; the scanner now rejects reflective
-  constructor access and has regression coverage. Exact F003/F004 checks and
-  architecture validation pass on the dirty tree. Fresh evaluators now pass
-  F003 (4.8/5) and F004 (4.6/5), including the reflective-loader fix. Commit,
-  push, exact-head CI, and PR replies/resolutions remain pending.
+* PR #31 implementation follow-up is pushed as
+  `db7c95944f37bc32c2be2e23b2987f11a56cb707` on `feat/harness-extension`.
+  Exact-head Build, Docs check (links and progress reminder), and DCO all
+  passed. The earlier Build failure on `b7c7202` came from an F004 test that
+  depended on an ignored local feature list; the test now uses an isolated
+  fixture. Review follow-ups also reject reflective and dynamic loaders,
+  reject sandbox-unsupported toolchains, count first-turn no-progress, and
+  refresh progress evidence. Fresh evaluators pass F003 (4.8/5) and F004
+  (4.6/5), including the reflective-loader fix. PR description is updated;
+  five inline review threads still need replies and resolution.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -462,7 +461,8 @@ where you left off.
 * Scope: PR #31 F003/F004 verification and controller behavior. Fresh
   evaluation passed F003 (4.8/5) and F004 (4.6/5), including the follow-up
   fix for the reflective loader bypass. Both feature statuses remain pass;
-  the ignored local feature list's evidence was refreshed.
+  the ignored local feature list's evidence was refreshed. Commit
+  `db7c95944f37bc32c2be2e23b2987f11a56cb707` was signed off and pushed.
 * Tracked changes include `scripts/maker-checker-safety.mjs`,
   `scripts/maker-checker-safety.test.mjs`, `scripts/maker-checker-loop.mjs`,
   `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
@@ -471,8 +471,8 @@ where you left off.
   evidence locally. The ignored `features_list.json` was also refreshed with
   the latest evaluator and verification evidence; it is not part of the
   commit.
-* Verification on pushed HEAD `b7c7202515933b9991e662484f6bb7299080f090`
-  plus the current working tree:
+* Verification for the complete seven-file diff reviewed at `b7c7202`, now
+  committed in `db7c95944f37bc32c2be2e23b2987f11a56cb707`:
   * Exact F003 command passed 36/36, exit 0, run
     `2026-10-11T20-48-04-613Z-7fcd2c7f-fc9d-421c-acae-8e38f541e095`.
   * Exact F004 command passed 32/32, exit 0, run
@@ -492,16 +492,16 @@ where you left off.
     in the passing evaluation above.
   * `git diff --check` passed, exit 0, run
     `2026-10-11T21-00-56-081Z-4e8c5e64-f41c-4ec8-81f4-482f60860d35`.
-* CI and review: Build failed on `b7c7202` because a test opened ignored
-  `features_list.json`; Docs check and DCO passed. Five inline review threads
-  remain open. The follow-up is not yet committed or pushed; exact-head CI,
-  PR replies, and thread resolutions remain pending.
+* CI and review: Build run `38174696363` and Docs check run `38174696332`
+  passed on exact head `db7c95944f37bc32c2be2e23b2987f11a56cb707`; DCO passed.
+  The PR description now records this head and its evidence. Five inline
+  review threads remain open; replies and resolutions are the remaining PR
+  work.
 * Boundaries and cleanup: runtime startup is not applicable. No long-lived
   service was started. Tests removed their temporary fixtures and containers.
   Local verification evidence remains under ignored `.local/verification/`.
-* Next: commit with sign-off, push, record exact-head CI in the PR, update the
-  PR description, reply to and resolve addressed threads, and verify the
-  final PR state.
+* Next: reply to and resolve the five addressed review threads, update this
+  handoff, publish that progress update, and verify the final PR state.
 
 ## Built
 
