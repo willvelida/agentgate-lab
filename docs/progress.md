@@ -21,26 +21,33 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31 follow-up is published as
-  `5b35020e0eeb149aa780a34e2416527efe0e0ac8` on
-  `feat/harness-extension`. F003 passed fresh evaluation (5.0/5); F004 passed
-  fresh evaluation (4.8/5). All four review threads were answered and
-  resolved. Build, Docs check, and DCO passed for this exact head.
+* PR #31 is currently at remote head
+  `8d8d1265d275b22cb5fc66e148f5159512d4677e` on `feat/harness-extension`.
+  Five review threads were unresolved at the latest refresh; the progress-log
+  thread is already resolved. Uncommitted follow-up fixes protect
+  instruction/configuration and host verification files, reject shell
+  command-mode forms, explicitly remove sandbox containers, and run the goal
+  contract tests in CI. F003 and F004 have fresh evaluator PASS verdicts
+  (averages 4.8/5); publication and exact-head CI remain pending.
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
   The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
   check, and DCO. Follow-up commit
   `5c1f9dc580723224b0fc11375e7008ca7810ec60` is pushed to
   `origin/feat/harness-extension`; the interrupt-cleanup review thread was
   answered and resolved.
-* Latest F003 verification passed 34/34 (run
-  `2026-10-11T06-33-36-541Z-9aa6b39e-b8f0-46e5-a091-1c7c0237ddea`); the
-  architecture check passed (run
-  `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
-  Latest F004 verification passed 19/19 (run
-  `2026-10-11T06-33-36-671Z-6ed29501-d33b-426c-8a0b-d86983422920`).
-  Verification-runner tests passed 9/9 (run
-  `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
-  Fresh-session evaluations passed F003 at 5.0/5 and F004 at 4.8/5.
+* Current PR-review verification on the dirty tree: F003 regression tests
+  passed 34/34, exit 0, run
+  `2026-10-11T07-17-50-336Z-e29073af-ee3f-43d2-9a33-b12921922952`;
+  F004 tests passed 23/23, exit 0, run
+  `2026-10-11T07-43-26-147Z-1f8a79dc-cdee-4f82-9d64-21c7a58648a7`;
+  the CI maker-checker test group passed 60/60, exit 0, run
+  `2026-10-11T07-43-26-215Z-d5466336-a5fa-435a-98bc-4ad09d8c1fd2`;
+  verification-runner tests passed 9/9, exit 0, run
+  `2026-10-11T07-43-26-076Z-d05278cb-03f2-4efa-ad14-b21f3eec14df`;
+  architecture passed, exit 0, run
+  `2026-10-11T07-42-55-463Z-71f1688f-d94a-4a8f-beef-854cb16f4fac`.
+  Fresh F003 and F004 evaluators both returned PASS, average 4.8/minimum 4.
+  No exact-head CI applies to these uncommitted changes.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -463,59 +470,65 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: addressed four PR #31 findings covering concurrent
-  controller state, shell-form verification bypass, interrupted-run resume,
-  and checker-result/revision validation. Added Docker isolation for
-  controller verification and its protected-write/push integration regression.
-  F003 and F004 both passed fresh independent evaluation. Updated the PR
-  description, replied to the four threads, and resolved them.
-* Scope: issue #30 maker-checker loop state, safety policy, verification
-  runner, tests, CI image setup, and directly related operator and decision
-  documentation. Existing feature statuses were not changed.
-* Files modified: `.github/workflows/build.yml`, `docs/decisions.md`,
-  `docs/harness-agent.md`, `docs/verification.md`, this progress log,
-  `docs/features/.../agent-progress.md`, and the loop, safety, and verification
-  runner modules and tests. The ignored evaluator rubric and feature checklist
-  are local.
-* Verification for source contents committed as
-  `5b35020e0eeb149aa780a34e2416527efe0e0ac8`:
+* Accomplished: refreshed PR #31 and confirmed five unresolved findings,
+  including the unprotected host verification launcher. Implemented and
+  locally verified the instruction/configuration and launcher protections,
+  rejection of shell command-mode flags despite intervening options,
+  explicit verification-container cleanup, and the missing goal-contract test
+  in CI. Updated sandbox and operator guidance. Fresh-session F003 and F004
+  evaluations both returned PASS (average 4.8, minimum 4).
+* Scope: F003 process cleanup and F004 controller verification/instruction
+  safety. Feature status values remain unchanged.
+* Files modified: `scripts/maker-checker-safety.mjs`,
+  `scripts/maker-checker-safety.test.mjs`, `scripts/verification-sandbox.mjs`,
+  `scripts/maker-checker-loop.mjs`, `scripts/run-verification.mjs`,
+  `.github/workflows/build.yml`, `docs/decisions.md`, `docs/harness-agent.md`,
+  `docs/verification.md`,
+  `docs/features/.../agent-progress.md`, and this log.
+* Verification reviewed the dirty tree atop commit
+  `8d8d1265d275b22cb5fc66e148f5159512d4677e`:
   * F003 exact tests passed 34/34, exit 0, run
-    `2026-10-11T06-33-36-541Z-9aa6b39e-b8f0-46e5-a091-1c7c0237ddea`;
-    architecture passed, exit 0, run
-    `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`.
-  * F004 exact tests passed 19/19, exit 0, run
-    `2026-10-11T06-33-36-671Z-6ed29501-d33b-426c-8a0b-d86983422920`.
-  * Fresh evaluators: F003 PASS (5.0/5); F004 PASS (4.8/5); no required
-    fixes. Their run IDs, reviewed revisions, and scores are in the feature
-    evidence log. `node --test scripts/run-verification.test.mjs` passed 9/9
-    (run `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
-  * Docker image build passed (run
-    `2026-10-11T05-58-22-975Z-e02f89d6-6a67-4a4b-a76f-cc8c21ed190e`).
-  * `git diff --cached --check` passed, exit 0, run
-    `2026-10-11T06-37-22-776Z-a6596217-f04a-4b1e-b3a6-508b7a279ffd`.
-* Boundaries: the sandbox trusts Docker, the image, and the host kernel. It
-  provides Node.js 24, Bash, and Git; it does not make the controller an
-  application security boundary. D030 records the isolation decision and
-  constraints.
-* Startup and cleanup: application startup checks do not apply to these
-  harness-only changes. No long-running application service was started.
-  Docker regression containers were removed; the locally built image and
-  ignored verification evidence are intentionally retained.
-* Publication: signed-off commit
-  `5b35020e0eeb149aa780a34e2416527efe0e0ac8` was pushed to
-  `origin/feat/harness-extension`; local and remote heads matched. Build run
-  `38118710009`, Docs check run `38118710005` (links and progress-reminder),
-  and DCO passed for that exact head. All four targeted review threads are
-  resolved; no unresolved review threads remain. PR #31's description keeps
-  the repository template headings and checklist and includes the sandbox
-  limitations and validation results.
-* Startup and cleanup: application startup checks do not apply to these
-  harness-only changes. No long-running service remains. Regression containers
-  were removed; the local verification image, ignored verification reports,
-  evaluator rubric, and updated ignored feature checklist remain intentionally.
-* Final worktree check: clean after commit and push. No dependency lockfiles or
-  generated `src/Portal/wwwroot` output changed. No further implementation
-  work is pending; PR #31 awaits its normal review and merge process.
+    `2026-10-11T07-12-19-137Z-d677b96e-38fc-407c-98fe-46e9369a5311`.
+  * F004 exact tests passed 23/23, exit 0, run
+    `2026-10-11T07-12-19-137Z-76f49ac9-77b7-4b17-bbf4-9302b00cc810`.
+  * The updated CI maker-checker test command, including
+    `scripts/goal-contract.test.mjs`, passed 60/60, exit 0, run
+    `2026-10-11T07-11-19-707Z-aa366f0b-1908-4dbd-9c8e-d33863999aef`.
+  * Verification-runner tests passed 9/9, exit 0, run
+    `2026-10-11T07-11-19-918Z-7ac52640-0142-4339-b3c7-8f1319e385b2`.
+  * `bash scripts/check-architecture.sh` passed, exit 0, run
+    `2026-10-11T07-11-19-800Z-5c166269-43cb-41dc-aa97-a1dcb624195b`.
+  * Fresh-session F003 evaluator PASS (average 4.8, minimum 4), reviewed
+    `8d8d1265d275b22cb5fc66e148f5159512d4677e` plus the 11-file dirty diff.
+    Exact F003 tests passed 34/34, run
+    `2026-10-11T07-17-50-336Z-e29073af-ee3f-43d2-9a33-b12921922952`; complete
+    harness tests passed 60/60, run
+    `2026-10-11T07-17-50-384Z-c64d686a-3300-4696-a43c-fb4e45c5bb82`;
+    runner tests passed 9/9, run
+    `2026-10-11T07-17-50-494Z-1111afba-1cc2-40c7-9dd5-e67518bb23a7`;
+    architecture passed, run
+    `2026-10-11T07-17-50-321Z-d19df911-786f-4abf-8175-3af4fdbeccbb`.
+  * Fresh-session F004 evaluator PASS (average 4.8, minimum 4), reviewed
+    `8d8d1265d275b22cb5fc66e148f5159512d4677e` plus the 11 modified tracked
+    files. Exact F004 tests passed 23/23, run
+    `2026-10-11T07-43-26-147Z-1f8a79dc-cdee-4f82-9d64-21c7a58648a7`;
+    complete harness tests passed 60/60, run
+    `2026-10-11T07-43-26-215Z-d5466336-a5fa-435a-98bc-4ad09d8c1fd2`;
+    runner tests passed 9/9, run
+    `2026-10-11T07-43-26-076Z-d05278cb-03f2-4efa-ad14-b21f3eec14df`;
+    architecture passed, run
+    `2026-10-11T07-42-55-463Z-71f1688f-d94a-4a8f-beef-854cb16f4fac`.
+  * A Docker-container inventory query found no remaining verification
+    containers. The cleanup-failure regression removes its own retained test
+    fixture. Earlier Git-Bash wrapper attempts could not locate Node.js; the
+    documented PowerShell evidence wrapper ran all checks successfully.
+* Boundaries: the sandbox still trusts Docker, its image, and the host kernel;
+  it is not an application security boundary. Application startup checks do
+  not apply, and no long-running application process was started.
+* Publication and review: no new commit or push yet. Five targeted review
+  threads remain unresolved; exact-head CI has not run for this dirty tree.
+* Next: commit and push the verified follow-up, record exact-head CI, update
+  the PR description, then reply to and resolve the five addressed threads.
 
 ## Built
 

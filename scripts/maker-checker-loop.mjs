@@ -1,7 +1,13 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   acquireLoopStateLock,
@@ -16,7 +22,10 @@ import {
   DenyByDefaultCommandPolicy,
   RepositorySafetyBoundary,
 } from './maker-checker-safety.mjs';
-import { VERIFICATION_SANDBOX_IMAGE } from './verification-sandbox.mjs';
+import {
+  cleanupSandboxContainer,
+  VERIFICATION_SANDBOX_IMAGE,
+} from './verification-sandbox.mjs';
 
 const resultMarker = 'MAKER_CHECKER_RESULT:';
 const interruptedDispatchCode = 'ERR_MAKER_CHECKER_INTERRUPTED';
@@ -402,11 +411,13 @@ export class VerificationRunner {
     processRunner = runProcess,
     nodeExecutable = process.execPath,
     readReport = (path) => JSON.parse(readFileSync(path, 'utf8')),
+    sandboxContainerCleaner = cleanupSandboxContainer,
   } = {}) {
     this.repositoryRoot = resolve(repositoryRoot);
     this.processRunner = processRunner;
     this.nodeExecutable = nodeExecutable;
     this.readReport = readReport;
+    this.sandboxContainerCleaner = sandboxContainerCleaner;
   }
 
   async ensureReady() {
@@ -431,15 +442,52 @@ export class VerificationRunner {
   async run(command, { timeoutMs }) {
     const tokens = tokenizeCommand(command);
     const runner = resolve(this.repositoryRoot, 'scripts', 'run-verification.mjs');
-    const { stderr } = await this.processRunner(
-      this.nodeExecutable,
-      [runner, '--sandbox', '--', ...tokens],
-      {
-        cwd: this.repositoryRoot,
-        timeoutMs,
-        allowNonZeroExit: true,
-      },
-    );
+    const containerIdDirectory = mkdtempSync(join(tmpdir(), 'agentgate-verification-'));
+    const containerIdFile = join(containerIdDirectory, 'container.id');
+    let processResult;
+    let processError;
+    try {
+      processResult = await this.processRunner(
+        this.nodeExecutable,
+        [
+          runner,
+          '--sandbox',
+          '--container-id-file',
+          containerIdFile,
+          '--',
+          ...tokens,
+        ],
+        {
+          cwd: this.repositoryRoot,
+          timeoutMs,
+          allowNonZeroExit: true,
+        },
+      );
+    } catch (error) {
+      processError = error;
+    }
+
+    let cleanupError;
+    try {
+      await this.sandboxContainerCleaner(containerIdFile, this.repositoryRoot);
+    } catch (error) {
+      cleanupError = error;
+    }
+    if (cleanupError) {
+      const cleanupMessage = `Verification sandbox cleanup failed; container ID file retained at `
+        + `${containerIdFile}: ${cleanupError.message}`;
+      if (processError) {
+        throw new AggregateError(
+          [processError, cleanupError],
+          `Verification failed and ${cleanupMessage}`,
+        );
+      }
+      throw new Error(cleanupMessage, { cause: cleanupError });
+    }
+    rmSync(containerIdDirectory, { recursive: true });
+    if (processError) throw processError;
+
+    const { stderr } = processResult;
     const reportPath = /^Verification report: (.+)$/m.exec(stderr)?.[1]?.trim();
     if (!reportPath) {
       throw new Error('Verification runner did not report an evidence path.');

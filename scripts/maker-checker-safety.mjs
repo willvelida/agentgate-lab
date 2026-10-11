@@ -1,6 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+} from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 const shellExclusion = '--excluded-tools=shell';
@@ -12,17 +18,78 @@ function stableJson(value) {
 
 function fileDigest(path) {
   if (!existsSync(path)) return null;
-  return createHash('sha256').update(readFileSync(path)).digest('hex');
+  const hash = createHash('sha256');
+  const updatePath = (currentPath) => {
+    const stat = lstatSync(currentPath);
+    if (stat.isSymbolicLink()) {
+      hash.update('symlink\0').update(readlinkSync(currentPath));
+      return;
+    }
+    if (stat.isDirectory()) {
+      hash.update('directory\0');
+      for (const entry of readdirSync(currentPath, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name))) {
+        hash.update(entry.name).update('\0');
+        updatePath(resolve(currentPath, entry.name));
+      }
+      return;
+    }
+    hash.update('file\0').update(readFileSync(currentPath));
+  };
+  updatePath(path);
+  return hash.digest('hex');
+}
+
+function controllerProtectedPaths(repositoryRoot) {
+  return [
+    'AGENTS.md',
+    '.github/agents',
+    '.github/skills',
+    '.github/instructions',
+    '.github/prompts',
+    '.github/copilot-instructions.md',
+    'scripts/run-verification.mjs',
+    'scripts/verification-sandbox.mjs',
+  ].map((path) => resolve(repositoryRoot, path));
+}
+
+function shellUsesCommandMode(shell, argument) {
+  const normalized = argument.toLowerCase();
+  const option = normalized.split(/[:=]/, 1)[0];
+  if ([
+    '-c',
+    '/c',
+    '/k',
+    '/command',
+    '-encodedcommand',
+    '/encodedcommand',
+  ].includes(option)) {
+    return true;
+  }
+  if (shell === 'bash' || shell === 'sh' || shell === 'dash' || shell === 'zsh') {
+    return option === '--command' || /^-[a-z]*c[a-z]*$/.test(option);
+  }
+  if (shell === 'powershell' || shell === 'pwsh') {
+    const name = option.replace(/^--?/, '');
+    return name.length > 0
+      && ('command'.startsWith(name) || 'encodedcommand'.startsWith(name));
+  }
+  return false;
 }
 
 function verificationPaths(repositoryRoot, verificationCommand) {
   const tokens = (verificationCommand.match(/"[^"]+"|'[^']+'|\S+/g) ?? [])
     .map((token) => token.replace(/^(['"])(.*)\1$/, '$2'));
   const shells = new Set(['bash', 'sh', 'dash', 'zsh', 'cmd', 'powershell', 'pwsh']);
-  const shellCommandFlags = new Set(['-c', '/c', '-command', '/command', '-encodedcommand']);
-  for (let index = 0; index < tokens.length - 1; index += 1) {
-    const executable = tokens[index].split(/[\\/]/).at(-1).toLowerCase();
-    if (shells.has(executable) && shellCommandFlags.has(tokens[index + 1].toLowerCase())) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const executable = tokens[index].split(/[\\/]/).at(-1)
+      .replace(/\.exe$/i, '')
+      .toLowerCase();
+    if (shells.has(executable)
+        && tokens.slice(index + 1).some((argument) => shellUsesCommandMode(
+          executable,
+          argument,
+        ))) {
       throw new Error(
         'Shell command verification forms are not supported because their inputs cannot be protected.',
       );
@@ -260,6 +327,7 @@ export class RepositorySafetyBoundary {
     }
     const protectedPaths = new Set([
       ...this.protectedPaths,
+      ...controllerProtectedPaths(this.repositoryRoot),
       ...verificationPaths(this.repositoryRoot, goal.verificationCommand),
     ]);
     return {

@@ -544,6 +544,9 @@ Each entry records:
 * Constraints: Docker and the prebuilt image are required before dispatch.
   The image supports Node.js 24, Bash, and Git verification commands; it does
   not expose arbitrary host toolchains or network package downloads.
+  Each run records its container ID outside the repository and explicitly
+  removes the container after completion, timeout, or interruption. Failed
+  cleanup is reported and retains the ID file for operator recovery.
   The Docker daemon, host kernel, and image remain trusted; this is not
   protection against container-runtime or kernel escapes. D030 supersedes
   D027.

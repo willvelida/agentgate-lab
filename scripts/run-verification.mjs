@@ -3,13 +3,22 @@
 
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, renameSync, writeFileSync, createWriteStream } from 'node:fs';
+import {
+  createWriteStream,
+  mkdirSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import {
+  cleanupSandboxContainer,
   sandboxInvocation,
   VERIFICATION_SANDBOX_IMAGE,
 } from './verification-sandbox.mjs';
@@ -19,6 +28,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 function parseArguments(args) {
   let label = 'verification';
   let sandbox = false;
+  let containerIdFile = null;
   while (args[0] !== '--') {
     if (args[0] === '--label') {
       label = args[1];
@@ -29,6 +39,12 @@ function parseArguments(args) {
     } else if (args[0] === '--sandbox') {
       sandbox = true;
       args = args.slice(1);
+    } else if (args[0] === '--container-id-file') {
+      containerIdFile = args[1];
+      args = args.slice(2);
+      if (!containerIdFile?.trim() || containerIdFile === '--') {
+        throw new Error('--container-id-file requires a nonempty value.');
+      }
     } else {
       throw new Error(`Unknown verification runner option: ${args[0] ?? ''}`);
     }
@@ -38,7 +54,13 @@ function parseArguments(args) {
       'Usage: node scripts/run-verification.mjs [--label name] [--sandbox] -- command [arguments]',
     );
   }
-  return { label, sandbox, command: args[1], arguments: args.slice(2) };
+  return {
+    label,
+    sandbox,
+    containerIdFile,
+    command: args[1],
+    arguments: args.slice(2),
+  };
 }
 
 function git(...args) {
@@ -68,9 +90,15 @@ function writeReport(runDirectory, report) {
   renameSync(temporaryPath, join(runDirectory, 'report.json'));
 }
 
-function execution(command, args, sandbox) {
+function execution(command, args, sandbox, containerIdFile) {
   if (sandbox) {
-    return sandboxInvocation(command, args, repoRoot, VERIFICATION_SANDBOX_IMAGE);
+    return sandboxInvocation(
+      command,
+      args,
+      repoRoot,
+      VERIFICATION_SANDBOX_IMAGE,
+      containerIdFile,
+    );
   }
   if (process.platform !== 'win32') {
     return { command, args };
@@ -112,6 +140,12 @@ function tee(destination) {
 
 async function main() {
   const invocation = parseArguments(process.argv.slice(2));
+  const ownsContainerIdFile = invocation.sandbox && !invocation.containerIdFile;
+  const containerIdDirectory = ownsContainerIdFile
+    ? mkdtempSync(join(tmpdir(), 'agentgate-verification-'))
+    : null;
+  const containerIdFile = invocation.containerIdFile
+    ?? (containerIdDirectory ? join(containerIdDirectory, 'container.id') : null);
   const before = snapshot();
   const startedAt = new Date().toISOString();
   const runId = `${startedAt.replaceAll(/[:.]/g, '-')}-${randomUUID()}`;
@@ -120,7 +154,10 @@ async function main() {
   const report = {
     schemaVersion: 1,
     runId,
-    ...invocation,
+    label: invocation.label,
+    sandbox: invocation.sandbox,
+    command: invocation.command,
+    arguments: invocation.arguments,
     cwd: repoRoot,
     startedAt,
     finishedAt: null,
@@ -138,7 +175,12 @@ async function main() {
   process.stderr.write(`Verification report: ${join(runDirectory, 'report.json')}\n`);
 
   const start = performance.now();
-  const launch = execution(invocation.command, invocation.arguments, invocation.sandbox);
+  const launch = execution(
+    invocation.command,
+    invocation.arguments,
+    invocation.sandbox,
+    containerIdFile,
+  );
   const child = spawn(launch.command, launch.args, {
     cwd: repoRoot,
     shell: false,
@@ -180,6 +222,31 @@ async function main() {
     report.status = 'error';
     report.error = error.message;
     process.stderr.write(`Verification runner error: ${error.message}\n`);
+  }
+
+  if (ownsContainerIdFile) {
+    let cleanupError;
+    try {
+      cleanupSandboxContainer(containerIdFile, repoRoot);
+    } catch (error) {
+      cleanupError = error;
+    }
+    if (!cleanupError) {
+      try {
+        rmSync(containerIdDirectory, { recursive: true });
+      } catch (error) {
+        cleanupError = error;
+      }
+    }
+    if (cleanupError) {
+      report.status = 'error';
+      report.error = [
+        report.error,
+        `Sandbox cleanup failed; container ID file retained at ${containerIdFile}: `
+          + cleanupError.message,
+      ].filter(Boolean).join('; ');
+      process.stderr.write(`Verification runner error: ${report.error}\n`);
+    }
   }
 
   report.finishedAt = new Date().toISOString();

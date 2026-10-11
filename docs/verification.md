@@ -47,6 +47,10 @@ and raw output outside those filesystems. Direct use of the wrappers remains
 unsandboxed unless `--sandbox` is supplied explicitly.
 The image provides Node.js 24, Bash, and Git; commands needing another
 toolchain or network-fetched dependencies are not supported by this sandbox.
+Each run records the Docker container ID in a unique temporary file outside
+the repository. The controller explicitly removes the container after success,
+timeout, or interruption; a cleanup failure is reported and retains that file
+for operator recovery.
 
 [init.sh](../init.sh) uses the Bash wrapper for each initialization step,
 including the runner's tests. It stops on the first failed step. A complete

@@ -146,10 +146,13 @@ Elapsed time is one shared deadline: the controller recalculates the remaining
 budget before each verification command and before agent dispatch.
 Dispatch timeouts and controller interrupts trigger process-tree cleanup. If
 cleanup fails, the controller reports the error and retries cleanup without
-starting another round. It remains pending until termination succeeds and the
-child exits. Cleanup can therefore outlast the dispatch and loop time limits.
-Do not force-exit the controller or start another maker while cleanup is
-pending; first confirm the child process tree has stopped.
+starting another round. Verification containers are tracked by Docker ID and
+explicitly removed after success, timeout, or interruption. If container
+removal fails, the ID file is retained for operator recovery. The controller
+remains pending until process-tree termination succeeds and the child exits.
+Cleanup can therefore outlast the dispatch and loop time limits. Do not
+force-exit the controller or start another maker while cleanup is pending;
+first confirm the child process tree and verification container have stopped.
 
 ### Start the loop
 

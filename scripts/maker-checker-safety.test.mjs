@@ -19,6 +19,7 @@ import {
   runMakerCheckerLoop,
 } from './maker-checker-loop.mjs';
 import {
+  cleanupSandboxContainer,
   sandboxInvocation,
   VERIFICATION_SANDBOX_IMAGE,
 } from './verification-sandbox.mjs';
@@ -176,12 +177,16 @@ test('verification sandbox invocation denies network and host write access', () 
     ['--test', 'scripts/example.test.mjs'],
     'C:\\repo',
     VERIFICATION_SANDBOX_IMAGE,
+    'C:\\temp\\verification-container.id',
   );
   assert.equal(invocation.command, 'docker');
   assert.ok(invocation.args.includes('--network=none'));
   assert.ok(invocation.args.includes('--read-only'));
   assert.ok(invocation.args.includes('--cap-drop=ALL'));
   assert.ok(invocation.args.includes('--pull=never'));
+  assert.ok(invocation.args.includes('--cidfile'));
+  assert.ok(invocation.args.includes('C:\\temp\\verification-container.id'));
+  assert.ok(!invocation.args.includes('--rm'));
   assert.ok(invocation.args.includes('1000:1000'));
   assert.ok(invocation.args.includes(
     '/workspace/.local:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=700',
@@ -191,6 +196,74 @@ test('verification sandbox invocation denies network and host write access', () 
   ));
   assert.equal(invocation.args.at(-3), VERIFICATION_SANDBOX_IMAGE);
   assert.deepEqual(invocation.args.slice(-2), ['--test', 'scripts/example.test.mjs']);
+});
+
+test('verification runner removes the tracked sandbox container after timeout or interrupt', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-verification-cleanup-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  for (const error of [
+    new Error('Child process exceeded its 100 ms dispatch limit.'),
+    Object.assign(new Error('Child process was interrupted by SIGINT.'), {
+      code: 'ERR_MAKER_CHECKER_INTERRUPTED',
+    }),
+  ]) {
+    const removedIds = [];
+    const runner = new VerificationRunner({
+      repositoryRoot: root,
+      nodeExecutable: 'node',
+      processRunner: async (_executable, args) => {
+        const idFileIndex = args.indexOf('--container-id-file') + 1;
+        writeFileSync(args[idFileIndex], `${'a'.repeat(64)}\n`);
+        throw error;
+      },
+      sandboxContainerCleaner: (containerIdFile, repositoryRoot) => cleanupSandboxContainer(
+        containerIdFile,
+        repositoryRoot,
+        (executable, args) => {
+          assert.equal(executable, 'docker');
+          assert.deepEqual(args, ['container', 'rm', '--force', 'a'.repeat(64)]);
+          removedIds.push(args.at(-1));
+        },
+      ),
+    });
+
+    await assert.rejects(
+      runner.run('node --test scripts/example.test.mjs', { timeoutMs: 100 }),
+    );
+    assert.deepEqual(removedIds, ['a'.repeat(64)]);
+  }
+});
+
+test('verification runner reports sandbox cleanup failures without claiming success', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-verification-cleanup-error-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const runner = new VerificationRunner({
+    repositoryRoot: root,
+    nodeExecutable: 'node',
+    processRunner: async (_executable, args) => {
+      const idFileIndex = args.indexOf('--container-id-file') + 1;
+      writeFileSync(args[idFileIndex], `${'b'.repeat(64)}\n`);
+      return {
+        stderr: 'Verification report: report.json\n',
+      };
+    },
+    readReport: () => ({ status: 'passed', runId: 'run-ok', exitCode: 0 }),
+    sandboxContainerCleaner: () => {
+      throw new Error('Docker could not remove the container.');
+    },
+  });
+
+  let retainedContainerIdFile;
+  await assert.rejects(
+    runner.run('node --test scripts/example.test.mjs', { timeoutMs: 100 }),
+    (error) => {
+      retainedContainerIdFile = /container ID file retained at (.+): Docker could not remove/
+        .exec(error.message)?.[1];
+      return Boolean(retainedContainerIdFile);
+    },
+  );
+  rmSync(dirname(retainedContainerIdFile), { recursive: true, force: true });
 });
 
 test('verification runner fails closed when the sandbox image is unavailable', async () => {
@@ -515,6 +588,85 @@ test('repository boundary protects the architecture verification script', (t) =>
   );
 });
 
+test('repository boundary protects checker instructions and agent definitions', (t) => {
+  const files = fixture(t);
+  const agentDirectory = join(files.root, '.github', 'agents');
+  const skillDirectory = join(files.root, '.github', 'skills', 'feature-evaluator');
+  mkdirSync(agentDirectory, { recursive: true });
+  mkdirSync(skillDirectory, { recursive: true });
+  const agentPath = join(agentDirectory, 'harness-implementer.agent.md');
+  const skillPath = join(skillDirectory, 'SKILL.md');
+  writeFileSync(join(files.root, 'AGENTS.md'), 'repository instructions\n');
+  writeFileSync(agentPath, 'maker instructions\n');
+  writeFileSync(skillPath, 'checker instructions\n');
+
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+  const before = boundary.capture(goal());
+  writeFileSync(join(files.root, 'AGENTS.md'), 'weakened repository instructions\n');
+  assert.throws(
+    () => boundary.assertTransition(before, boundary.capture(goal()), goal(), 'maker'),
+    /Protected file AGENTS\.md changed/,
+  );
+
+  const beforeSkillChange = boundary.capture(goal());
+  writeFileSync(skillPath, 'weakened checker instructions\n');
+  assert.throws(
+    () => boundary.assertTransition(
+      beforeSkillChange,
+      boundary.capture(goal()),
+      goal(),
+      'maker',
+    ),
+    /Protected file \.github[\\/]skills changed/,
+  );
+
+  const beforeAgentAddition = boundary.capture(goal());
+  writeFileSync(join(agentDirectory, 'new.agent.md'), 'new agent instructions\n');
+  assert.throws(
+    () => boundary.assertTransition(
+      beforeAgentAddition,
+      boundary.capture(goal()),
+      goal(),
+      'maker',
+    ),
+    /Protected file \.github[\\/]agents changed/,
+  );
+});
+
+test('repository boundary protects the host-side verification launcher', (t) => {
+  const files = fixture(t);
+  const runnerPath = join(files.root, 'scripts', 'run-verification.mjs');
+  const sandboxPath = join(files.root, 'scripts', 'verification-sandbox.mjs');
+  writeFileSync(runnerPath, 'trusted runner\n');
+  writeFileSync(sandboxPath, 'trusted sandbox\n');
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  writeFileSync(runnerPath, 'modified runner\n');
+  assert.throws(
+    () => boundary.assertTransition(before, boundary.capture(goal()), goal(), 'maker'),
+    /Protected file scripts[\\/]run-verification\.mjs changed/,
+  );
+
+  const beforeSandboxChange = boundary.capture(goal());
+  writeFileSync(sandboxPath, 'modified sandbox\n');
+  assert.throws(
+    () => boundary.assertTransition(
+      beforeSandboxChange,
+      boundary.capture(goal()),
+      goal(),
+      'maker',
+    ),
+    /Protected file scripts[\\/]verification-sandbox\.mjs changed/,
+  );
+});
+
 test('repository boundary protects absolute verification paths inside the repository', (t) => {
   const files = fixture(t);
   const contract = {
@@ -538,24 +690,32 @@ test('repository boundary protects absolute verification paths inside the reposi
   );
 });
 
-test('repository boundary rejects shell-command verification forms', (t) => {
+test('repository boundary rejects shell-command verification forms with shell options', (t) => {
   const files = fixture(t);
-  const contract = {
-    ...goal(),
-    verificationCommand: "bash -c 'node --test scripts/a.test.mjs'",
-  };
-  const changed = checklist();
-  changed.features[1].verification = contract.verificationCommand;
-  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
-  const boundary = new RepositorySafetyBoundary({
-    repositoryRoot: files.root,
-    commandRunner: commandRunner(),
-  });
+  const commands = [
+    "bash -c 'node --test scripts/a.test.mjs'",
+    "bash --noprofile -c 'node --test scripts/a.test.mjs'",
+    "bash -x -lc 'node --test scripts/a.test.mjs'",
+    "pwsh -NoProfile -Command 'node --test scripts/a.test.mjs'",
+    '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -NoProfile -Command "node --test scripts/a.test.mjs"',
+    "powershell -EncodedCommand 'bm9kZQ=='",
+  ];
+  for (const verificationCommand of commands) {
+    const contract = { ...goal(), verificationCommand };
+    const changed = checklist();
+    changed.features[1].verification = verificationCommand;
+    writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+    const boundary = new RepositorySafetyBoundary({
+      repositoryRoot: files.root,
+      commandRunner: commandRunner(),
+    });
 
-  assert.throws(
-    () => boundary.capture(contract),
-    /Shell command verification forms are not supported/,
-  );
+    assert.throws(
+      () => boundary.capture(contract),
+      /Shell command verification forms are not supported/,
+      verificationCommand,
+    );
+  }
 });
 
 test('repository boundary prevents starting or changing another feature', (t) => {
