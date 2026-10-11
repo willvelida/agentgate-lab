@@ -23,13 +23,12 @@ health before it changes anything.
 
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
   Seven earlier Copilot review findings were fixed and resolved through
-  commit `07d8878`; exact-head CI passed. Four newly selected findings are
-  now repaired in the working tree. F003 and F004 received fresh evaluator
-  PASS verdicts for the current fixes; commit and push are the remaining
-  publication steps.
+  commit `07d8878`. Four additional selected findings were fixed, independently
+  evaluated, and pushed as `c09f43102bab05a7ff0b64691d77bedffc8efabe`.
+  All review threads are resolved and exact-head CI passed.
 * Every issue #30 feature remains recorded as pass. The current review fixes
-  do not change feature status, but publication is pending verification,
-  reevaluation, commit, push, thread resolution, and exact-head CI.
+  did not change feature status. The branch and pull request contain the
+  verified and independently evaluated implementation.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -481,10 +480,14 @@ where you left off.
 * Cleanup: no long-lived process was started. Node fixtures removed their
   temporary repositories. Ignored verification reports were intentionally
   retained.
-* Blockers: none for implementation or evaluation. Commit, push, thread
-  resolution, and exact-head CI remain pending publication follow-up.
-* Next steps: commit and push the evaluated fixes, confirm exact-head CI, and
-  continue monitoring pull request #31 for new review comments.
+* Publication: signed commit
+  `c09f43102bab05a7ff0b64691d77bedffc8efabe` was pushed to
+  `origin/feat/harness-extension`. Pull request #31 reports zero open review
+  threads. DCO, build, links, and progress-reminder passed for that exact head.
+* Final state before this handoff update: local `HEAD` matched the remote and
+  the working tree was clean.
+* Blockers: none.
+* Next steps: continue monitoring pull request #31 for new review comments.
 
 ## Built
 
