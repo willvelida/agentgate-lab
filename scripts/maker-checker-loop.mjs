@@ -1041,10 +1041,17 @@ async function runMakerCheckerLoopWithLock({
         verificationRun = await runControllerVerification();
         verification = verificationRun.results;
       } catch (error) {
-        outcome = 'blocked';
-        nextAction = 'stop';
-        feedback = `${feedback} Controller verification could not run: ${error.message}`;
-        intervention = humanStop('Repair the verification runner before resuming.');
+        if (error.code === interruptedDispatchCode) {
+          // The maker's work is kept; resuming reruns verification at the checker gate.
+          outcome = 'interrupted';
+          verification = null;
+          feedback = `${feedback} Controller verification was interrupted: ${error.message}`;
+        } else {
+          outcome = 'blocked';
+          nextAction = 'stop';
+          feedback = `${feedback} Controller verification could not run: ${error.message}`;
+          intervention = humanStop('Repair the verification runner before resuming.');
+        }
       }
       finishedAt = now();
       if (verificationRun?.limitExhausted) {
@@ -1065,7 +1072,7 @@ async function runMakerCheckerLoopWithLock({
       }
     }
 
-    const wouldContinue = nextAction !== 'stop';
+    const wouldContinue = nextAction !== 'stop' && outcome !== 'interrupted';
     const elapsedExhausted = remainingTime(state, finishedAt) <= 0;
     const roundsExhausted = state.rounds.length + 1 >= activeGoal.limits.maxRounds;
     if (wouldContinue && (elapsedExhausted || roundsExhausted)) {
@@ -1087,7 +1094,7 @@ async function runMakerCheckerLoopWithLock({
       humanIntervention: intervention,
     }, finishedAt);
 
-    if (nextAction === 'stop') {
+    if (nextAction === 'stop' || outcome === 'interrupted') {
       return { status: outcome, state };
     }
   }

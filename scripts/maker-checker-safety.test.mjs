@@ -297,7 +297,7 @@ test('verification runner fails closed when the sandbox image is unavailable', a
 
 test('Copilot dispatch applies non-prompt safety controls', async () => {
   const calls = [];
-  const statePath = 'C:\\repo\\.local\\maker-checker\\state.json';
+  const statePath = resolve(tmpdir(), 'agentgate-dispatch-state', 'state.json');
   const capabilityBoundary = new CopilotCapabilityBoundary({
     repositoryRoot: 'C:\\repo',
     mcpServerProvider: () => ['publisher', 'workiq'],

@@ -8,7 +8,7 @@ import {
   rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 import {
   CopilotCliDispatcher,
@@ -108,6 +108,8 @@ function runLoop(options) {
 
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
   const calls = [];
+  const statePath = resolve(tmpdir(), 'agentgate-dispatch-state', 'state.json');
+  const deniedState = statePath.replaceAll('\\', '/');
   const processRunner = async (executable, args, options) => {
     calls.push({ executable, args, options });
     const actor = args.includes('--agent') ? 'maker' : 'checker';
@@ -130,7 +132,7 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     goal: goal(),
     feedback: 'fix the failed assertion',
     timeoutMs: 1000,
-    statePath: 'C:\\repo\\.local\\maker-checker\\state.json',
+    statePath,
   });
   await dispatcher.dispatch({
     actor: 'checker',
@@ -144,7 +146,7 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
       reportPath: '.local/verification/run-checker-evidence/report.json',
     }],
     timeoutMs: 1000,
-    statePath: 'C:\\repo\\.local\\maker-checker\\state.json',
+    statePath,
   });
 
   assert.equal(calls.length, 2);
@@ -173,10 +175,10 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
   assert.ok(!calls.flatMap((call) => call.args).includes('--resume'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--continue'));
   for (const argument of [
-    '--deny-tool=write(C:/repo/.local/maker-checker/state.json)',
-    '--deny-tool=write(C:/repo/.local/maker-checker/state.json.*)',
-    '--deny-tool=write(C:/repo/.local/maker-checker/state.json.lock)',
-    '--deny-tool=write(C:/repo/.local/maker-checker/state.json.lock/**)',
+    `--deny-tool=write(${deniedState})`,
+    `--deny-tool=write(${deniedState}.*)`,
+    `--deny-tool=write(${deniedState}.lock)`,
+    `--deny-tool=write(${deniedState}.lock/**)`,
   ]) {
     assert.ok(calls.every((call) => call.args.includes(argument)), `missing ${argument}`);
   }
@@ -1158,6 +1160,52 @@ test('resumes checker after controller verification is interrupted', async (t) =
       reportPath: '.local/verification/run-resume-arch/report.json',
     },
   ]);
+});
+
+test('resumes at the checker gate after maker-round verification is interrupted', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const interruption = new Error('Verification process was interrupted by SIGINT.');
+  interruption.code = 'ERR_MAKER_CHECKER_INTERRUPTED';
+  const interrupted = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher: new ScriptedDispatcher([{ outcome: 'completed', feedback: 'maker finished' }]),
+    verificationRunner: {
+      async run() {
+        throw interruption;
+      },
+    },
+    getRevision: revisions(revision('initial'), revision('maker')),
+    now: clock(),
+  });
+
+  assert.equal(interrupted.status, 'interrupted');
+  const round = interrupted.state.rounds.at(-1);
+  assert.equal(round.actor, 'maker');
+  assert.equal(round.outcome, 'interrupted');
+  assert.equal(round.nextAction, 'checker');
+  assert.equal(round.verification, null);
+  assert.deepEqual(round.humanIntervention, { required: false, reason: null });
+
+  const runner = verificationRunner();
+  const dispatcher = new ScriptedDispatcher([{ outcome: 'pass', feedback: 'checker passed' }]);
+  const resumed = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: () => revision('maker'),
+    now: clock(),
+  });
+
+  assert.equal(resumed.status, 'pass');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['checker']);
+  assert.equal(runner.calls.length, 2);
+  assert.deepEqual(
+    resumed.state.rounds.map((entry) => `${entry.actor}:${entry.outcome}`),
+    ['maker:interrupted', 'checker:pass'],
+  );
 });
 
 test('shares the elapsed-time budget across verification commands and dispatch', async (t) => {

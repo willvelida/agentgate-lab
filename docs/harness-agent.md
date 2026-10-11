@@ -230,10 +230,11 @@ written while `verification` was a single record is migrated to a one-entry
 list when loaded. Each agent prompt carries the goal, numbered constraints,
 and verification command, and states that the agent must not claim to have run
 verification. The checker prompt also receives the structured verification
-records, including command, status, run ID, exit code, and report path. If the
-resumed-checker verification gate is interrupted, the loop records an
-interrupted checker round and resumes at that gate instead of requiring human
-intervention.
+records, including command, status, run ID, exit code, and report path. If
+controller verification is interrupted, either after a maker round or at the
+resumed-checker gate, the loop records an interrupted round whose next action
+is the checker. On resume, verification runs again before the checker is
+dispatched, without requiring human intervention.
 
 Use a scripted dry run to exercise controller behavior without starting
 Copilot sessions. The fixture is a JSON array of actor results:

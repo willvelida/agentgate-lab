@@ -501,6 +501,18 @@ where you left off.
     `2026-10-11T22-12-23-106Z-d6829766-5ae4-4d85-b7a9-4ea5cbed6b5e`); F004
     avg 4.8, min 4 (run
     `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`).
+* Follow-up: Build failed on `8923ede` (run `38180374482`). Two new dispatch
+  test assertions used hard-coded Windows paths that resolve differently on
+  Linux. A second commit fixes those tests and also fixes the maker-path
+  verification interrupt (`scripts/maker-checker-loop.mjs` near line 993),
+  which still stopped as `blocked`. It now records an `interrupted` maker round
+  that resumes at the checker gate. Fresh-session evaluator PASS on that diff:
+  F003 avg 4.8, min 4, 39/39 (run
+  `2026-10-11T22-35-11-296Z-7bb40904-5462-4515-9016-84b0c231f5bd`); F004 avg
+  4.8, min 4, 33/33 (run
+  `2026-10-11T22-35-11-367Z-7f3bb9bc-e03e-4dee-950d-88654476014d`);
+  architecture passed (run
+  `2026-10-11T22-35-11-459Z-39c7c292-c36b-460f-9190-50ad18d6e89a`).
 * CI and review: see the PR description for the pushed SHA and exact-head
   check results. Each addressed thread has a reply and is resolved.
 * Cleanup: runtime startup is not applicable. No long-lived service was
