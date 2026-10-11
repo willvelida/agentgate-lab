@@ -467,3 +467,23 @@ Each entry records:
 * Constraints: ordinary implementation files remain writable for the maker;
   changes to verification inputs and Git metadata still require explicit
   human approval.
+
+## D027: controller verification requires trusted repository code
+
+* Date: 2026-10-11
+* Decision: treat goal verification commands and the repository code they
+  execute as trusted. They run under the caller's operating-system identity
+  and inherit its environment, including available credentials, network, and
+  Git capabilities. The loop's publication restrictions apply to dispatched
+  agent processes, not arbitrary code launched by verification.
+* Why: controller-run verification can import maker-edited implementation
+  code. Without a portable operating-system sandbox, running that code with
+  the caller's permissions cannot guarantee the absence of side effects.
+* Alternatives rejected: claiming verification is publication-safe because
+  agent shell access is disabled, since tests and imported code execute in a
+  separate process with host privileges; adding a platform-specific sandbox
+  in this loop change, because that would require a separate security design
+  and would not preserve the existing Windows and Linux workflow uniformly.
+* Constraints: users must review verification commands and imported code
+  before running the loop. Do not describe the loop as a security boundary or
+  use it to execute untrusted repository changes.

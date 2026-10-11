@@ -11,6 +11,7 @@ import {
   CopilotCliDispatcher,
   ScriptedDispatcher,
   runMakerCheckerLoop,
+  runProcess,
   tokenizeCommand,
 } from './maker-checker-loop.mjs';
 import { CopilotCapabilityBoundary } from './maker-checker-safety.mjs';
@@ -154,6 +155,25 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
   assert.ok(!calls[1].args.includes('--agent'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--resume'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--continue'));
+});
+
+test('terminates a timed-out process tree without waiting for a cooperative child', async () => {
+  const startedAt = Date.now();
+  await assert.rejects(
+    runProcess(
+      process.execPath,
+      [
+        '-e',
+        'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);',
+      ],
+      {
+        cwd: process.cwd(),
+        timeoutMs: 100,
+      },
+    ),
+    /Child process exceeded its 100 ms dispatch limit/,
+  );
+  assert.ok(Date.now() - startedAt < 5000);
 });
 
 test('stops successfully on checker pass for unchanged work', async (t) => {

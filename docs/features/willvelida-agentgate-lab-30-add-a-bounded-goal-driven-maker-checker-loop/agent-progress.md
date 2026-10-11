@@ -329,3 +329,31 @@ Verification:
 Reviewed revision: `61118fa52d5f2996df7c0e8a9a788ed391d354ab` plus the seven
 modified files recorded in `docs/progress.md`. F003 and F004 require fresh
 evaluation for these changes before publication.
+
+## 2026-10-11 fourth review feedback batch
+
+Addressed the bounded-timeout and verification-trust findings without
+changing the feature checklist states:
+
+* timed-out child processes now receive process-tree termination, with a
+  forced kill after a short POSIX grace period and Windows tree termination;
+* documentation now states that controller-run verification executes trusted
+  repository code with the caller's environment and permissions;
+* the latest F003/F004 evaluation remains pending for these changes.
+
+Verification on `94e4f8aceb7bb5a2dc6275de0b699b7ec792fe29` plus the current
+working-tree changes:
+
+* all four harness test files passed 45/45, exit 0, run
+  `2026-10-11T03-46-05-011Z-eaf57498-25a5-41a3-8bfc-7c1c7a8de1be`;
+* `bash scripts/check-architecture.sh` passed, exit 0, run
+  `2026-10-11T03-46-05-081Z-09d986e9-4031-4ff6-b03a-3f8c6f3bec66`;
+* `git diff --check` passed, exit 0, run
+  `2026-10-11T03-49-24-785Z-885b22b0-5791-4066-b563-5d3c85e646e2`.
+
+A fresh F003/F004 evaluation is still required before approval.
+The related PR threads remain open because these local changes have not been
+published or replied to.
+
+* 2026-10-11: F003 evaluator verdict PASS (avg 5.0, min 5) for commit `94e4f8aceb7bb5a2dc6275de0b699b7ec792fe29` plus six uncommitted tracked changes. Verification passed 21/21 (run `2026-10-11T03-54-56-528Z-d7e9d165-c905-4020-bc13-ee24a99438bf`, exit 0); architecture passed (run `2026-10-11T03-54-20-309Z-aa02825a-a4a3-4523-a42c-a446ab2d9282`, exit 0). See evaluator-rubric.md.
+* 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4) for commit `94e4f8aceb7bb5a2dc6275de0b699b7ec792fe29` plus six uncommitted tracked changes. Verification passed 15/15 (run `2026-10-11T03-54-56-468Z-462b3089-a347-42d2-b0ec-d9de0f595cab`, exit 0); architecture passed (run `2026-10-11T03-54-20-309Z-aa02825a-a4a3-4523-a42c-a446ab2d9282`, exit 0). See evaluator-rubric.md.

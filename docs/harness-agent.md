@@ -95,7 +95,11 @@ successful round.
 > The controller is a local capability boundary, not an operating-system
 > sandbox or an application security boundary. It does not implement
 > authentication, ACS enforcement, model access, task grants, or human
-> approval. Review its state and repository diff before accepting any result.
+> approval. Controller-run verification executes repository code with the
+> caller's environment and operating-system permissions. Use only trusted
+> verification commands and trusted code they import; the loop does not block
+> those commands from using credentials, network access, or Git capabilities.
+> Review its state and repository diff before accepting any result.
 
 ### Define the goal
 
@@ -212,9 +216,11 @@ Terminal results such as `pass`, `blocked`, `ambiguous`, `stale`, `stalled`,
 `limit-exhausted`, and `approval-required` require no hidden automatic action.
 A dispatch exception is persisted and returned as `blocked` with human
 intervention required. Resolve the reported condition or revise the goal with human
-approval before starting another run. The controller cannot commit, push,
-create or edit a pull request, merge, weaken verification, change acceptance
-criteria, or start another feature without explicit human approval.
+approval before starting another run. The controller itself does not commit,
+push, create or edit a pull request, or merge. Dispatched agents are denied
+those capabilities, but trusted verification code runs with the caller's
+permissions and can perform side effects. The loop does not make arbitrary
+repository code safe to execute.
 
 ## Try it before relying on it
 

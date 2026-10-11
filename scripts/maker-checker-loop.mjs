@@ -77,19 +77,76 @@ function parseDispatchResult(actor, output) {
   return result;
 }
 
-function runProcess(executable, args, options) {
+function signalProcessGroup(pid, signal) {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
+async function terminateProcessTree(child) {
+  if (!child.pid) {
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    await new Promise((resolveTermination, rejectTermination) => {
+      const terminator = spawn(
+        'taskkill.exe',
+        ['/PID', String(child.pid), '/T', '/F'],
+        { stdio: 'ignore', windowsHide: true },
+      );
+      terminator.once('error', rejectTermination);
+      terminator.once('close', (code) => {
+        if (code === 0) {
+          resolveTermination();
+        } else {
+          rejectTermination(new Error(`taskkill.exe exited with code ${code}.`));
+        }
+      });
+    });
+    return;
+  }
+
+  signalProcessGroup(child.pid, 'SIGTERM');
+  await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+  signalProcessGroup(child.pid, 'SIGKILL');
+}
+
+export function runProcess(executable, args, options) {
   return new Promise((resolveProcess, reject) => {
     const child = spawn(executable, args, {
       cwd: options.cwd,
+      detached: process.platform !== 'win32',
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
+    let settled = false;
     const timer = setTimeout(() => {
+      if (settled || child.exitCode !== null || child.signalCode !== null) {
+        return;
+      }
       timedOut = true;
-      child.kill();
+      terminateProcessTree(child).then(
+        () => {
+          settled = true;
+          reject(new Error(`Child process exceeded its ${options.timeoutMs} ms dispatch limit.`));
+        },
+        (error) => {
+          settled = true;
+          reject(new Error(
+            `Child process exceeded its ${options.timeoutMs} ms dispatch limit,`
+              + ` and process-tree termination failed: ${error.message}`,
+            { cause: error },
+          ));
+        },
+      );
     }, options.timeoutMs);
 
     child.stdout.setEncoding('utf8');
@@ -102,13 +159,18 @@ function runProcess(executable, args, options) {
     });
     child.on('error', (error) => {
       clearTimeout(timer);
-      reject(new Error(`Unable to start ${executable}: ${error.message}`, { cause: error }));
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Unable to start ${executable}: ${error.message}`, { cause: error }));
+      }
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
-      if (timedOut) {
-        reject(new Error(`Copilot session exceeded its ${options.timeoutMs} ms dispatch limit.`));
-      } else if (code !== 0 && !options.allowNonZeroExit) {
+      if (settled || timedOut) {
+        return;
+      }
+      settled = true;
+      if (code !== 0 && !options.allowNonZeroExit) {
         reject(new Error(
           `Copilot session failed with exit code ${code}`
             + `${signal ? ` and signal ${signal}` : ''}: ${stderr.trim()}`,
