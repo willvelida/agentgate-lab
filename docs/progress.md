@@ -21,11 +21,11 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31 follow-up addresses exclusive state-file locking, same-actor resume
-  after interruption, shell-command verification rejection, checker-PASS
-  transition gating, and Docker-isolated verification. F003 passed fresh
-  evaluation (5.0/5); F004 passed fresh evaluation (4.8/5). Commit, push,
-  review replies, and exact-head CI are pending.
+* PR #31 follow-up is published as
+  `5b35020e0eeb149aa780a34e2416527efe0e0ac8` on
+  `feat/harness-extension`. F003 passed fresh evaluation (5.0/5); F004 passed
+  fresh evaluation (4.8/5). All four review threads were answered and
+  resolved. Build, Docs check, and DCO passed for this exact head.
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
   The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
   check, and DCO. Follow-up commit
@@ -463,11 +463,12 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: addressed four unresolved PR #31 findings covering concurrent
+* Accomplished: addressed four PR #31 findings covering concurrent
   controller state, shell-form verification bypass, interrupted-run resume,
   and checker-result/revision validation. Added Docker isolation for
   controller verification and its protected-write/push integration regression.
-  F003 and F004 both passed fresh independent evaluation.
+  F003 and F004 both passed fresh independent evaluation. Updated the PR
+  description, replied to the four threads, and resolved them.
 * Scope: issue #30 maker-checker loop state, safety policy, verification
   runner, tests, CI image setup, and directly related operator and decision
   documentation. Existing feature statuses were not changed.
@@ -476,8 +477,8 @@ where you left off.
   `docs/features/.../agent-progress.md`, and the loop, safety, and verification
   runner modules and tests. The ignored evaluator rubric and feature checklist
   are local.
-* Verification on commit `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus the
-  uncommitted changes:
+* Verification for source contents committed as
+  `5b35020e0eeb149aa780a34e2416527efe0e0ac8`:
   * F003 exact tests passed 34/34, exit 0, run
     `2026-10-11T06-33-36-541Z-9aa6b39e-b8f0-46e5-a091-1c7c0237ddea`;
     architecture passed, exit 0, run
@@ -490,8 +491,8 @@ where you left off.
     (run `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
   * Docker image build passed (run
     `2026-10-11T05-58-22-975Z-e02f89d6-6a67-4a4b-a76f-cc8c21ed190e`).
-  * Earlier `git diff --check` passed (run
-    `2026-10-11T05-56-58-520Z-d56454d9-9b67-4087-a935-e6648efdb07a`).
+  * `git diff --cached --check` passed, exit 0, run
+    `2026-10-11T06-37-22-776Z-a6596217-f04a-4b1e-b3a6-508b7a279ffd`.
 * Boundaries: the sandbox trusts Docker, the image, and the host kernel. It
   provides Node.js 24, Bash, and Git; it does not make the controller an
   application security boundary. D030 records the isolation decision and
@@ -500,12 +501,21 @@ where you left off.
   harness-only changes. No long-running application service was started.
   Docker regression containers were removed; the locally built image and
   ignored verification evidence are intentionally retained.
-* Publication: changes are not yet committed or pushed. The four addressed
-  PR threads remain unresolved, and CI has not run for these changes.
-* Next steps: run final whitespace and documentation checks, commit with
-  sign-off, push `feat/harness-extension`, reply to and resolve the four
-  addressed threads, update the PR body while preserving its template, and
-  record CI for the exact published head.
+* Publication: signed-off commit
+  `5b35020e0eeb149aa780a34e2416527efe0e0ac8` was pushed to
+  `origin/feat/harness-extension`; local and remote heads matched. Build run
+  `38118710009`, Docs check run `38118710005` (links and progress-reminder),
+  and DCO passed for that exact head. All four targeted review threads are
+  resolved; no unresolved review threads remain. PR #31's description keeps
+  the repository template headings and checklist and includes the sandbox
+  limitations and validation results.
+* Startup and cleanup: application startup checks do not apply to these
+  harness-only changes. No long-running service remains. Regression containers
+  were removed; the local verification image, ignored verification reports,
+  evaluator rubric, and updated ignored feature checklist remain intentionally.
+* Final worktree check: clean after commit and push. No dependency lockfiles or
+  generated `src/Portal/wwwroot` output changed. No further implementation
+  work is pending; PR #31 awaits its normal review and merge process.
 
 ## Built
 
