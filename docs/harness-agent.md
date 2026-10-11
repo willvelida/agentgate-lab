@@ -150,14 +150,16 @@ inventory cannot be read or contains an unknown format.
 
 Because agents have no shell, the controller runs the goal's
 `verificationCommand` itself through the
-[evidence runner](./verification.md) after each completed maker round, and
-records the command, status, run ID, exit code, and report path in that
-round. The checker is dispatched only when that verification passes; a
-failed run sends the work back to the maker with the failure in its
-feedback, and a runner that cannot start stops the loop for human
-intervention. Each agent prompt carries the goal, numbered constraints, and
-verification command, and states that the agent must not claim to have run
-verification.
+[evidence runner](./verification.md) after each completed maker round, then
+runs the repository architecture check the same way, and records the command,
+status, run ID, exit code, and report path for each as a list on that round.
+The checker is dispatched only when every recorded result passes; a failed run
+sends the work back to the maker with the failure in its feedback, and a runner
+that cannot start stops the loop for human intervention. A resumed round that
+carries no passing evidence, including state written before this evidence
+existed, is verified again before the checker runs. Each agent prompt carries
+the goal, numbered constraints, and verification command, and states that the
+agent must not claim to have run verification.
 
 Use a scripted dry run to exercise controller behavior without starting
 Copilot sessions. The fixture is a JSON array of actor results:

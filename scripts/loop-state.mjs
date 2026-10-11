@@ -119,7 +119,12 @@ function assertRound(round, index) {
     throw new Error(`${path}.nextAction is not supported.`);
   }
   if (round.verification !== undefined && round.verification !== null) {
-    assertVerification(round.verification, `${path}.verification`);
+    if (!Array.isArray(round.verification)) {
+      throw new Error(`${path}.verification must be an array or null.`);
+    }
+    round.verification.forEach((entry, entryIndex) => {
+      assertVerification(entry, `${path}.verification[${entryIndex}]`);
+    });
   }
   assertHumanIntervention(round.humanIntervention, `${path}.humanIntervention`);
 }

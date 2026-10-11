@@ -142,8 +142,9 @@ export class CopilotCliDispatcher {
       `Constraints: ${goal.constraints.map((entry, index) => `(${index + 1}) ${entry}`).join(' ')}`,
       `Verification command: ${goal.verificationCommand}`,
       'Shell access is disabled for this session, so you cannot run that command yourself.',
-      'The loop controller runs it from outside the session after your turn and records',
-      'the structured result. Never claim to have run verification or architecture checks.',
+      'The loop controller runs it, and the repository architecture check, from outside',
+      'the session after your turn and records the structured results. Never claim to',
+      'have run verification or architecture checks.',
     ].join(' ');
     const prompt = actor === 'maker'
       ? [
@@ -193,6 +194,64 @@ export class CopilotCliDispatcher {
   }
 }
 
+export function tokenizeCommand(command) {
+  if (typeof command !== 'string') {
+    throw new Error('Verification command must be a string.');
+  }
+  const tokens = [];
+  let current = '';
+  let started = false;
+  let quote = null;
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (quote === "'") {
+      if (character === "'") {
+        quote = null;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+    if (quote === '"') {
+      const next = command[index + 1];
+      if (character === '\\' && (next === '"' || next === '\\')) {
+        current += next;
+        index += 1;
+      } else if (character === '"') {
+        quote = null;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      started = true;
+      continue;
+    }
+    if (/\s/.test(character)) {
+      if (started) {
+        tokens.push(current);
+        current = '';
+        started = false;
+      }
+      continue;
+    }
+    current += character;
+    started = true;
+  }
+  if (quote !== null) {
+    throw new Error('Verification command has an unterminated quote.');
+  }
+  if (started) {
+    tokens.push(current);
+  }
+  if (tokens.length === 0) {
+    throw new Error('Verification command must not be empty.');
+  }
+  return tokens;
+}
+
 export class VerificationRunner {
   constructor({
     repositoryRoot = process.cwd(),
@@ -207,10 +266,7 @@ export class VerificationRunner {
   }
 
   async run(command, { timeoutMs }) {
-    const tokens = command.trim().split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) {
-      throw new Error('Verification command must not be empty.');
-    }
+    const tokens = tokenizeCommand(command);
     const runner = resolve(this.repositoryRoot, 'scripts', 'run-verification.mjs');
     const { stderr } = await this.processRunner(
       this.nodeExecutable,
@@ -297,9 +353,18 @@ function countNoProgressMakerRounds(state) {
   return count;
 }
 
+function latestMakerRound(state) {
+  return [...state.rounds].reverse().find((round) => round.actor === 'maker') ?? null;
+}
+
+function hasPassedVerification(round) {
+  return Array.isArray(round?.verification)
+    && round.verification.length > 0
+    && round.verification.every((entry) => entry.status === 'passed');
+}
+
 function latestMakerRevision(state) {
-  return [...state.rounds].reverse().find((round) => round.actor === 'maker')
-    ?.reviewedRevision;
+  return latestMakerRound(state)?.reviewedRevision;
 }
 
 function pendingMakerFeedback(state) {
@@ -352,6 +417,7 @@ export async function runMakerCheckerLoop({
   getRevision,
   safetyBoundary = new RepositorySafetyBoundary(),
   verificationRunner = new VerificationRunner(),
+  architectureCommand = 'bash scripts/check-architecture.sh',
   now = () => new Date(),
 }) {
   if (typeof getRevision !== 'function') {
@@ -370,6 +436,19 @@ export async function runMakerCheckerLoop({
   const activeGoal = state.goal;
   saveLoopState(statePath, state);
 
+  const verificationCommands = [
+    ...new Set([activeGoal.verificationCommand, architectureCommand]
+      .filter((entry) => typeof entry === 'string' && entry.trim().length > 0)),
+  ];
+
+  async function runControllerVerification(deadline) {
+    const results = [];
+    for (const command of verificationCommands) {
+      results.push(await verificationRunner.run(command, { timeoutMs: deadline }));
+    }
+    return results;
+  }
+
   while (true) {
     const decision = getResumeDecision(state);
     if (decision.action === 'stop') {
@@ -379,6 +458,7 @@ export async function runMakerCheckerLoop({
     const actor = decision.actor;
     const before = getRevision();
     const startedAt = now();
+    let gateVerification = null;
     const timeLeft = remainingTime(state, startedAt);
     if (state.rounds.length >= activeGoal.limits.maxRounds || timeLeft <= 0) {
       state = persistRound(
@@ -414,6 +494,51 @@ export async function runMakerCheckerLoop({
           startedAt,
         );
         return { status: 'stale', state };
+      }
+      if (!hasPassedVerification(latestMakerRound(state))) {
+        let gateResults;
+        try {
+          gateResults = await runControllerVerification(timeLeft);
+        } catch (error) {
+          state = persistRound(
+            statePath,
+            state,
+            terminalRound(
+              actor,
+              before,
+              startedAt,
+              'blocked',
+              `Controller verification could not run: ${error.message}`,
+              'Repair the verification runner before resuming.',
+            ),
+            startedAt,
+          );
+          return { status: 'blocked', state };
+        }
+        const failure = gateResults.find((entry) => entry.status !== 'passed');
+        if (failure) {
+          const finishedAt = now();
+          state = persistRound(
+            statePath,
+            state,
+            {
+              actor,
+              startedAt: startedAt.toISOString(),
+              finishedAt: finishedAt.toISOString(),
+              reviewedRevision: before,
+              outcome: 'fail',
+              feedback: `Controller verification ${failure.status} for`
+                + ` \`${failure.command}\` (run ${failure.runId ?? 'unknown'}).`
+                + ' Fix the failure before independent evaluation.',
+              nextAction: 'maker',
+              verification: gateResults,
+              humanIntervention: { required: false, reason: null },
+            },
+            finishedAt,
+          );
+          continue;
+        }
+        gateVerification = gateResults;
       }
     }
 
@@ -537,12 +662,12 @@ export async function runMakerCheckerLoop({
       nextAction = 'stop';
     }
 
-    let verification = null;
+    let verification = gateVerification;
     if (actor === 'maker' && outcome === 'completed' && nextAction === 'checker') {
       try {
-        verification = await verificationRunner.run(activeGoal.verificationCommand, {
-          timeoutMs: Math.max(1, remainingTime(state, now())),
-        });
+        verification = await runControllerVerification(
+          Math.max(1, remainingTime(state, now())),
+        );
       } catch (error) {
         outcome = 'blocked';
         nextAction = 'stop';
@@ -550,11 +675,14 @@ export async function runMakerCheckerLoop({
         intervention = humanStop('Repair the verification runner before resuming.');
       }
       finishedAt = now();
-      if (verification && verification.status !== 'passed') {
+      const failure = Array.isArray(verification)
+        ? verification.find((entry) => entry.status !== 'passed')
+        : null;
+      if (failure) {
         outcome = 'fail';
         nextAction = 'maker';
-        feedback = `${feedback} Controller verification ${verification.status} for`
-          + ` \`${verification.command}\` (run ${verification.runId ?? 'unknown'}).`;
+        feedback = `${feedback} Controller verification ${failure.status} for`
+          + ` \`${failure.command}\` (run ${failure.runId ?? 'unknown'}).`;
       }
     }
 

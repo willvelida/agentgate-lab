@@ -240,3 +240,28 @@ ms.date: 2026-10-10
   inject a verification runner, so the new default spawned the real evidence
   runner against this repository and recursively re-ran the test file. The
   helper now injects a stub runner.
+* 2026-10-11: F003 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+* 2026-10-11: F004 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+
+## 2026-10-11 pull request 31 review findings, round 2
+
+Addressed three further Copilot review findings on pull request #31.
+
+* Verification commands are tokenized with POSIX-style quoting before they
+  reach the evidence runner.
+* The checker gate reruns verification when a resumed maker round carries no
+  fully passing evidence, so state written before the evidence existed cannot
+  bypass the gate.
+* A round's `verification` field is a list. The controller records the goal's
+  verification command and `bash scripts/check-architecture.sh`, and the
+  checker runs only when every entry passes.
+
+Verification:
+
+* `node --test` across the four harness test files passed 36/36, exit 0, run
+  `2026-10-11T01-04-50-427Z-7172151c-d6ec-4014-a030-108e20c373e7`.
+* `bash scripts/check-architecture.sh` passed, exit 0, run
+  `2026-10-11T01-05-18-378Z-505fb2d4-67a1-4ceb-bc6f-b500a42ce4ea`.
+
+Reviewed revision: `4c151c898f886a67280697523b0d7ee75e1e8495` plus the
+modified files. No feature status changed.

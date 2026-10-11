@@ -133,13 +133,14 @@ test('persists human intervention and rejects corrupt state', (t) => {
 
 test('validates optional controller verification evidence on a round', (t) => {
   const statePath = fixture(t);
-  const verification = {
+  const entry = {
     command: 'node --test scripts/loop-state.test.mjs',
     status: 'passed',
     runId: '2026-10-10T09-20-23-268Z-ba4e7aa7',
     exitCode: 0,
     reportPath: '.local/verification/2026-10-10T09-20-23-268Z-ba4e7aa7/report.json',
   };
+  const verification = [entry];
   const state = recordRound(createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')), round({
     verification,
   }));
@@ -154,22 +155,29 @@ test('validates optional controller verification evidence on a round', (t) => {
   assert.throws(
     () => recordRound(
       createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
-      round({ verification: { ...verification, status: 'probably-fine' } }),
+      round({ verification: entry }),
     ),
-    /rounds\[0\]\.verification\.status/,
+    /rounds\[0\]\.verification must be an array or null/,
   );
   assert.throws(
     () => recordRound(
       createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
-      round({ verification: { ...verification, runId: null } }),
+      round({ verification: [{ ...entry, status: 'probably-fine' }] }),
     ),
-    /rounds\[0\]\.verification\.runId is required when verification passed/,
+    /rounds\[0\]\.verification\[0\]\.status/,
   );
   assert.throws(
     () => recordRound(
       createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
-      round({ verification: { ...verification, exitCode: '0' } }),
+      round({ verification: [{ ...entry, runId: null }] }),
     ),
-    /rounds\[0\]\.verification\.exitCode/,
+    /rounds\[0\]\.verification\[0\]\.runId is required when verification passed/,
+  );
+  assert.throws(
+    () => recordRound(
+      createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
+      round({ verification: [{ ...entry, exitCode: '0' }] }),
+    ),
+    /rounds\[0\]\.verification\[0\]\.exitCode/,
   );
 });

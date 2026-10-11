@@ -444,56 +444,49 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: published issue #30's bounded maker-checker loop as pull
-  request #31, then addressed all four unresolved Copilot review findings on
-  that pull request.
-* Review finding 1 and 4 (shell-free agents could not run verification, and
-  rounds recorded no verification outcome): the loop controller now runs the
-  goal's verification command itself between rounds through the evidence
-  runner. Agents stay shell-free. Each completed maker round records
-  `command`, `status`, `runId`, `exitCode` and `reportPath`, and the checker
-  only runs after verification passes. Failed verification returns the work to
-  the maker; a runner that cannot start stops for human intervention.
-* Review finding 2 (prompts omitted the goal contract): both maker and checker
-  prompts now carry the goal, numbered constraints and verification command,
-  state that shell access is disabled, and forbid claiming to have run
-  verification.
-* Review finding 3 (resume accepted a mismatched contract): resuming with a
-  goal contract that differs from the recorded one is now refused. Key
-  ordering differences are still accepted.
-* Scope: only the four review findings and their documentation. No feature
+* Accomplished: addressed the second round of three unresolved Copilot review
+  findings on pull request #31, after the first four were fixed in commit
+  `4c151c8`.
+* Review finding 1 (verification commands were split on whitespace): commands
+  are now tokenized with POSIX-style quoting, so a quoted path or a
+  `bash -c '…'` argument reaches the evidence runner as a single argument.
+  Unterminated quotes and empty commands are rejected.
+* Review finding 2 (state written before verification evidence existed resumed
+  straight to the checker): the checker gate now reruns and persists
+  verification whenever the latest maker round carries no fully passing
+  evidence, instead of trusting the recorded round. A hard stop was rejected
+  because it would permanently brick existing state files.
+* Review finding 3 (loop runs had no architecture evidence): a round's
+  `verification` field is now a list. The controller runs the goal's
+  verification command and `bash scripts/check-architecture.sh`, records one
+  entry per command, and dispatches the checker only when every entry passes.
+* Scope: only the three review findings and their documentation. No feature
   status changed and no new feature was started.
 * Files modified: `scripts/maker-checker-loop.mjs`,
   `scripts/maker-checker-loop.test.mjs`, `scripts/loop-state.mjs`,
   `scripts/loop-state.test.mjs`, `docs/harness-agent.md`, `docs/decisions.md`,
   `.github/agents/harness-implementer.agent.md`,
   `.github/skills/feature-evaluator/SKILL.md`, and this progress log.
-* Decision: D022 records that the controller runs verification instead of the
-  agents, and that round verification evidence is optional so existing state
-  files still load.
-* Defect found and fixed during the work: the loop test helper did not inject
-  a verification runner, so the new default spawned the real evidence runner
-  against this repository and recursively re-ran the test file. The helper now
-  injects a stub runner. Suite duration dropped from about 22 seconds to about
-  5 seconds, confirming no real verification is spawned by tests.
-* Verification: all four harness test files passed 34/34, exit 0, run
-  `2026-10-11T00-42-51-065Z-93af87ea-e02f-48ce-be80-2a12bddf119e`.
+* Decision: D023 records the list-shaped round verification covering both
+  commands, and the resume-time rerun for state that predates the evidence.
+* Evaluator: F003 and F004 were re-reviewed in a fresh session against commit
+  `4c151c8` and both returned PASS, average 5.0, minimum 5.
+* Verification: all four harness test files passed 36/36, exit 0, run
+  `2026-10-11T01-04-50-427Z-7172151c-d6ec-4014-a030-108e20c373e7`.
   Architecture passed, exit 0, run
-  `2026-10-11T00-43-11-658Z-ab2aebdc-8a88-41ef-b831-69fbb962b810`.
-  `git diff --check` passed.
+  `2026-10-11T01-05-18-378Z-505fb2d4-67a1-4ceb-bc6f-b500a42ce4ea`.
 * Reviewed revision and tree: commit
-  `57893340aa13de530098d90aeb6c2ddf4e778da8` plus the eight modified files
+  `4c151c898f886a67280697523b0d7ee75e1e8495` plus the eight modified files
   listed above. No unrelated pre-existing changes were present.
 * Startup: not applicable. The change affects finite local harness scripts and
   documentation, not a service startup path.
 * Cleanup: no long-lived process was started. Node fixtures removed their
   temporary repositories. Ignored verification reports were intentionally
-  retained, including the stray reports written by the recursive test runs
-  before the stub runner was added.
-* Blockers: none. Pull request #31 was green on its previous head; CI must be
-  confirmed again on the new head after this push.
+  retained.
+* Blockers: none. CI must be confirmed again on the new head after this push.
 * Next steps: commit and push these review fixes, confirm CI on the new head,
-  then reply to and resolve the four review threads.
+  reply to and resolve the three review threads, then re-run a fresh-session
+  evaluator against the new head.
 
 ## Built
 

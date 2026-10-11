@@ -383,3 +383,25 @@ Each entry records:
   state files still load. Resuming with a goal contract that differs from the
   recorded one is refused, because the recorded contract defines the
   verification that was run.
+
+## D023: rounds record a list of verification results
+
+* Date: 2026-10-11
+* Decision: a round's `verification` field holds a list of records instead of
+  a single record. The controller runs the goal contract's
+  `verificationCommand` and `bash scripts/check-architecture.sh` through the
+  evidence runner, appends one record per command, and dispatches the checker
+  only when every record passes. A resumed round whose recorded evidence is
+  missing or not fully passing is verified again before the checker runs.
+  Verification commands are tokenized with POSIX-style quoting so quoted
+  arguments reach the runner as single arguments.
+* Why: D022 recorded only the feature command, so a loop-driven checker could
+  reach a `pass` outcome without architecture evidence the evaluator rubric
+  requires. State written before D022 carried no evidence at all and resumed
+  straight to the checker, bypassing the gate.
+* Alternatives rejected: letting the loop-dispatched evaluator rerun the
+  architecture check, because D021 leaves loop sessions without a shell;
+  stopping permanently on state that predates the evidence, because that
+  would brick existing state files.
+* Constraints: `verification` stays optional and nullable for backward
+  compatibility, so the resume-time rerun, not the schema, enforces the gate.

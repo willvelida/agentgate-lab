@@ -11,6 +11,7 @@ import {
   CopilotCliDispatcher,
   ScriptedDispatcher,
   runMakerCheckerLoop,
+  tokenizeCommand,
 } from './maker-checker-loop.mjs';
 import { CopilotCapabilityBoundary } from './maker-checker-safety.mjs';
 import {
@@ -364,6 +365,7 @@ test('records controller verification evidence on each gated maker round', async
   const statePath = fixture(t);
   const runner = verificationRunner([
     { status: 'passed', runId: 'run-maker-1', exitCode: 0 },
+    { status: 'passed', runId: 'run-arch-1', exitCode: 0 },
   ]);
   const dispatcher = new ScriptedDispatcher([
     { outcome: 'completed', feedback: 'maker finished' },
@@ -387,25 +389,37 @@ test('records controller verification evidence on each gated maker round', async
   assert.equal(result.status, 'pass');
   assert.deepEqual(
     runner.calls.map((call) => call.command),
-    ['node --test scripts/maker-checker-loop.test.mjs'],
+    ['node --test scripts/maker-checker-loop.test.mjs', 'bash scripts/check-architecture.sh'],
   );
-  assert.deepEqual(result.state.rounds[0].verification, {
-    command: 'node --test scripts/maker-checker-loop.test.mjs',
-    status: 'passed',
-    runId: 'run-maker-1',
-    exitCode: 0,
-    reportPath: '.local/verification/run-maker-1/report.json',
-  });
+  assert.deepEqual(result.state.rounds[0].verification, [
+    {
+      command: 'node --test scripts/maker-checker-loop.test.mjs',
+      status: 'passed',
+      runId: 'run-maker-1',
+      exitCode: 0,
+      reportPath: '.local/verification/run-maker-1/report.json',
+    },
+    {
+      command: 'bash scripts/check-architecture.sh',
+      status: 'passed',
+      runId: 'run-arch-1',
+      exitCode: 0,
+      reportPath: '.local/verification/run-arch-1/report.json',
+    },
+  ]);
   assert.equal(result.state.rounds[1].verification, null);
 
   const persisted = JSON.parse(readFileSync(statePath, 'utf8'));
-  assert.equal(persisted.rounds[0].verification.runId, 'run-maker-1');
+  assert.equal(persisted.rounds[0].verification[0].runId, 'run-maker-1');
+  assert.equal(persisted.rounds[0].verification[1].runId, 'run-arch-1');
 });
 
 test('failed controller verification returns work to the maker instead of the checker', async (t) => {
   const runner = verificationRunner([
     { status: 'failed', runId: 'run-maker-1', exitCode: 1 },
+    { status: 'passed', runId: 'run-arch-1', exitCode: 0 },
     { status: 'passed', runId: 'run-maker-2', exitCode: 0 },
+    { status: 'passed', runId: 'run-arch-2', exitCode: 0 },
   ]);
   const dispatcher = new ScriptedDispatcher([
     { outcome: 'completed', feedback: 'first maker' },
@@ -435,7 +449,7 @@ test('failed controller verification returns work to the maker instead of the ch
     result.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
     ['maker:fail', 'maker:completed', 'checker:pass'],
   );
-  assert.equal(result.state.rounds[0].verification.status, 'failed');
+  assert.equal(result.state.rounds[0].verification[0].status, 'failed');
   assert.match(result.state.rounds[0].feedback, /Controller verification failed/);
   assert.equal(dispatcher.calls[1].feedback, result.state.rounds[0].feedback);
 });
@@ -464,6 +478,77 @@ test('stops for human intervention when controller verification cannot run', asy
     result.state.rounds.at(-1).feedback,
     /Controller verification could not run: Verification runner did not report an evidence path\./,
   );
+});
+
+test('tokenizes verification commands with quoted arguments', () => {
+  assert.deepEqual(tokenizeCommand('node --test scripts/a.test.mjs'), [
+    'node',
+    '--test',
+    'scripts/a.test.mjs',
+  ]);
+  assert.deepEqual(tokenizeCommand('node --test "scripts/a test.mjs"'), [
+    'node',
+    '--test',
+    'scripts/a test.mjs',
+  ]);
+  assert.deepEqual(tokenizeCommand("bash -c 'echo hello world'"), [
+    'bash',
+    '-c',
+    'echo hello world',
+  ]);
+  assert.deepEqual(tokenizeCommand('node -e "console.log(\\"hi\\")"'), [
+    'node',
+    '-e',
+    'console.log("hi")',
+  ]);
+  assert.throws(() => tokenizeCommand('node --test "unterminated'), /unterminated quote/);
+  assert.throws(() => tokenizeCommand('   '), /must not be empty/);
+});
+
+test('reruns controller verification when a resumed maker round has no evidence', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const legacy = recordRound(
+    createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:01.000Z',
+      reviewedRevision: revision('maker'),
+      outcome: 'completed',
+      feedback: 'Legacy maker round recorded without verification evidence.',
+      nextAction: 'checker',
+      verification: null,
+      humanIntervention: {
+        required: false,
+        reason: null,
+      },
+    },
+  );
+  saveLoopState(statePath, legacy);
+
+  const runner = verificationRunner([
+    { status: 'passed', runId: 'run-resume-1', exitCode: 0 },
+    { status: 'passed', runId: 'run-resume-arch', exitCode: 0 },
+  ]);
+  const dispatcher = new ScriptedDispatcher([{ outcome: 'pass', feedback: 'checker passed' }]);
+
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: revisions(revision('maker'), revision('maker'), revision('maker', false)),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.deepEqual(
+    runner.calls.map((call) => call.command),
+    ['node --test scripts/maker-checker-loop.test.mjs', 'bash scripts/check-architecture.sh'],
+  );
+  assert.equal(result.state.rounds[0].verification, null);
+  assert.equal(result.state.rounds.at(-1).actor, 'checker');
 });
 
 test('refuses to resume a loop with a different goal contract', async (t) => {
