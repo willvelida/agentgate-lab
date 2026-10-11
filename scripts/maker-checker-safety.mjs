@@ -32,6 +32,15 @@ function featureById(features, featureId) {
   return features.find((feature) => feature.id === featureId);
 }
 
+function duplicateFeatureId(features) {
+  const seen = new Set();
+  return features.find((feature) => {
+    if (seen.has(feature.id)) return true;
+    seen.add(feature.id);
+    return false;
+  })?.id ?? null;
+}
+
 function assertSafeStartingChecklist(checklist, goal) {
   const target = featureById(checklist.features, goal.featureId);
   if (!target) {
@@ -258,6 +267,14 @@ export class RepositorySafetyBoundary {
 
     if (stableJson(before.checklist.issue) !== stableJson(after.checklist.issue)) {
       violations.push('Issue acceptance metadata changed.');
+    }
+    const beforeDuplicate = duplicateFeatureId(before.checklist.features);
+    const afterDuplicate = duplicateFeatureId(after.checklist.features);
+    if (beforeDuplicate || afterDuplicate) {
+      violations.push(
+        `Duplicate feature ID ${afterDuplicate ?? beforeDuplicate} is not allowed in the checklist.`,
+      );
+      return violations;
     }
     for (const beforeFeature of before.checklist.features) {
       const afterFeature = featureById(after.checklist.features, beforeFeature.id);

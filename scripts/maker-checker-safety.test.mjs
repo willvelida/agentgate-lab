@@ -406,6 +406,22 @@ test('repository boundary prevents starting or changing another feature', (t) =>
   );
 });
 
+test('repository boundary rejects duplicate feature IDs', (t) => {
+  const files = fixture(t);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+  const before = boundary.capture(goal());
+  const after = structuredClone(before);
+  after.checklist.features.push(structuredClone(after.checklist.features[0]));
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Duplicate feature ID F003 is not allowed/,
+  );
+});
+
 test('repository boundary allows only the checker to pass the active feature', (t) => {
   const files = fixture(t);
   const boundary = new RepositorySafetyBoundary({

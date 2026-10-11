@@ -441,12 +441,16 @@ export async function runMakerCheckerLoop({
       .filter((entry) => typeof entry === 'string' && entry.trim().length > 0)),
   ];
 
-  async function runControllerVerification(deadline) {
+  async function runControllerVerification() {
     const results = [];
     for (const command of verificationCommands) {
-      results.push(await verificationRunner.run(command, { timeoutMs: deadline }));
+      const timeoutMs = remainingTime(state, now());
+      if (timeoutMs <= 0) {
+        return { results, limitExhausted: true };
+      }
+      results.push(await verificationRunner.run(command, { timeoutMs }));
     }
-    return results;
+    return { results, limitExhausted: false };
   }
 
   while (true) {
@@ -496,9 +500,9 @@ export async function runMakerCheckerLoop({
         return { status: 'stale', state };
       }
       if (!hasPassedVerification(latestMakerRound(state))) {
-        let gateResults;
+        let gateRun;
         try {
-          gateResults = await runControllerVerification(timeLeft);
+          gateRun = await runControllerVerification();
         } catch (error) {
           state = persistRound(
             statePath,
@@ -514,6 +518,24 @@ export async function runMakerCheckerLoop({
             startedAt,
           );
           return { status: 'blocked', state };
+        }
+        const gateResults = gateRun.results;
+        if (gateRun.limitExhausted) {
+          const finishedAt = now();
+          state = persistRound(statePath, state, {
+            actor,
+            startedAt: startedAt.toISOString(),
+            finishedAt: finishedAt.toISOString(),
+            reviewedRevision: before,
+            outcome: 'limit-exhausted',
+            feedback: 'Configured elapsed-time limit was exhausted during controller verification.',
+            nextAction: 'stop',
+            verification: gateResults,
+            humanIntervention: humanStop(
+              'Increase the goal limits or revise the work before resuming.',
+            ),
+          }, finishedAt);
+          return { status: 'limit-exhausted', state };
         }
         const failure = gateResults.find((entry) => entry.status !== 'passed');
         if (failure) {
@@ -542,6 +564,25 @@ export async function runMakerCheckerLoop({
       }
     }
 
+    const dispatchTimeLeft = remainingTime(state, now());
+    if (dispatchTimeLeft <= 0) {
+      const finishedAt = now();
+      state = persistRound(statePath, state, {
+        actor,
+        startedAt: startedAt.toISOString(),
+        finishedAt: finishedAt.toISOString(),
+        reviewedRevision: before,
+        outcome: 'limit-exhausted',
+        feedback: 'Configured elapsed-time limit was exhausted before agent dispatch.',
+        nextAction: 'stop',
+        verification: gateVerification,
+        humanIntervention: humanStop(
+          'Increase the goal limits or revise the work before resuming.',
+        ),
+      }, finishedAt);
+      return { status: 'limit-exhausted', state };
+    }
+
     let safetyBefore;
     try {
       safetyBefore = safetyBoundary.capture(activeGoal);
@@ -568,7 +609,7 @@ export async function runMakerCheckerLoop({
         actor,
         goal: activeGoal,
         feedback: pendingMakerFeedback(state),
-        timeoutMs: timeLeft,
+        timeoutMs: dispatchTimeLeft,
       });
     } catch (error) {
       const finishedAt = now();
@@ -664,10 +705,10 @@ export async function runMakerCheckerLoop({
 
     let verification = gateVerification;
     if (actor === 'maker' && outcome === 'completed' && nextAction === 'checker') {
+      let verificationRun = null;
       try {
-        verification = await runControllerVerification(
-          Math.max(1, remainingTime(state, now())),
-        );
+        verificationRun = await runControllerVerification();
+        verification = verificationRun.results;
       } catch (error) {
         outcome = 'blocked';
         nextAction = 'stop';
@@ -675,7 +716,14 @@ export async function runMakerCheckerLoop({
         intervention = humanStop('Repair the verification runner before resuming.');
       }
       finishedAt = now();
-      const failure = Array.isArray(verification)
+      if (verificationRun?.limitExhausted) {
+        outcome = 'limit-exhausted';
+        nextAction = 'stop';
+        feedback = `${feedback} Configured elapsed-time limit was exhausted`
+          + ' during controller verification.';
+        intervention = humanStop('Increase the goal limits or revise the work before resuming.');
+      }
+      const failure = outcome !== 'limit-exhausted' && Array.isArray(verification)
         ? verification.find((entry) => entry.status !== 'passed')
         : null;
       if (failure) {

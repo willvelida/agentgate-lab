@@ -405,3 +405,26 @@ Each entry records:
   would brick existing state files.
 * Constraints: `verification` stays optional and nullable for backward
   compatibility, so the resume-time rerun, not the schema, enforces the gate.
+
+## D024: preserve schema v1 state and one shared elapsed-time deadline
+
+* Date: 2026-10-11
+* Decision: loading schema version 1 state migrates an object-shaped
+  `verification` value to a one-entry list before validation. The controller
+  also recalculates the remaining elapsed-time budget before each verification
+  command and before dispatch; exhaustion stops the loop as
+  `limit-exhausted`. Repository transition checks reject duplicate feature IDs
+  before comparing checklist entries by ID.
+* Why: D023 changed the verification shape without changing the schema
+  version, so interrupted state written by D022 otherwise became unreadable.
+  Reusing one timeout for multiple sequential operations also allowed a round
+  to exceed the goal's total elapsed-time limit. Duplicate IDs made ID-based
+  added-feature detection ambiguous.
+* Alternatives rejected: rejecting all D022 state, because D023 explicitly
+  preserves resume compatibility; incrementing only the state schema without
+  a migration, because existing local state would still be stranded; treating
+  the full remaining duration as an independent timeout for every operation,
+  because that is not a bounded total deadline.
+* Constraints: migration applies only while loading schema version 1 state.
+  Newly written state remains list-shaped and strict validation still rejects
+  malformed verification entries.

@@ -194,6 +194,22 @@ export function loadLoopState(path) {
       cause: error,
     });
   }
+  if (state?.schemaVersion === 1 && Array.isArray(state.rounds)) {
+    state = {
+      ...state,
+      rounds: state.rounds.map((round) => {
+        if (!round || typeof round !== 'object' || Array.isArray(round)
+            || round.verification === null || round.verification === undefined
+            || Array.isArray(round.verification)) {
+          return round;
+        }
+        return {
+          ...round,
+          verification: [round.verification],
+        };
+      }),
+    };
+  }
   return assertValidLoopState(state);
 }
 

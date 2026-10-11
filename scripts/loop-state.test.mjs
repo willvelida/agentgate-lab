@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import {
   createLoopState,
@@ -180,4 +181,24 @@ test('validates optional controller verification evidence on a round', (t) => {
     ),
     /rounds\[0\]\.verification\[0\]\.exitCode/,
   );
+});
+
+test('migrates a schema v1 verification record to a one-entry list on load', (t) => {
+  const statePath = fixture(t);
+  const entry = {
+    command: 'node --test scripts/loop-state.test.mjs',
+    status: 'passed',
+    runId: 'legacy-run',
+    exitCode: 0,
+    reportPath: '.local/verification/legacy-run/report.json',
+  };
+  const state = recordRound(
+    createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
+    round({ verification: [entry] }),
+  );
+  state.rounds[0].verification = entry;
+  mkdirSync(dirname(statePath), { recursive: true });
+  writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+  assert.deepEqual(loadLoopState(statePath).rounds[0].verification, [entry]);
 });

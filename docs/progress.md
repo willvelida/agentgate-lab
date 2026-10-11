@@ -22,13 +22,14 @@ Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
-  All four Copilot review findings are fixed: the controller now runs the
-  goal's verification command between rounds and records the structured
-  result, both prompts carry the goal contract, and resuming with a mismatched
-  goal contract is refused. Harness tests pass 34/34 and architecture passes.
-  CI must be reconfirmed on the pushed head.
-* Issue #30 F001-F005 are evaluator-PASS and committed. F006 passed fresh
-  reevaluation after repair; every issue #30 feature now passes.
+  Seven earlier Copilot review findings were fixed and resolved through
+  commit `07d8878`; exact-head CI passed. Four newly selected findings are
+  now repaired in the working tree. F003 and F004 received fresh evaluator
+  PASS verdicts for the current fixes; commit and push are the remaining
+  publication steps.
+* Every issue #30 feature remains recorded as pass. The current review fixes
+  do not change feature status, but publication is pending verification,
+  reevaluation, commit, push, thread resolution, and exact-head CI.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -444,49 +445,46 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: addressed the second round of three unresolved Copilot review
-  findings on pull request #31, after the first four were fixed in commit
-  `4c151c8`.
-* Review finding 1 (verification commands were split on whitespace): commands
-  are now tokenized with POSIX-style quoting, so a quoted path or a
-  `bash -c '…'` argument reaches the evidence runner as a single argument.
-  Unterminated quotes and empty commands are rejected.
-* Review finding 2 (state written before verification evidence existed resumed
-  straight to the checker): the checker gate now reruns and persists
-  verification whenever the latest maker round carries no fully passing
-  evidence, instead of trusting the recorded round. A hard stop was rejected
-  because it would permanently brick existing state files.
-* Review finding 3 (loop runs had no architecture evidence): a round's
-  `verification` field is now a list. The controller runs the goal's
-  verification command and `bash scripts/check-architecture.sh`, records one
-  entry per command, and dispatches the checker only when every entry passes.
-* Scope: only the three review findings and their documentation. No feature
-  status changed and no new feature was started.
-* Files modified: `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, `scripts/loop-state.mjs`,
-  `scripts/loop-state.test.mjs`, `docs/harness-agent.md`, `docs/decisions.md`,
-  `.github/agents/harness-implementer.agent.md`,
-  `.github/skills/feature-evaluator/SKILL.md`, and this progress log.
-* Decision: D023 records the list-shaped round verification covering both
-  commands, and the resume-time rerun for state that predates the evidence.
-* Evaluator: F003 and F004 were re-reviewed in a fresh session against commit
-  `4c151c8` and both returned PASS, average 5.0, minimum 5.
-* Verification: all four harness test files passed 36/36, exit 0, run
-  `2026-10-11T01-04-50-427Z-7172151c-d6ec-4014-a030-108e20c373e7`.
+* Accomplished: addressed four selected review findings on pull request #31.
+  Duplicate checklist feature IDs are rejected before ID-based comparison;
+  schema version 1 state migrates a single verification record to a one-entry
+  list on load; and verification commands plus dispatch now share one
+  recalculated elapsed-time deadline.
+* Progress evidence: recorded the fresh-session F003 and F004 evaluator PASS
+  verdicts for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6`.
+  Those verdicts do not cover the new working-tree fixes, so another
+  independent evaluation is required before publication.
+* Scope: only the four selected findings, regression tests, and directly
+  affected documentation. No feature status changed and no feature started.
+* Files modified: `scripts/maker-checker-safety.mjs`,
+  `scripts/maker-checker-safety.test.mjs`, `scripts/loop-state.mjs`,
+  `scripts/loop-state.test.mjs`, `scripts/maker-checker-loop.mjs`,
+  `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
+  `docs/decisions.md`, the issue #30 `agent-progress.md`, and this progress
+  log.
+* Decision: D024 records schema v1 migration, the shared deadline, and
+  duplicate feature-ID rejection.
+* Evaluator: F003 and F004 were re-reviewed in fresh sessions against
+  `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the current fixes. Both
+  returned PASS, average 4.8, minimum 4. The verdicts are recorded in the
+  issue #30 agent-progress log and cover the current working-tree changes.
+* Verification: all four harness test files passed 39/39, exit 0, run
+  `2026-10-11T01-29-47-710Z-64924717-ef8d-4044-b0da-610dc6e8aa20`.
   Architecture passed, exit 0, run
-  `2026-10-11T01-05-18-378Z-505fb2d4-67a1-4ceb-bc6f-b500a42ce4ea`.
-* Reviewed revision and tree: commit
-  `4c151c898f886a67280697523b0d7ee75e1e8495` plus the eight modified files
-  listed above. No unrelated pre-existing changes were present.
+  `2026-10-11T01-29-47-710Z-417b43f3-cfc7-44a1-aae4-30430e952482`.
+* Reviewed revision and tree:
+  `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the ten modified files
+  listed above. The evaluator additions to `agent-progress.md` were preserved
+  and included in the recorded dirty state.
 * Startup: not applicable. The change affects finite local harness scripts and
   documentation, not a service startup path.
 * Cleanup: no long-lived process was started. Node fixtures removed their
   temporary repositories. Ignored verification reports were intentionally
   retained.
-* Blockers: none. CI must be confirmed again on the new head after this push.
-* Next steps: commit and push these review fixes, confirm CI on the new head,
-  reply to and resolve the three review threads, then re-run a fresh-session
-  evaluator against the new head.
+* Blockers: none for implementation or evaluation. Commit, push, thread
+  resolution, and exact-head CI remain pending publication follow-up.
+* Next steps: commit and push the evaluated fixes, confirm exact-head CI, and
+  continue monitoring pull request #31 for new review comments.
 
 ## Built
 

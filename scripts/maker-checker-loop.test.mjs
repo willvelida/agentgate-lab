@@ -551,6 +551,51 @@ test('reruns controller verification when a resumed maker round has no evidence'
   assert.equal(result.state.rounds.at(-1).actor, 'checker');
 });
 
+test('shares the elapsed-time budget across verification commands and dispatch', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal({ maxElapsedTimeMs: 2500 });
+  const legacy = recordRound(
+    createLoopState(contract, new Date('2026-10-10T10:00:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:00.000Z',
+      reviewedRevision: revision('maker'),
+      outcome: 'completed',
+      feedback: 'Resume at the checker gate.',
+      nextAction: 'checker',
+      verification: null,
+      humanIntervention: { required: false, reason: null },
+    },
+    new Date('2026-10-10T10:00:00.000Z'),
+  );
+  saveLoopState(statePath, legacy);
+  const times = [
+    '2026-10-10T10:00:00.500Z',
+    '2026-10-10T10:00:01.000Z',
+    '2026-10-10T10:00:02.000Z',
+    '2026-10-10T10:00:02.600Z',
+  ].map((value) => new Date(value));
+  const runner = verificationRunner([
+    { status: 'passed', runId: 'run-feature', exitCode: 0 },
+  ]);
+  const dispatcher = new ScriptedDispatcher([{ outcome: 'pass', feedback: 'unexpected' }]);
+
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: revisions(revision('maker')),
+    now: () => times.shift() ?? new Date('2026-10-10T10:00:02.600Z'),
+  });
+
+  assert.equal(result.status, 'limit-exhausted');
+  assert.equal(dispatcher.calls.length, 0);
+  assert.deepEqual(runner.calls.map((call) => call.options.timeoutMs), [1500, 500]);
+  assert.equal(result.state.rounds.at(-1).verification.length, 2);
+});
+
 test('refuses to resume a loop with a different goal contract', async (t) => {
   const statePath = fixture(t);
   saveLoopState(statePath, createLoopState(goal(), new Date('2026-10-10T09:59:00.000Z')));

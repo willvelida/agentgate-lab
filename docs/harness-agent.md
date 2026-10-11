@@ -130,6 +130,8 @@ validator tests are available with `node --test scripts/goal-contract.test.mjs`.
 The controller enforces the declared maximum rounds, elapsed time, and repeated
 no-progress limit. It also stops for blocked or ambiguous work, stale checker
 input, dispatch failure, protected changes, or work that needs human approval.
+Elapsed time is one shared deadline: the controller recalculates the remaining
+budget before each verification command and before agent dispatch.
 
 ### Start the loop
 
@@ -157,9 +159,11 @@ The checker is dispatched only when every recorded result passes; a failed run
 sends the work back to the maker with the failure in its feedback, and a runner
 that cannot start stops the loop for human intervention. A resumed round that
 carries no passing evidence, including state written before this evidence
-existed, is verified again before the checker runs. Each agent prompt carries
-the goal, numbered constraints, and verification command, and states that the
-agent must not claim to have run verification.
+existed, is verified again before the checker runs. Schema version 1 state
+written while `verification` was a single record is migrated to a one-entry
+list when loaded. Each agent prompt carries the goal, numbered constraints,
+and verification command, and states that the agent must not claim to have run
+verification.
 
 Use a scripted dry run to exercise controller behavior without starting
 Copilot sessions. The fixture is a JSON array of actor results:

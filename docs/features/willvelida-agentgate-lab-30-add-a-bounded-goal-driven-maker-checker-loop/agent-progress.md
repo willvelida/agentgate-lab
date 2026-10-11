@@ -265,3 +265,33 @@ Verification:
 
 Reviewed revision: `4c151c898f886a67280697523b0d7ee75e1e8495` plus the
 modified files. No feature status changed.
+
+* 2026-10-11: Corrected fresh-session-style rerun: F003 evaluator verdict PASS (avg 5.0, min 5) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6`; exact verification passed 16/16 in run `2026-10-11T01-13-20-751Z-51b81de0-2f5b-4072-97cb-26016b72779a`, architecture passed in run `2026-10-11T01-12-49-284Z-7c473dfe-c4f2-4509-838a-de55587d30d4`. See evaluator-rubric.md.
+* 2026-10-11: Corrected fresh-session-style rerun: F004 evaluator verdict PASS (avg 5.0, min 5) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6`; exact verification passed 12/12 in run `2026-10-11T01-13-15-849Z-07af04c7-25c0-4099-8fea-34ca9eb63197`, architecture passed in run `2026-10-11T01-12-49-284Z-7c473dfe-c4f2-4509-838a-de55587d30d4`. See evaluator-rubric.md.
+
+## 2026-10-11 selected review feedback
+
+Addressed four selected review findings without changing feature status:
+
+* duplicate checklist feature IDs are rejected before ID-based transition
+  comparisons;
+* schema version 1 state with a single verification record migrates to a
+  one-entry list during load;
+* the controller recomputes one shared elapsed-time budget before every
+  verification command and before dispatch, stopping as `limit-exhausted`;
+* the progress log records the F003/F004 evaluator PASS verdicts for
+  `07d887882f035ce6ad2f588264c6147daaa4bbe6` and does not present those
+  verdicts as covering the new working-tree fixes.
+
+Verification:
+
+* all four harness test files passed 39/39, exit 0, run
+  `2026-10-11T01-29-47-710Z-64924717-ef8d-4044-b0da-610dc6e8aa20`;
+* `bash scripts/check-architecture.sh` passed, exit 0, run
+  `2026-10-11T01-29-47-710Z-417b43f3-cfc7-44a1-aae4-30430e952482`.
+
+Reviewed revision: `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the ten
+modified files recorded in `docs/progress.md`. F003 and F004 require a new
+fresh-session evaluation for these fixes before publication.
+* 2026-10-11: F003 evaluator verdict PASS (avg 4.8, min 4) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the current uncommitted fixes. See evaluator-rubric.md.
+* 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the current uncommitted fixes. See evaluator-rubric.md.
