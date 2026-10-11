@@ -952,27 +952,42 @@ test('repository boundary protects the host-side verification launcher', (t) => 
   );
 });
 
-test('repository boundary protects absolute verification paths inside the repository', (t) => {
+test('repository boundary rejects absolute verification paths', (t) => {
   const files = fixture(t);
-  const contract = {
-    ...goal(),
-    verificationCommand: `node --test "${files.verificationPath}"`,
-  };
+  const relativeCommand = 'node --test scripts/maker-checker-safety.test.mjs';
+  for (const verificationCommand of [
+    `node --test "${files.verificationPath}"`,
+    `node --test "${files.verificationPath.replaceAll('\\', '/')}"`,
+    'node --test /workspace/scripts/maker-checker-safety.test.mjs',
+    'node --test C:\\repo\\scripts\\maker-checker-safety.test.mjs',
+    '/usr/local/bin/node --test scripts/maker-checker-safety.test.mjs',
+    'bash /workspace/scripts/check-architecture.sh',
+  ]) {
+    const contract = { ...goal(), verificationCommand };
+    const changed = checklist();
+    changed.features[1].verification = verificationCommand;
+    writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+    const boundary = new RepositorySafetyBoundary({
+      repositoryRoot: files.root,
+      commandRunner: commandRunner(),
+    });
+
+    assert.throws(
+      () => boundary.capture(contract),
+      /must use repository-relative paths/,
+      verificationCommand,
+    );
+  }
+
+  const contract = { ...goal(), verificationCommand: relativeCommand };
   const changed = checklist();
-  changed.features[1].verification = contract.verificationCommand;
+  changed.features[1].verification = relativeCommand;
   writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
   const boundary = new RepositorySafetyBoundary({
     repositoryRoot: files.root,
     commandRunner: commandRunner(),
   });
-  const before = boundary.capture(contract);
-  writeFileSync(files.verificationPath, 'weakened absolute verification\n');
-  const after = boundary.capture(contract);
-
-  assert.throws(
-    () => boundary.assertTransition(before, after, contract, 'maker'),
-    /Protected file scripts[\\/]maker-checker-safety\.test\.mjs changed/,
-  );
+  assert.doesNotThrow(() => boundary.capture(contract));
 });
 
 test('repository boundary rejects shell-command verification forms with shell options', (t) => {

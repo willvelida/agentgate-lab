@@ -217,7 +217,10 @@ is mounted read-only; the container has no network, receives no host
 environment variables or credentials, and has no Docker socket. Its writable
 `/tmp`, home directory, and `.local` path are temporary container filesystems.
 The image includes Node.js 24, Bash, and Git; verification commands must use
-those tools and dependencies already readable from the repository. The
+those tools and dependencies already readable from the repository. Paths in
+the verification command must be relative to the repository root. The
+container mounts the repository at a different location, so absolute paths
+are rejected before any agent is dispatched. The
 evidence runner on the host writes reports and output outside the container.
 A missing Docker image or unavailable daemon stops the controller before it
 dispatches an agent.

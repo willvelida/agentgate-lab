@@ -490,6 +490,13 @@ function verificationPaths(repositoryRoot, verificationCommand) {
   }
 
   const paths = [];
+  const absoluteToken = tokens.find((token) => /^(?:[A-Za-z]:)?[\\/]/.test(token));
+  if (absoluteToken) {
+    throw new Error(
+      'Verification commands must use repository-relative paths because the sandbox mounts '
+        + `the repository at a different location: ${absoluteToken}`,
+    );
+  }
   const executable = tokens[0]?.split(/[\\/]/).at(-1)
     .replace(/\.exe$/i, '')
     .toLowerCase();

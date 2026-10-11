@@ -530,6 +530,20 @@ where you left off.
   exact-head CI for this commit is recorded in the PR description, because a
   commit cannot contain its own CI results. Each addressed thread has a reply
   and is resolved.
+* Published head `a884cc40dd6961d9fd7fdfe774efd9ec67522be5`: Build run
+  `38182284745`, Docs check run `38182284773`, and DCO passed. Copilot's
+  review of that head found one High issue: host-absolute verification paths
+  passed validation but do not exist inside the `/workspace` sandbox mount. The
+  maintainer chose to reject them (D034, partly superseding D026). The old
+  absolute-path protection test was replaced, with approval, by `repository
+  boundary rejects absolute verification paths`. Fresh-session evaluator PASS:
+  F004 avg 5.0, min 5, 33/33 (run
+  `2026-10-11T23-09-55-718Z-9bf31b7b-451f-4613-8269-6b75efe62b48`); F003 avg
+  5.0, min 5, 40/40 (run
+  `2026-10-11T23-10-23-296Z-448aab3e-564f-4a4b-b095-5dc85b4ff2a7`);
+  architecture passed (run
+  `2026-10-11T23-10-38-008Z-051e7d8f-030a-437d-a7cf-804aa33e0158`). A stray
+  end-of-file marker was removed from the slug's progress log.
 * Cleanup: runtime startup is not applicable. No long-lived service was
   started. Tests removed their own fixtures. Local evidence remains under
   ignored `.local/verification/`.

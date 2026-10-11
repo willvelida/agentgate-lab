@@ -472,6 +472,8 @@ Each entry records:
   files and statically enumerated repository-local helpers. The source scanner
   rejects slash tokens after a closing brace when regex-versus-division context
   cannot be classified safely.
+* Superseded in part by D034: absolute verification paths are now rejected
+  instead of protected.
 
 ## D027: controller verification requires trusted repository code
 
@@ -610,3 +612,20 @@ Each entry records:
 * Constraints: the scanner is a local harness control, not an application
   security boundary. Unknown loader forms that the scanner does not
   recognize remain an accepted limit until issue #32 is resolved.
+
+## D034: reject absolute paths in verification commands
+
+* Date: 2026-10-12
+* Decision: verification commands must use repository-relative paths. Any
+  absolute token, including the executable, a Node test file, or a shell
+  script, fails safety capture before an agent is dispatched. This replaces
+  D026's acceptance and protection of absolute paths.
+* Why: the controller runs verification in a container that mounts the
+  repository at `/workspace`. A host-absolute path passed validation but did
+  not exist inside the container, so an approved contract could never pass.
+* Alternatives rejected: translating repository-local absolute paths to
+  `/workspace/...`, because it adds path-rewriting logic for a form that
+  human-authored contracts do not need; deferring the issue, because the
+  failure is deterministic and the fix is small.
+* Constraints: Windows (`C:\...`, `C:/...`) and POSIX (`/...`) absolute forms
+  are both rejected on every platform.
