@@ -12,6 +12,9 @@ import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 const shellExclusion = '--excluded-tools=shell';
 const urlDenial = '--deny-tool=url';
 const javascriptTrivia = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
+const sandboxCompatibleShellScripts = new Set([
+  'scripts/check-architecture.sh',
+]);
 const executableLoaderModules = new Set([
   'child_process',
   'node:child_process',
@@ -376,7 +379,7 @@ function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
       'g',
     );
     const indirectModuleLoader = new RegExp(
-      `\\b(?:createRequire|getBuiltinModule)\\b|\\brequire\\b${javascriptTrivia}(?!\\()`,
+      `\\b(?:createRequire|getBuiltinModule|_load)\\b|\\brequire\\b${javascriptTrivia}(?!\\()`,
     );
     const hasDynamicRequire = [...source.matchAll(dynamicRequire)].some((match) => (
       executableSource[match.index] !== ' '
@@ -393,10 +396,18 @@ function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
         `Node verification input uses unsupported dynamic code execution: ${importerPath}`,
       );
     }
-    const computedDynamicCodeExecution = /\b(?:globalThis|global|window|self)\s*\[\s*(['"])(?:eval|Function)\1\s*\]/g;
-    if ([...source.matchAll(computedDynamicCodeExecution)].some((match) => (
-      executableSource[match.index] !== ' '
-    ))) {
+    if (/\b(?:Reflect|Proxy|getOwnPropertyDescriptor|getOwnPropertyDescriptors)\b/
+      .test(executableSource)) {
+      throw new Error(
+        `Node verification input uses unsupported reflective dynamic code execution: ${importerPath}`,
+      );
+    }
+    const computedGlobalLookup = /\b(?:globalThis|global|window|self)\s*\[/g;
+    const computedObjectLookup = /\bObject\s*\[/g;
+    if ([...source.matchAll(computedGlobalLookup), ...source.matchAll(computedObjectLookup)]
+      .some((match) => (
+        executableSource[match.index] !== ' '
+      ))) {
       throw new Error(
         `Node verification input uses unsupported dynamic code execution: ${importerPath}`,
       );
@@ -417,7 +428,7 @@ function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
       'g',
     );
     const staticRequires = new RegExp(
-      `\\brequire${javascriptTrivia}\\(${javascriptTrivia}['"]([^'"]+)['"]\\s*\\)`,
+      `\\brequire${javascriptTrivia}\\(${javascriptTrivia}['"]([^'"]+)['"]${javascriptTrivia}\\)`,
       'g',
     );
     const specifiers = [
@@ -435,16 +446,24 @@ function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
           `Node verification input imports unsupported executable loader: ${specifier}`,
         );
       }
+      if (specifier === 'module' || specifier === 'node:module') {
+        if (importerPath === resolve(repositoryRoot, 'scripts/maker-checker-safety.mjs')) {
+          continue;
+        }
+        throw new Error(
+          `Node verification input imports unsupported module loader: ${specifier}`,
+        );
+      }
       const importedPath = resolveVerificationImport(repositoryRoot, importerPath, specifier);
       if (!importedPath) continue;
-      if (protectedRoots.some((root) => (
-        importedPath === root || !relative(root, importedPath).startsWith('..')
-      ))) {
-        continue;
+      const alreadyProtected = protectedRoots.some(
+        (root) => isPathWithin(root, importedPath),
+      );
+      if (!alreadyProtected) {
+        const relativePath = relative(repositoryRoot, importedPath);
+        if (relativePath.split(/[\\/]/)[0] === 'src') continue;
+        paths.add(importedPath);
       }
-      const relativePath = relative(repositoryRoot, importedPath);
-      if (relativePath.split(/[\\/]/)[0] === 'src') continue;
-      paths.add(importedPath);
       queue.push(importedPath);
     }
   }
@@ -475,11 +494,12 @@ function verificationPaths(repositoryRoot, verificationCommand) {
     .replace(/\.exe$/i, '')
     .toLowerCase();
   if (shells.has(executable)) {
+    const scriptPath = tokens[1]?.replaceAll('\\', '/');
     if (executable !== 'bash'
         || tokens.length !== 2
-        || !/^scripts[\\/].+\.sh$/i.test(tokens[1])) {
+        || !sandboxCompatibleShellScripts.has(scriptPath)) {
       throw new Error(
-        'Shell verification must invoke one explicit scripts/*.sh file without shell options.',
+        'Shell verification must invoke one explicitly allowlisted sandbox-compatible script.',
       );
     }
     paths.push(resolve(repositoryRoot, 'scripts'));
@@ -590,6 +610,16 @@ function gitMetadataWriteDenials(repositoryRoot) {
   ];
 }
 
+function stateWriteDenials(statePath) {
+  const stateFile = resolve(statePath).replaceAll('\\', '/');
+  return [
+    `--deny-tool=write(${stateFile})`,
+    `--deny-tool=write(${stateFile}.*)`,
+    `--deny-tool=write(${stateFile}.lock)`,
+    `--deny-tool=write(${stateFile}.lock/**)`,
+  ];
+}
+
 function mcpServerDisableArgument(serverName) {
   if (!/^[A-Za-z0-9._-]+$/.test(serverName)) {
     throw new Error(`Unsupported MCP server name: ${serverName}`);
@@ -597,7 +627,7 @@ function mcpServerDisableArgument(serverName) {
   return `--disable-mcp-server=${serverName}`;
 }
 
-function hasOnlyApprovedCopilotArguments(args, repositoryRoot) {
+function hasOnlyApprovedCopilotArguments(args, repositoryRoot, protectedWritePaths) {
   const approvedFlags = new Set([
     '--silent',
     '--allow-all-tools',
@@ -605,6 +635,7 @@ function hasOnlyApprovedCopilotArguments(args, repositoryRoot) {
     shellExclusion,
     urlDenial,
     ...gitMetadataWriteDenials(repositoryRoot),
+    ...protectedWritePaths.flatMap(stateWriteDenials),
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -669,12 +700,17 @@ export function listConfiguredMcpServers(
   return parseConfiguredMcpServers(output);
 }
 
-export function copilotCapabilityArguments(repositoryRoot, mcpServerNames = []) {
+export function copilotCapabilityArguments(
+  repositoryRoot,
+  mcpServerNames = [],
+  protectedWritePaths = [],
+) {
   return [
     '--allow-all-tools',
     shellExclusion,
     urlDenial,
     ...gitMetadataWriteDenials(repositoryRoot),
+    ...protectedWritePaths.flatMap(stateWriteDenials),
     '--disable-builtin-mcps',
     ...mcpServerNames.map(mcpServerDisableArgument),
   ];
@@ -692,9 +728,13 @@ export class CopilotCapabilityBoundary {
       ?? (() => listConfiguredMcpServers(this.executable, this.repositoryRoot));
   }
 
-  async copilotArguments() {
+  async copilotArguments(protectedWritePaths = []) {
     const serverNames = await this.mcpServerProvider();
-    return copilotCapabilityArguments(this.repositoryRoot, serverNames);
+    return copilotCapabilityArguments(
+      this.repositoryRoot,
+      serverNames,
+      protectedWritePaths,
+    );
   }
 
   assertToolInvocationAllowed(invocation) {
@@ -721,12 +761,17 @@ export class DenyByDefaultCommandPolicy {
   }
 
   assertAllowed(executable, args, options) {
-    const requiredArguments = copilotCapabilityArguments(this.repositoryRoot);
+    const protectedWritePaths = options.protectedWritePaths ?? [];
+    const requiredArguments = copilotCapabilityArguments(
+      this.repositoryRoot,
+      [],
+      protectedWritePaths,
+    );
     const allowed = executable === this.executable
       && resolve(options.cwd) === this.repositoryRoot
       && args.includes('--prompt')
       && args.includes('--silent')
-      && hasOnlyApprovedCopilotArguments(args, this.repositoryRoot)
+      && hasOnlyApprovedCopilotArguments(args, this.repositoryRoot, protectedWritePaths)
       && requiredArguments.every((argument) => args.includes(argument));
     if (!allowed) {
       throw new Error(`Command policy denied ${executable}. Explicit human approval is required.`);

@@ -21,18 +21,29 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31's F003/F004 implementation follow-up is pushed as
-  `db7c95944f37bc32c2be2e23b2987f11a56cb707` on `feat/harness-extension`.
-  Exact-head Build, Docs check (links and progress reminder), and DCO all
-  passed; a later progress-only commit also passed exact-head checks. The
-  earlier Build failure on `b7c7202` came from an F004 test that depended on
-  an ignored local feature list; the test now uses an isolated fixture.
-  Review follow-ups also reject reflective and dynamic loaders, reject
-  sandbox-unsupported toolchains, count first-turn no-progress, and refresh
-  progress evidence. Fresh evaluators pass F003 (4.8/5) and F004 (4.6/5),
-  including the reflective-loader fix. All five inline review threads have
-  received replies and are resolved. The PR description records the latest
-  pushed SHA and its check results.
+* PR #31's latest F003/F004 review follow-up is implemented locally on
+  `feat/harness-extension`, based on `8ab121a440e49ed86baa8684289b07e822fc8f6a`.
+  It validates the safety boundary before resumed-checker verification,
+  protects active state and lease paths on every dispatch, traverses
+  protected test imports, rejects reflective module-loader paths, and
+  allowlists only sandbox-compatible shell verification. Checker prompts
+  now include structured controller verification records, and interrupted
+  resumed-checker verification remains resumable. Exact F003 tests passed
+  38/38 (run
+  `2026-10-11T21-56-46-054Z-104ac39c-ab6e-448c-ae3f-f0c685e7d3c3`);
+  exact F004 tests passed 33/33 (run
+  `2026-10-11T21-56-46-109Z-5dd6fe40-2b86-4cc1-9621-37ca5d7b3ed6`);
+  architecture passed (run
+  `2026-10-11T21-56-46-747Z-28d134b1-f42d-40dc-963d-e834087e7df2`).
+  Fresh-session evaluation of the final diff passed F003 (avg 4.8, min 4;
+  38/38, run `2026-10-11T22-12-23-106Z-d6829766-5ae4-4d85-b7a9-4ea5cbed6b5e`)
+  and F004 (avg 4.8, min 4; 33/33, run
+  `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`). These
+  fixes are batched into one review-response commit. The PR description is
+  the source of truth for the pushed SHA and its exact-head CI.
+* Harness improvements that would reduce review churn, including replacing
+  regex import scanning, are tracked in issue #32 and are out of scope for
+  PR #31 (D033).
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -163,6 +174,9 @@ final link and whitespace checks were repeated before commit.
   containment; it is not implemented by the current Node.js launcher.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
+* The verification import scanner is regex-based. It fails closed for known
+  dynamic and reflective loader forms, but loader forms it does not recognize
+  are an accepted limit until issue #32 replaces it (D033).
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
   is isolated synthetic evidence, not a Gateway authorization boundary; it
   does not implement production authorization, identity, or ticket operations.
@@ -455,59 +469,45 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-12
-* Accomplished: fixed the CI-dependent F004 test fixture; rejected reflective
-  dynamic-code loading through `.constructor` and bracketed `constructor`
-  access; retained prior dynamic-loader and sandbox-toolchain restrictions;
-  counted a first-turn no-op toward the progress limit; and updated the
-  harness guidance.
-* Scope: PR #31 F003/F004 verification and controller behavior. Fresh
-  evaluation passed F003 (4.8/5) and F004 (4.6/5), including the follow-up
-  fix for the reflective loader bypass. Both feature statuses remain pass;
-  the ignored local feature list's evidence was refreshed. Commit
-  `db7c95944f37bc32c2be2e23b2987f11a56cb707` was signed off and pushed,
-  followed by a progress-only publication update. All five review threads
-  were answered and resolved.
-* Tracked changes include `scripts/maker-checker-safety.mjs`,
-  `scripts/maker-checker-safety.test.mjs`, `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
-  `docs/progress.md`, and the evaluator's additions to the slug's
-  `agent-progress.md`. The ignored `evaluator-rubric.md` records scores and
-  evidence locally. The ignored `features_list.json` was also refreshed with
-  the latest evaluator and verification evidence; it is not part of the
-  commit.
-* Verification for the complete seven-file diff reviewed at `b7c7202`, now
-  committed in `db7c95944f37bc32c2be2e23b2987f11a56cb707`:
-  * Exact F003 command passed 36/36, exit 0, run
-    `2026-10-11T20-48-04-613Z-7fcd2c7f-fc9d-421c-acae-8e38f541e095`.
-  * Exact F004 command passed 32/32, exit 0, run
-    `2026-10-11T20-48-04-584Z-86e81402-226d-457c-96ab-9853a0e23977`.
+* Accomplished: addressed every open PR #31 finding in one batch. That covers
+  six inline threads and two findings in the latest Copilot review summary's
+  "Previously missed" section. Changes: capture the safety boundary before
+  resumed-checker verification; deny agent writes to the state file, its
+  save sidecars, and its lock directory; traverse imports under protected
+  roots; treat comments as trivia in static `require`; reject reflective and
+  `module`/`node:module` loaders; allowlist only sandbox-compatible shell
+  scripts; pass structured verification records to the checker; and keep
+  interrupted resumed-checker verification resumable.
+* Decisions: D031 (state and lease write denials), D032 (shell allowlist),
+  and D033 (keep the regex scanner for this PR, defer a parser or hashing
+  boundary to issue #32).
+* Out of scope: replacing regex import scanning, moving loop state outside
+  the repository, and the other harness process improvements. These are
+  tracked in issue #32.
+* Files: `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
+  `scripts/maker-checker-safety.mjs`, `scripts/maker-checker-safety.test.mjs`,
+  `docs/harness-agent.md`, `docs/decisions.md`, `docs/progress.md`, and the
+  slug's `agent-progress.md`. Ignored `features_list.json` and
+  `evaluator-rubric.md` were updated locally.
+* Verification, reviewed on HEAD `8ab121a440e49ed86baa8684289b07e822fc8f6a`
+  plus the eight-file dirty diff now committed:
+  * F003 exact command passed 38/38, exit 0, run
+    `2026-10-11T21-56-46-054Z-104ac39c-ab6e-448c-ae3f-f0c685e7d3c3`.
+  * F004 exact command passed 33/33, exit 0, run
+    `2026-10-11T21-56-46-109Z-5dd6fe40-2b86-4cc1-9621-37ca5d7b3ed6`.
   * Architecture passed, exit 0, run
-    `2026-10-11T20-48-04-844Z-94244d8d-1a96-4e2f-b5e4-674d7b33f914`.
-  * Fresh F003 evaluation passed (4.8/5), exact command 36/36, run
-    `2026-10-11T20-52-50-858Z-f9e4cff7-95c0-45d4-8d29-0cbd468a0fa6`;
-    architecture passed, run
-    `2026-10-11T20-52-13-702Z-e8fc5dc1-5537-46a6-8600-76b05948d019`.
-  * Fresh F004 evaluation passed (4.6/5), exact command 32/32, run
-    `2026-10-11T20-52-50-779Z-8aaebefb-adfa-472f-86ea-5bedd43eef10`;
-    architecture passed in the same run above. Both evaluator reports
-    included the complete seven-file dirty diff and zero skipped tests.
-  * An earlier fresh F004 evaluation found the reflective constructor
-    bypass. The subsequent scanner and regression-test change was included
-    in the passing evaluation above.
-  * `git diff --check` passed, exit 0, run
-    `2026-10-11T21-00-56-081Z-4e8c5e64-f41c-4ec8-81f4-482f60860d35`.
-* CI and review: Build run `38174696363` and Docs check run `38174696332`
-  passed on exact head `db7c95944f37bc32c2be2e23b2987f11a56cb707`; DCO passed.
-  Build run `38175046143` and Docs check run `38175046158` also passed on
-  exact head `385c0857fcceca803233be5b6f363051163f6e6f`; DCO passed. The PR
-  description is the source of truth for the latest pushed SHA and check
-  results. All five inline review threads received replies and are resolved.
-* Boundaries and cleanup: runtime startup is not applicable. No long-lived
-  service was started. Tests removed their temporary fixtures and containers.
-  Local verification evidence remains under ignored `.local/verification/`.
-* Next: confirm the PR description reflects the latest progress-only commit
-  and its exact-head CI results. No implementation or review-response work
-  remains.
+    `2026-10-11T21-56-46-747Z-28d134b1-f42d-40dc-963d-e834087e7df2`.
+  * Fresh-session evaluator PASS: F003 avg 4.8, min 4 (run
+    `2026-10-11T22-12-23-106Z-d6829766-5ae4-4d85-b7a9-4ea5cbed6b5e`); F004
+    avg 4.8, min 4 (run
+    `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`).
+* CI and review: see the PR description for the pushed SHA and exact-head
+  check results. Each addressed thread has a reply and is resolved.
+* Cleanup: runtime startup is not applicable. No long-lived service was
+  started. Tests removed their own fixtures. Local evidence remains under
+  ignored `.local/verification/`.
+* Next: wait for the next Copilot review on the new head. Fix only
+  high-severity, in-scope findings, and route the rest to issue #32.
 
 ## Built
 

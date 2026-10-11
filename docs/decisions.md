@@ -558,3 +558,55 @@ Each entry records:
   The Docker daemon, host kernel, and image remain trusted; this is not
   protection against container-runtime or kernel escapes. D030 supersedes
   D027.
+
+## D031: deny agent writes to active loop state and lease files
+
+* Date: 2026-10-12
+* Decision: keep loop state under ignored `.local`, and include exact write
+  denials for the active state file, its atomic-save temporary siblings, and
+  its lock directory and descendants in every Copilot agent dispatch.
+* Why: dispatched agents retain general workspace write access. Protecting
+  only `.git` does not prevent them from replacing persisted state or lock
+  ownership metadata, which could admit concurrent controllers or forged
+  resume evidence.
+* Alternatives rejected: relocating state outside the repository, because
+  callers choose state paths and the current local convention is usable;
+  denying all writes beneath `.local`, because unrelated local outputs do not
+  need the same restriction.
+* Constraints: dispatch requires a non-empty state path and resolves it
+  against the repository root before constructing denials. The denial set
+  must cover state replacement, atomic-save sidecars, and every lock entry.
+
+## D032: allowlist sandbox-compatible shell verification
+
+* Date: 2026-10-12
+* Decision: accept only explicitly allowlisted shell verification scripts
+  that use the tools provided by the verification image. The initial allowlist
+  contains only `scripts/check-architecture.sh`.
+* Why: accepting arbitrary repository shell scripts lets a contract pass
+  validation even when the script requires unavailable toolchains, such as
+  .NET and Docker, so the maker can be dispatched before verification fails.
+* Alternatives rejected: accepting every `scripts/*.sh` file and relying on
+  later retries, because unsupported commands are known before dispatch;
+  statically inferring each shell script's complete toolchain, because shell
+  behavior and indirect command use are difficult to enumerate safely.
+* Constraints: additions to the allowlist require review that the script's
+  behavior and tool requirements fit the verification image. Unsupported
+  scripts fail during safety-boundary capture before agent dispatch.
+
+## D033: keep regex-based verification import scanning for issue #30
+
+* Date: 2026-10-12
+* Decision: keep the existing fail-closed, regex-based scanner for
+  verification imports in PR #31. Reject known dynamic and reflective
+  loader forms, and defer a parser or content-hash boundary to issue #32.
+* Why: each review round found another JavaScript loading form. A
+  replacement boundary is a larger design change than issue #30's loop and
+  needs its own acceptance criteria.
+* Alternatives rejected: adding a JavaScript parser dependency in this PR,
+  because it changes dependencies and the scanner design late in review;
+  moving loop state outside the repository, because D031's exact write
+  denials address the reported lease risk.
+* Constraints: the scanner is a local harness control, not an application
+  security boundary. Unknown loader forms that the scanner does not
+  recognize remain an accepted limit until issue #32 is resolved.

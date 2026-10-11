@@ -180,6 +180,9 @@ writes (including every descendant below `.git`), disables built-in MCP servers,
 and discovers then disables every
 configured local, remote, or HTTP MCP server. Dispatch fails closed if MCP
 inventory cannot be read or contains an unknown format.
+Every dispatch also denies writes to the active state file, its atomic-save
+temporary files, and its lock directory and owner record. Keep state under the
+ignored `.local` directory; agents retain workspace write access elsewhere.
 The controller protects the goal contract, the feature verification files,
 and `scripts/check-architecture.sh` from changes during a round. It validates
 those transitions even when agent dispatch fails or times out.
@@ -187,16 +190,21 @@ those transitions even when agent dispatch fails or times out.
 Verification contracts use explicit, supported command forms. Node tests must
 name `.test.mjs` or `.spec.mjs` files; implicit `node --test` discovery,
 dynamic imports/requires, dynamic code execution with `eval` or `Function`,
-reflective `constructor` access, `node:vm`, and imports from non-built-in
-packages are rejected. Subprocess, cluster, and worker-thread loaders are
-rejected outside the protected `scripts/` tree.
+reflective `constructor`, `Reflect`, or `Proxy` access, `node:vm`, and imports
+from non-built-in packages are rejected. Computed property access on global
+objects and `Object` is also rejected so code cannot hide a dynamic loader
+behind a computed key. Static imports are traversed through protected test
+roots so helpers imported by protected helpers are also protected. Subprocess,
+cluster, and worker-thread loaders are rejected outside the protected
+`scripts/` tree.
 The complete `scripts/` or conventional test-project tree is protected, as are
 statically imported local test helpers outside that tree. Files under `src/`
-remain mutable as implementation under test. Bash verification invokes one
-`scripts/*.sh` file directly. The sandbox image provides Node.js, Bash, and
-Git only, so direct `dotnet test` and Docker Compose verification commands are
-rejected before dispatch. Shell scripts must use the tools available in that
-image. Unsupported command forms fail closed rather than running with
+remain mutable as implementation under test. Bash verification is limited to
+the explicit sandbox-compatible allowlist, currently
+`scripts/check-architecture.sh`; other scripts require a deliberate review
+before being added. The sandbox image provides Node.js, Bash, and Git only, so
+scripts needing .NET, Docker, or other unavailable tools are rejected before
+dispatch. Unsupported command forms fail closed rather than running with
 untracked verification inputs.
 
 Because agents have no shell, the controller runs the goal's
@@ -221,7 +229,11 @@ existed, is verified again before the checker runs. Schema version 1 state
 written while `verification` was a single record is migrated to a one-entry
 list when loaded. Each agent prompt carries the goal, numbered constraints,
 and verification command, and states that the agent must not claim to have run
-verification.
+verification. The checker prompt also receives the structured verification
+records, including command, status, run ID, exit code, and report path. If the
+resumed-checker verification gate is interrupted, the loop records an
+interrupted checker round and resumes at that gate instead of requiring human
+intervention.
 
 Use a scripted dry run to exercise controller behavior without starting
 Copilot sessions. The fixture is a JSON array of actor results:

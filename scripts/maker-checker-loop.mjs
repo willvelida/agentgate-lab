@@ -315,7 +315,18 @@ export class CopilotCliDispatcher {
     });
   }
 
-  async dispatch({ actor, goal, feedback, timeoutMs }) {
+  async dispatch({
+    actor,
+    goal,
+    feedback,
+    verificationRecords = [],
+    timeoutMs,
+    statePath,
+  }) {
+    if (typeof statePath !== 'string' || statePath.trim().length === 0) {
+      throw new Error('Copilot dispatch requires the loop state path.');
+    }
+    const protectedWritePaths = [resolve(this.repositoryRoot, statePath)];
     const contract = [
       `Goal: ${goal.goal}`,
       `Constraints: ${goal.constraints.map((entry, index) => `(${index + 1}) ${entry}`).join(' ')}`,
@@ -324,6 +335,7 @@ export class CopilotCliDispatcher {
       'The loop controller runs it, and the repository architecture check, from outside',
       'the session after your turn and records the structured results. Never claim to',
       'have run verification or architecture checks.',
+      `Recorded verification results: ${JSON.stringify(verificationRecords)}.`,
     ].join(' ');
     const prompt = actor === 'maker'
       ? [
@@ -346,7 +358,9 @@ export class CopilotCliDispatcher {
           'and a non-empty feedback string.',
         ].join(' ');
 
-    const capabilityArguments = await this.capabilityBoundary.copilotArguments();
+    const capabilityArguments = await this.capabilityBoundary.copilotArguments(
+      protectedWritePaths,
+    );
     const args = [
       '-C',
       this.repositoryRoot,
@@ -364,6 +378,7 @@ export class CopilotCliDispatcher {
 
     this.commandPolicy.assertAllowed(this.executable, args, {
       cwd: this.repositoryRoot,
+      protectedWritePaths,
     });
     const { stdout } = await this.processRunner(this.executable, args, {
       cwd: this.repositoryRoot,
@@ -701,6 +716,27 @@ async function runMakerCheckerLoopWithLock({
     return { results, limitExhausted: false };
   }
 
+  function captureSafetyBefore(actor, before, startedAt) {
+    try {
+      return safetyBoundary.capture(activeGoal);
+    } catch (error) {
+      state = persistRound(
+        statePath,
+        state,
+        terminalRound(
+          actor,
+          before,
+          startedAt,
+          'blocked',
+          error.message,
+          'Restore the approved feature scope before resuming.',
+        ),
+        startedAt,
+      );
+      return null;
+    }
+  }
+
   while (true) {
     const decision = getResumeDecision(state);
     if (decision.action === 'stop') {
@@ -710,6 +746,7 @@ async function runMakerCheckerLoopWithLock({
     const actor = decision.actor;
     const before = getRevision();
     const startedAt = now();
+    let safetyBefore = null;
     let gateVerification = null;
     const timeLeft = remainingTime(state, startedAt);
     if (state.rounds.length >= activeGoal.limits.maxRounds || timeLeft <= 0) {
@@ -748,10 +785,29 @@ async function runMakerCheckerLoopWithLock({
         return { status: 'stale', state };
       }
       if (!hasPassedVerification(latestMakerRound(state))) {
+        safetyBefore = captureSafetyBefore(actor, before, startedAt);
+        if (!safetyBefore) {
+          return { status: 'approval-required', state };
+        }
         let gateRun;
         try {
           gateRun = await runControllerVerification();
         } catch (error) {
+          if (error.code === interruptedDispatchCode) {
+            const finishedAt = now();
+            state = persistRound(statePath, state, {
+              actor,
+              startedAt: startedAt.toISOString(),
+              finishedAt: finishedAt.toISOString(),
+              reviewedRevision: before,
+              outcome: 'interrupted',
+              feedback: error.message,
+              nextAction: 'checker',
+              verification: null,
+              humanIntervention: { required: false, reason: null },
+            }, finishedAt);
+            return { status: 'interrupted', state };
+          }
           state = persistRound(
             statePath,
             state,
@@ -831,24 +887,11 @@ async function runMakerCheckerLoopWithLock({
       return { status: 'limit-exhausted', state };
     }
 
-    let safetyBefore;
-    try {
-      safetyBefore = safetyBoundary.capture(activeGoal);
-    } catch (error) {
-      state = persistRound(
-        statePath,
-        state,
-        terminalRound(
-          actor,
-          before,
-          startedAt,
-          'blocked',
-          error.message,
-          'Restore the approved feature scope before resuming.',
-        ),
-        startedAt,
-      );
-      return { status: 'approval-required', state };
+    if (!safetyBefore) {
+      safetyBefore = captureSafetyBefore(actor, before, startedAt);
+      if (!safetyBefore) {
+        return { status: 'approval-required', state };
+      }
     }
 
     let result;
@@ -857,7 +900,11 @@ async function runMakerCheckerLoopWithLock({
         actor,
         goal: activeGoal,
         feedback: pendingMakerFeedback(state),
+        verificationRecords: actor === 'checker'
+          ? gateVerification ?? latestMakerRound(state)?.verification ?? []
+          : [],
         timeoutMs: dispatchTimeLeft,
+        statePath: resolve(statePath),
       });
     } catch (error) {
       const finishedAt = now();

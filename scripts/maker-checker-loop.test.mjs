@@ -98,11 +98,11 @@ function verificationRunner(results = []) {
 function runLoop(options) {
   return runMakerCheckerLoop({
     verificationRunner: verificationRunner(),
-    ...options,
     safetyBoundary: {
       capture: () => ({}),
       assertTransition: () => {},
     },
+    ...options,
   });
 }
 
@@ -130,12 +130,21 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     goal: goal(),
     feedback: 'fix the failed assertion',
     timeoutMs: 1000,
+    statePath: 'C:\\repo\\.local\\maker-checker\\state.json',
   });
   await dispatcher.dispatch({
     actor: 'checker',
     goal: goal(),
     feedback: null,
+    verificationRecords: [{
+      command: 'node --test scripts/maker-checker-loop.test.mjs',
+      status: 'passed',
+      runId: 'run-checker-evidence',
+      exitCode: 0,
+      reportPath: '.local/verification/run-checker-evidence/report.json',
+    }],
     timeoutMs: 1000,
+    statePath: 'C:\\repo\\.local\\maker-checker\\state.json',
   });
 
   assert.equal(calls.length, 2);
@@ -156,9 +165,21 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     /Verification command: node --test scripts\/maker-checker-loop\.test\.mjs/,
   );
   assert.match(calls[1].args.at(-1), /recorded controller verification evidence/);
+  assert.match(
+    calls[1].args.at(-1),
+    /Recorded verification results: \[\{"command":"node --test scripts\/maker-checker-loop\.test\.mjs","status":"passed","runId":"run-checker-evidence","exitCode":0,"reportPath":"\.local\/verification\/run-checker-evidence\/report\.json"\}\]/,
+  );
   assert.ok(!calls[1].args.includes('--agent'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--resume'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--continue'));
+  for (const argument of [
+    '--deny-tool=write(C:/repo/.local/maker-checker/state.json)',
+    '--deny-tool=write(C:/repo/.local/maker-checker/state.json.*)',
+    '--deny-tool=write(C:/repo/.local/maker-checker/state.json.lock)',
+    '--deny-tool=write(C:/repo/.local/maker-checker/state.json.lock/**)',
+  ]) {
+    assert.ok(calls.every((call) => call.args.includes(argument)), `missing ${argument}`);
+  }
 });
 
 test('terminates a timed-out process tree without waiting for a cooperative child', async () => {
@@ -408,6 +429,56 @@ test('resumes an interrupted loop at the checker without repeating the maker', a
     result.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
     ['maker:completed', 'checker:pass'],
   );
+});
+
+test('validates the safety boundary before resumed checker verification', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const makerRevision = revision('maker-without-verification');
+  saveLoopState(statePath, recordRound(
+    createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:01.000Z',
+      reviewedRevision: makerRevision,
+      outcome: 'completed',
+      feedback: 'Legacy maker round without controller evidence.',
+      nextAction: 'checker',
+      verification: null,
+      humanIntervention: { required: false, reason: null },
+    },
+  ));
+  let verificationCalls = 0;
+  const runner = {
+    async ensureReady() {},
+    async run() {
+      verificationCalls += 1;
+      return { status: 'passed', runId: 'must-not-run', exitCode: 0 };
+    },
+  };
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'pass', feedback: 'must not run' },
+  ]);
+
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    getRevision: () => makerRevision,
+    safetyBoundary: {
+      capture() {
+        throw new Error('Verification input contains an unsupported loader.');
+      },
+      assertTransition() {},
+    },
+    verificationRunner: runner,
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'approval-required');
+  assert.equal(verificationCalls, 0);
+  assert.equal(dispatcher.calls.length, 0);
 });
 
 test('records an interrupted dispatch and resumes the same actor', async (t) => {
@@ -979,6 +1050,114 @@ test('reruns controller verification when a resumed maker round has no evidence'
   );
   assert.equal(result.state.rounds[0].verification, null);
   assert.equal(result.state.rounds.at(-1).actor, 'checker');
+  assert.deepEqual(dispatcher.calls[0].verificationRecords, [
+    {
+      command: contract.verificationCommand,
+      status: 'passed',
+      runId: 'run-resume-1',
+      exitCode: 0,
+      reportPath: '.local/verification/run-resume-1/report.json',
+    },
+    {
+      command: 'bash scripts/check-architecture.sh',
+      status: 'passed',
+      runId: 'run-resume-arch',
+      exitCode: 0,
+      reportPath: '.local/verification/run-resume-arch/report.json',
+    },
+  ]);
+});
+
+test('resumes checker after controller verification is interrupted', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const makerRevision = revision('maker-without-verification');
+  saveLoopState(statePath, recordRound(
+    createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:01.000Z',
+      reviewedRevision: makerRevision,
+      outcome: 'completed',
+      feedback: 'Legacy maker round without controller evidence.',
+      nextAction: 'checker',
+      verification: null,
+      humanIntervention: { required: false, reason: null },
+    },
+  ));
+
+  const interruption = new Error('Verification process was interrupted by SIGINT.');
+  interruption.code = 'ERR_MAKER_CHECKER_INTERRUPTED';
+  interruption.signal = 'SIGINT';
+  const interrupted = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher: new ScriptedDispatcher([]),
+    verificationRunner: {
+      async run() {
+        throw interruption;
+      },
+    },
+    getRevision: () => makerRevision,
+    now: clock(),
+  });
+
+  assert.equal(interrupted.status, 'interrupted');
+  assert.deepEqual(
+    interrupted.state.rounds.at(-1),
+    {
+      number: 2,
+      actor: 'checker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:02.000Z',
+      reviewedRevision: makerRevision,
+      outcome: 'interrupted',
+      feedback: interruption.message,
+      nextAction: 'checker',
+      verification: null,
+      humanIntervention: { required: false, reason: null },
+    },
+  );
+
+  const runner = verificationRunner([
+    { status: 'passed', runId: 'run-resume-1', exitCode: 0 },
+    { status: 'passed', runId: 'run-resume-arch', exitCode: 0 },
+  ]);
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'pass', feedback: 'checker passed after verification resumed' },
+  ]);
+  const resumed = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: () => makerRevision,
+    now: clock(),
+  });
+
+  assert.equal(resumed.status, 'pass');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['checker']);
+  assert.deepEqual(
+    resumed.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
+    ['maker:completed', 'checker:interrupted', 'checker:pass'],
+  );
+  assert.deepEqual(dispatcher.calls[0].verificationRecords, [
+    {
+      command: contract.verificationCommand,
+      status: 'passed',
+      runId: 'run-resume-1',
+      exitCode: 0,
+      reportPath: '.local/verification/run-resume-1/report.json',
+    },
+    {
+      command: 'bash scripts/check-architecture.sh',
+      status: 'passed',
+      runId: 'run-resume-arch',
+      exitCode: 0,
+      reportPath: '.local/verification/run-resume-arch/report.json',
+    },
+  ]);
 });
 
 test('shares the elapsed-time budget across verification commands and dispatch', async (t) => {

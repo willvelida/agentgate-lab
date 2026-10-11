@@ -297,6 +297,7 @@ test('verification runner fails closed when the sandbox image is unavailable', a
 
 test('Copilot dispatch applies non-prompt safety controls', async () => {
   const calls = [];
+  const statePath = 'C:\\repo\\.local\\maker-checker\\state.json';
   const capabilityBoundary = new CopilotCapabilityBoundary({
     repositoryRoot: 'C:\\repo',
     mcpServerProvider: () => ['publisher', 'workiq'],
@@ -318,6 +319,7 @@ test('Copilot dispatch applies non-prompt safety controls', async () => {
     goal: goal(),
     feedback: null,
     timeoutMs: 1000,
+    statePath,
   });
 
   assert.equal(calls.length, 1);
@@ -329,6 +331,7 @@ test('Copilot dispatch applies non-prompt safety controls', async () => {
   for (const argument of copilotCapabilityArguments(
     'C:\\repo',
     ['publisher', 'workiq'],
+    [statePath],
   )) {
     assert.ok(calls[0].args.includes(argument), `missing ${argument}`);
   }
@@ -386,6 +389,7 @@ test('Copilot dispatch fails closed when MCP discovery fails', async () => {
       goal: goal(),
       feedback: null,
       timeoutMs: 1000,
+      statePath: 'C:\\repo\\.local\\maker-checker\\state.json',
     }),
     /MCP discovery failed/,
   );
@@ -422,6 +426,26 @@ test('command policy denies every unapproved controller command by default', () 
         'unsafe',
       ],
       { cwd: 'C:\\repo' },
+    ),
+    /Explicit human approval is required/,
+  );
+  const statePath = 'C:\\repo\\.local\\maker-checker\\state.json';
+  assert.throws(
+    () => policy.assertAllowed(
+      'copilot',
+      [
+        '-C',
+        'C:\\repo',
+        '--silent',
+        '--stream',
+        'off',
+        '--output-format',
+        'text',
+        ...copilotCapabilityArguments('C:\\repo'),
+        '--prompt',
+        'safe-looking prompt',
+      ],
+      { cwd: 'C:\\repo', protectedWritePaths: [statePath] },
     ),
     /Explicit human approval is required/,
   );
@@ -619,16 +643,21 @@ test('repository boundary protects unlisted helpers in the verification tree', (
   );
 });
 
-test('repository boundary protects verification helpers imported outside the test tree', (t) => {
+test('repository boundary traverses protected helpers with commented static requires', (t) => {
   const files = fixture(t);
   const testPath = join(files.root, 'tests', 'Sample.Tests', 'sample.test.mjs');
-  const helperPath = join(files.root, 'verification-helper.mjs');
+  const protectedHelperPath = join(files.root, 'tests', 'Sample.Tests', 'helper.cjs');
+  const helperPath = join(files.root, 'verification-helper.cjs');
   mkdirSync(dirname(testPath), { recursive: true });
   writeFileSync(
     testPath,
-    "import /* tracked helper */ '../../verification-helper.mjs';\n",
+    "import './helper.cjs';\n",
   );
-  writeFileSync(helperPath, 'export const verified = true;\n');
+  writeFileSync(
+    protectedHelperPath,
+    "require('../../verification-helper.cjs' /* tracked helper */);\n",
+  );
+  writeFileSync(helperPath, 'module.exports = { verified: true };\n');
   const verificationCommand = 'node --test tests/Sample.Tests/sample.test.mjs';
   const contract = { ...goal(), verificationCommand };
   const changed = checklist();
@@ -640,11 +669,11 @@ test('repository boundary protects verification helpers imported outside the tes
   });
 
   const before = boundary.capture(contract);
-  writeFileSync(helperPath, 'export const verified = false;\n');
+  writeFileSync(helperPath, 'module.exports = { verified: false };\n');
 
   assert.throws(
     () => boundary.assertTransition(before, boundary.capture(contract), contract, 'maker'),
-    /Protected file verification-helper\.mjs changed/,
+    /Protected file verification-helper\.cjs changed/,
   );
 });
 
@@ -777,10 +806,14 @@ test('verification contracts reject dynamic and external test imports', (t) => {
     "require('test-' + 'helper.mjs');\n",
     "import { createRequire as loadHelper } from 'node:module';\nloadHelper(import.meta.url)('../test-helper.mjs');\n",
     "import { createRequire as loadHelper } from 'module';\nloadHelper(import.meta.url)('../test-helper.mjs');\n",
+    "import * as Module from 'node:module';\nModule['create' + 'Require'](import.meta.url)('../test-helper.mjs');\n",
     "process.getBuiltinModule('module').createRequire(import.meta.url)('../test-helper.mjs');\n",
     "eval(\"import('../test-helper.mjs')\");\n",
     "(0, eval)(\"import('../test-helper.mjs')\");\n",
     "globalThis['eval'](\"import('../test-helper.mjs')\");\n",
+    "const key = 'ev' + 'al'; globalThis[key](\"import('../test-helper.mjs')\");\n",
+    "Object['getOwnPropertyDescriptor'](globalThis, 'eval').value(\"x\");\n",
+    "Reflect.get(globalThis, 'eval')(\"import('../test-helper.mjs')\");\n",
     "new Function(\"return import('../test-helper.mjs')\")();\n",
     "({}).constructor.constructor(\"return import('../test-helper.mjs')\")();\n",
     "({})['constructor']['constructor'](\"return import('../test-helper.mjs')\")();\n",
@@ -968,6 +1001,39 @@ test('repository boundary rejects shell-command verification forms with shell op
       verificationCommand,
     );
   }
+});
+
+test('repository boundary rejects shell scripts outside the sandbox-compatible allowlist', (t) => {
+  const files = fixture(t);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+  for (const verificationCommand of [
+    'bash scripts/verify-acs-spike.sh',
+    'bash scripts/run-verification.sh',
+  ]) {
+    const contract = { ...goal(), verificationCommand };
+    const changed = checklist();
+    changed.features[1].verification = verificationCommand;
+    writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+
+    assert.throws(
+      () => boundary.capture(contract),
+      /explicitly allowlisted sandbox-compatible script/,
+      verificationCommand,
+    );
+  }
+
+  const contract = {
+    ...goal(),
+    verificationCommand: 'bash scripts/check-architecture.sh',
+  };
+  const changed = checklist();
+  changed.features[1].verification = contract.verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+
+  assert.doesNotThrow(() => boundary.capture(contract));
 });
 
 test('repository boundary prevents starting or changing another feature', (t) => {
