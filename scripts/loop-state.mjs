@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import {
   mkdirSync,
   readFileSync,
+  rmdirSync,
+  unlinkSync,
   renameSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { assertValidGoalContract } from './goal-contract.mjs';
 
 const actors = new Set(['maker', 'checker']);
@@ -172,6 +174,62 @@ export function recordRound(state, round, now = new Date()) {
     ],
   };
   return assertValidLoopState(nextState);
+}
+
+export function acquireLoopStateLock(statePath) {
+  const lockPath = `${resolve(statePath)}.lock`;
+  mkdirSync(dirname(lockPath), { recursive: true });
+  try {
+    mkdirSync(lockPath);
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error(
+        `Maker-checker state is locked at ${lockPath}. Automatic stale-lock recovery is disabled.`
+          + ' Verify the controller and all dispatched child processes have stopped before'
+          + ' removing this lock directory manually.',
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+
+  const token = randomUUID();
+  const ownerPath = join(lockPath, 'owner.json');
+  writeFileSync(ownerPath, `${JSON.stringify({
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    token,
+  }, null, 2)}\n`, {
+    encoding: 'utf8',
+    flag: 'wx',
+    mode: 0o600,
+  });
+  let released = false;
+  return {
+    path: lockPath,
+    release() {
+      if (released) {
+        return;
+      }
+      let owner;
+      try {
+        owner = JSON.parse(readFileSync(ownerPath, 'utf8'));
+      } catch (error) {
+        throw new Error(
+          `Unable to verify ownership of maker-checker lock at ${lockPath}.`,
+          { cause: error },
+        );
+      }
+      if (owner.token !== token) {
+        throw new Error(
+          `Maker-checker lock ownership changed at ${lockPath}; refusing to remove it.`,
+        );
+      }
+      unlinkSync(ownerPath);
+      rmdirSync(lockPath);
+      released = true;
+    },
+  };
 }
 
 export function saveLoopState(path, state) {

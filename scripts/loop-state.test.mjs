@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -10,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import {
+  acquireLoopStateLock,
   createLoopState,
   getResumeDecision,
   loadLoopState,
@@ -58,6 +60,34 @@ function round(overrides = {}) {
   };
 }
 
+test('acquires an exclusive state lock and releases only its own lock', (t) => {
+  const statePath = fixture(t);
+  const first = acquireLoopStateLock(statePath);
+
+  assert.ok(existsSync(join(first.path, 'owner.json')));
+  assert.throws(
+    () => acquireLoopStateLock(statePath),
+    /state is locked.*Automatic stale-lock recovery is disabled/,
+  );
+
+  first.release();
+  assert.equal(existsSync(first.path), false);
+  const second = acquireLoopStateLock(statePath);
+  second.release();
+});
+
+test('does not automatically recover an existing stale state lock', (t) => {
+  const statePath = fixture(t);
+  const staleLockPath = `${statePath}.lock`;
+  mkdirSync(staleLockPath, { recursive: true });
+
+  assert.throws(
+    () => acquireLoopStateLock(statePath),
+    /state is locked.*Verify the controller and all dispatched child processes have stopped/,
+  );
+  assert.ok(existsSync(staleLockPath));
+});
+
 test('persists and reloads complete round evidence', (t) => {
   const path = fixture(t);
   const initial = createLoopState(goal, new Date('2026-10-10T08:59:00.000Z'));
@@ -87,6 +117,24 @@ test('resumes with the checker without repeating a completed maker round', () =>
     actor: 'checker',
   });
   assert.equal(state.rounds.length, 1);
+});
+
+test('retries the interrupted actor when no human intervention is required', () => {
+  const initial = createLoopState(goal, new Date('2026-10-10T08:59:00.000Z'));
+  const state = recordRound(initial, round({
+    outcome: 'interrupted',
+    feedback: 'The controller received SIGINT.',
+    nextAction: 'maker',
+    humanIntervention: {
+      required: false,
+      reason: null,
+    },
+  }));
+
+  assert.deepEqual(getResumeDecision(state), {
+    action: 'continue',
+    actor: 'maker',
+  });
 });
 
 test('stops after a completed successful checker round', () => {

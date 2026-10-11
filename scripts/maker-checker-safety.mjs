@@ -16,9 +16,21 @@ function fileDigest(path) {
 }
 
 function verificationPaths(repositoryRoot, verificationCommand) {
+  const tokens = (verificationCommand.match(/"[^"]+"|'[^']+'|\S+/g) ?? [])
+    .map((token) => token.replace(/^(['"])(.*)\1$/, '$2'));
+  const shells = new Set(['bash', 'sh', 'dash', 'zsh', 'cmd', 'powershell', 'pwsh']);
+  const shellCommandFlags = new Set(['-c', '/c', '-command', '/command', '-encodedcommand']);
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    const executable = tokens[index].split(/[\\/]/).at(-1).toLowerCase();
+    if (shells.has(executable) && shellCommandFlags.has(tokens[index + 1].toLowerCase())) {
+      throw new Error(
+        'Shell command verification forms are not supported because their inputs cannot be protected.',
+      );
+    }
+  }
+
   const paths = [];
-  for (const token of verificationCommand.match(/"[^"]+"|'[^']+'|\S+/g) ?? []) {
-    const unquoted = token.replace(/^(['"])(.*)\1$/, '$2');
+  for (const unquoted of tokens) {
     if (unquoted.startsWith('-')) continue;
     const path = resolve(repositoryRoot, unquoted);
     const repositoryRelative = relative(repositoryRoot, path);
@@ -260,7 +272,10 @@ export class RepositorySafetyBoundary {
     };
   }
 
-  violations(before, after, goal, actor) {
+  violations(before, after, goal, actor, {
+    checkerOutcome = null,
+    reviewedRevisionValid = false,
+  } = {}) {
     const violations = [];
     if (before.commit !== after.commit) {
       violations.push('Repository HEAD changed; commit and merge actions require approval.');
@@ -313,7 +328,9 @@ export class RepositorySafetyBoundary {
     if (beforeTarget && afterTarget && beforeTarget.status !== afterTarget.status) {
       const checkerPassed = actor === 'checker'
         && beforeTarget.status === 'active'
-        && afterTarget.status === 'pass';
+        && afterTarget.status === 'pass'
+        && checkerOutcome === 'pass'
+        && reviewedRevisionValid;
       if (!checkerPassed) {
         violations.push(`Feature ${goal.featureId} status changed outside checker PASS.`);
       }
@@ -327,8 +344,8 @@ export class RepositorySafetyBoundary {
     return [...new Set(violations)];
   }
 
-  assertTransition(before, after, goal, actor) {
-    const violations = this.violations(before, after, goal, actor);
+  assertTransition(before, after, goal, actor, context) {
+    const violations = this.violations(before, after, goal, actor, context);
     if (violations.length > 0) {
       throw new Error(
         `Safety boundary requires explicit human approval:\n${violations.join('\n')}`,

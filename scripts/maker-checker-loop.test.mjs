@@ -253,7 +253,7 @@ test('terminates the child process tree before handling controller interrupts', 
       try {
         await dispatch;
       } catch (error) {
-        console.error(error.message);
+        console.error(JSON.stringify({ code: error.code, message: error.message }));
       }
     `;
     const controller = spawn(
@@ -300,7 +300,7 @@ test('terminates the child process tree before handling controller interrupts', 
         code: signal === 'SIGINT' ? 130 : 143,
         signal: null,
       });
-      assert.match(stderr, new RegExp(`interrupted by ${signal}`));
+      assert.match(stderr, new RegExp(`ERR_MAKER_CHECKER_INTERRUPTED.*interrupted by ${signal}`));
       assert.throws(() => process.kill(childPid, 0), { code: 'ESRCH' });
     } finally {
       if (controller.exitCode === null && controller.signalCode === null) {
@@ -373,6 +373,121 @@ test('resumes an interrupted loop at the checker without repeating the maker', a
     result.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
     ['maker:completed', 'checker:pass'],
   );
+});
+
+test('records an interrupted dispatch and resumes the same actor', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const makerRevision = revision('maker-before-interruption');
+  const initial = createLoopState(
+    contract,
+    new Date('2026-10-10T09:59:00.000Z'),
+  );
+  saveLoopState(statePath, recordRound(initial, {
+    actor: 'maker',
+    startedAt: '2026-10-10T10:00:00.000Z',
+    finishedAt: '2026-10-10T10:00:01.000Z',
+    reviewedRevision: makerRevision,
+    outcome: 'completed',
+    feedback: 'Maker completed before the checker was interrupted.',
+    nextAction: 'checker',
+    humanIntervention: { required: false, reason: null },
+  }));
+
+  const interrupted = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher: {
+      async dispatch() {
+        const error = new Error('Child process was interrupted by SIGINT.');
+        error.code = 'ERR_MAKER_CHECKER_INTERRUPTED';
+        error.signal = 'SIGINT';
+        throw error;
+      },
+    },
+    getRevision: () => makerRevision,
+    now: clock(),
+  });
+
+  assert.equal(interrupted.status, 'interrupted');
+  assert.deepEqual(
+    interrupted.state.rounds.slice(-1).map((round) => ({
+      actor: round.actor,
+      outcome: round.outcome,
+      nextAction: round.nextAction,
+      humanIntervention: round.humanIntervention,
+    })),
+    [{
+      actor: 'checker',
+      outcome: 'interrupted',
+      nextAction: 'checker',
+      humanIntervention: { required: false, reason: null },
+    }],
+  );
+
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'pass', feedback: 'checker passed after resume' },
+  ]);
+  const resumed = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    getRevision: () => makerRevision,
+    now: clock(),
+  });
+
+  assert.equal(resumed.status, 'pass');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['checker']);
+  assert.deepEqual(
+    resumed.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
+    ['maker:completed', 'checker:interrupted', 'checker:pass'],
+  );
+});
+
+test('allows only one controller to use a state path at a time', async (t) => {
+  const statePath = fixture(t);
+  let signalDispatchStarted;
+  let releaseDispatch;
+  const dispatchStarted = new Promise((resolveStarted) => {
+    signalDispatchStarted = resolveStarted;
+  });
+  const dispatchGate = new Promise((resolveDispatch) => {
+    releaseDispatch = resolveDispatch;
+  });
+  const dispatcher = {
+    calls: [],
+    async dispatch({ actor }) {
+      dispatcher.calls.push(actor);
+      signalDispatchStarted();
+      await dispatchGate;
+      return { outcome: 'blocked', feedback: 'Stop after lock assertion.' };
+    },
+  };
+  const options = {
+    goal: goal(),
+    statePath,
+    dispatcher,
+    getRevision: () => revision('initial'),
+    now: clock(),
+  };
+  const first = runLoop(options);
+  await dispatchStarted;
+  try {
+    await assert.rejects(
+      runLoop({
+        ...options,
+        dispatcher: new ScriptedDispatcher([]),
+      }),
+      /state is locked.*Automatic stale-lock recovery is disabled/,
+    );
+    assert.deepEqual(dispatcher.calls, ['maker']);
+  } finally {
+    releaseDispatch();
+  }
+
+  const result = await first;
+  assert.equal(result.status, 'blocked');
+  assert.equal(existsSync(`${statePath}.lock`), false);
 });
 
 test('treats dirty fingerprint-less legacy revisions as stale', async (t) => {

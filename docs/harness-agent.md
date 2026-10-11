@@ -89,17 +89,17 @@ The local controller can coordinate one agreed feature through alternating
 maker and checker rounds. It uses the Harness Implementer for maker work and a
 fresh Feature Evaluator process for each check. It persists completed rounds
 outside chat context so an interrupted run can continue without repeating a
-successful round.
+successful round. On resume, an interrupted actor that was safely recorded is
+redispatched as the next action.
 
 > [!IMPORTANT]
-> The controller is a local capability boundary, not an operating-system
-> sandbox or an application security boundary. It does not implement
-> authentication, ACS enforcement, model access, task grants, or human
-> approval. Controller-run verification executes repository code with the
-> caller's environment and operating-system permissions. Use only trusted
-> verification commands and trusted code they import; the loop does not block
-> those commands from using credentials, network access, or Git capabilities.
-> Review its state and repository diff before accepting any result.
+> The controller runs verification in a Docker sandbox with a read-only
+> repository mount, no network, no host credentials, and no Docker socket.
+> The Docker daemon, host kernel, and sandbox image remain trusted components;
+> this is not protection against a container escape. The controller is not an
+> application security boundary and does not implement authentication, ACS
+> enforcement, model access, task grants, or human approval. Review its state
+> and repository diff before accepting any result.
 
 ### Define the goal
 
@@ -131,6 +131,14 @@ limits explicit:
 The controller validates the contract before its first dispatch. The focused
 validator tests are available with `node --test scripts/goal-contract.test.mjs`.
 
+The controller requires Docker and a locally built verification image. Build
+it before starting a live or dry run:
+
+```sh
+docker build -f scripts/verification-sandbox.Dockerfile \
+  -t agentgate-verification:node24 scripts
+```
+
 The controller enforces the declared maximum rounds, elapsed time, and repeated
 no-progress limit. It also stops for blocked or ambiguous work, stale checker
 input, dispatch failure, protected changes, or work that needs human approval.
@@ -154,7 +162,16 @@ node scripts/maker-checker-loop.mjs \
   --state .local/maker-checker/F005-state.json
 ```
 
-A live run requires the GitHub Copilot CLI and the repository custom agents.
+The controller acquires an exclusive `<state-file>.lock` directory before it
+loads or writes state and holds the lock until the loop returns. A second
+controller using the same resolved state path fails without dispatching an
+agent. Normal completion removes the lock. If a crash leaves it behind, do not
+infer that it is stale from the recorded PID alone. Confirm that the controller
+and every dispatched child process have stopped, then remove that specific
+lock directory manually. Never remove it while process-tree cleanup is pending.
+
+A live run requires Docker, the verification image, the GitHub Copilot CLI,
+and the repository custom agents.
 The dispatcher removes shell access, denies direct URL and `.git` metadata
 writes (including every descendant below `.git`), disables built-in MCP servers,
 and discovers then disables every
@@ -169,6 +186,15 @@ Because agents have no shell, the controller runs the goal's
 [evidence runner](./verification.md) after each completed maker round, then
 runs the repository architecture check the same way, and records the command,
 status, run ID, exit code, and report path for each as a list on that round.
+The runner executes both commands in the prebuilt Docker image. The repository
+is mounted read-only; the container has no network, receives no host
+environment variables or credentials, and has no Docker socket. Its writable
+`/tmp`, home directory, and `.local` path are temporary container filesystems.
+The image includes Node.js 24, Bash, and Git; verification commands must use
+those tools and dependencies already readable from the repository. The
+evidence runner on the host writes reports and output outside the container.
+A missing Docker image or unavailable daemon stops the controller before it
+dispatches an agent.
 The checker is dispatched only when every recorded result passes; a failed run
 sends the work back to the maker with the failure in its feedback, and a runner
 that cannot start stops the loop for human intervention. A resumed round that
@@ -214,19 +240,21 @@ unchanged. Clean legacy revisions remain comparable by commit.
 
 ### Stop safely
 
-Stop the local controller process with your terminal's interrupt command. Only
-completed persisted rounds are resumable. Before restarting, inspect the state
-file and working tree for partial work from an interrupted agent process.
+Stop the local controller process with your terminal's interrupt command.
+Completed rounds and an interrupted actor after its safety-transition check
+are resumable. Before restarting, confirm that the prior controller and all
+dispatched child processes have stopped. Inspect the state file and working
+tree for partial work from an interrupted agent process.
 
 Terminal results such as `pass`, `blocked`, `ambiguous`, `stale`, `stalled`,
 `limit-exhausted`, and `approval-required` require no hidden automatic action.
 A dispatch exception is persisted and returned as `blocked` with human
-intervention required. Resolve the reported condition or revise the goal with human
-approval before starting another run. The controller itself does not commit,
-push, create or edit a pull request, or merge. Dispatched agents are denied
-those capabilities, but trusted verification code runs with the caller's
-permissions and can perform side effects. The loop does not make arbitrary
-repository code safe to execute.
+intervention required. Resolve the reported condition or revise the goal with
+human approval before starting another run. The controller itself does not
+commit, push, create or edit a pull request, or merge. Dispatched agents are
+denied those capabilities. Verification code cannot write to the mounted host
+repository or reach external network services through the configured sandbox;
+container-runtime and host-kernel escapes remain outside the guarantee.
 
 ## Try it before relying on it
 

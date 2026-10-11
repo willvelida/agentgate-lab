@@ -9,24 +9,36 @@ import { performance } from 'node:perf_hooks';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import {
+  sandboxInvocation,
+  VERIFICATION_SANDBOX_IMAGE,
+} from './verification-sandbox.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function parseArguments(args) {
   let label = 'verification';
-  if (args[0] === '--label') {
-    label = args[1];
-    args = args.slice(2);
-    if (!label?.trim() || label === '--') {
-      throw new Error('--label requires a nonempty value.');
+  let sandbox = false;
+  while (args[0] !== '--') {
+    if (args[0] === '--label') {
+      label = args[1];
+      args = args.slice(2);
+      if (!label?.trim() || label === '--') {
+        throw new Error('--label requires a nonempty value.');
+      }
+    } else if (args[0] === '--sandbox') {
+      sandbox = true;
+      args = args.slice(1);
+    } else {
+      throw new Error(`Unknown verification runner option: ${args[0] ?? ''}`);
     }
   }
   if (args[0] !== '--' || !args[1]?.trim()) {
     throw new Error(
-      'Usage: node scripts/run-verification.mjs [--label name] -- command [arguments]',
+      'Usage: node scripts/run-verification.mjs [--label name] [--sandbox] -- command [arguments]',
     );
   }
-  return { label, command: args[1], arguments: args.slice(2) };
+  return { label, sandbox, command: args[1], arguments: args.slice(2) };
 }
 
 function git(...args) {
@@ -56,7 +68,10 @@ function writeReport(runDirectory, report) {
   renameSync(temporaryPath, join(runDirectory, 'report.json'));
 }
 
-function execution(command, args) {
+function execution(command, args, sandbox) {
+  if (sandbox) {
+    return sandboxInvocation(command, args, repoRoot, VERIFICATION_SANDBOX_IMAGE);
+  }
   if (process.platform !== 'win32') {
     return { command, args };
   }
@@ -123,7 +138,7 @@ async function main() {
   process.stderr.write(`Verification report: ${join(runDirectory, 'report.json')}\n`);
 
   const start = performance.now();
-  const launch = execution(invocation.command, invocation.arguments);
+  const launch = execution(invocation.command, invocation.arguments, invocation.sandbox);
   const child = spawn(launch.command, launch.args, {
     cwd: repoRoot,
     shell: false,

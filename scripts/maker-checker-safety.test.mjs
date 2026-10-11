@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  cpSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -14,8 +15,13 @@ import test from 'node:test';
 import {
   CopilotCliDispatcher,
   ScriptedDispatcher,
+  VerificationRunner,
   runMakerCheckerLoop,
 } from './maker-checker-loop.mjs';
+import {
+  sandboxInvocation,
+  VERIFICATION_SANDBOX_IMAGE,
+} from './verification-sandbox.mjs';
 import {
   copilotCapabilityArguments,
   CopilotCapabilityBoundary,
@@ -113,6 +119,96 @@ function commandRunner(branch = 'feature', commit = 'abc123') {
 function revision(fingerprint) {
   return { commit: 'abc123', dirty: true, fingerprint };
 }
+
+test('verification sandbox denies repository writes and local Git publication', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-verification-sandbox-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const scripts = join(root, 'scripts');
+  const remote = join(root, 'remote.git');
+  mkdirSync(scripts);
+  cpSync(
+    new URL('./run-verification.mjs', import.meta.url),
+    join(scripts, 'run-verification.mjs'),
+  );
+  cpSync(
+    new URL('./verification-sandbox.mjs', import.meta.url),
+    join(scripts, 'verification-sandbox.mjs'),
+  );
+  writeFileSync(join(root, 'protected.txt'), 'protected baseline\n');
+  execFileSync('git', ['init', '--quiet', '--initial-branch=feature', root]);
+  const git = (args, cwd = root) => execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+  });
+  git(['config', 'user.name', 'Sandbox Test']);
+  git(['config', 'user.email', 'sandbox@example.invalid']);
+  git(['add', 'protected.txt', 'scripts']);
+  git(['commit', '--quiet', '-m', 'initialize sandbox fixture']);
+  git(['init', '--quiet', '--bare', remote]);
+  git(['remote', 'add', 'origin', remote]);
+  git(['push', '--quiet', '--set-upstream', 'origin', 'feature']);
+
+  const maliciousCode = [
+    "const fs = require('node:fs');",
+    "const cp = require('node:child_process');",
+    'let writeDenied = false;',
+    "try { fs.writeFileSync('/workspace/protected.txt', 'changed'); }",
+    "catch (error) { if (!['EROFS', 'EACCES'].includes(error.code)) throw error; writeDenied = true; }",
+    "const push = cp.spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/unapproved'], { cwd: '/workspace', encoding: 'utf8' });",
+    'if (!writeDenied || push.status === 0) process.exitCode = 1;',
+  ].join(' ');
+  const escapedCode = maliciousCode.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+  const verification = await new VerificationRunner({ repositoryRoot: root })
+    .run(`node --eval "${escapedCode}"`, { timeoutMs: 60000 });
+  const report = JSON.parse(readFileSync(join(root, verification.reportPath), 'utf8'));
+
+  assert.equal(verification.status, 'passed');
+  assert.equal(report.sandbox, true);
+  assert.equal(readFileSync(join(root, 'protected.txt'), 'utf8'), 'protected baseline\n');
+  assert.equal(git(['rev-parse', 'HEAD']).trim(), git(['rev-parse', 'origin/feature']).trim());
+  assert.equal(git(['ls-remote', 'origin']), git(['ls-remote', remote]));
+  assert.ok(!git(['ls-remote', 'origin']).includes('refs/heads/unapproved'));
+});
+
+test('verification sandbox invocation denies network and host write access', () => {
+  const invocation = sandboxInvocation(
+    'node',
+    ['--test', 'scripts/example.test.mjs'],
+    'C:\\repo',
+    VERIFICATION_SANDBOX_IMAGE,
+  );
+  assert.equal(invocation.command, 'docker');
+  assert.ok(invocation.args.includes('--network=none'));
+  assert.ok(invocation.args.includes('--read-only'));
+  assert.ok(invocation.args.includes('--cap-drop=ALL'));
+  assert.ok(invocation.args.includes('--pull=never'));
+  assert.ok(invocation.args.includes('1000:1000'));
+  assert.ok(invocation.args.includes(
+    '/workspace/.local:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=700',
+  ));
+  assert.ok(invocation.args.includes(
+    'type=bind,source=C:\\repo,target=/workspace,readonly',
+  ));
+  assert.equal(invocation.args.at(-3), VERIFICATION_SANDBOX_IMAGE);
+  assert.deepEqual(invocation.args.slice(-2), ['--test', 'scripts/example.test.mjs']);
+});
+
+test('verification runner fails closed when the sandbox image is unavailable', async () => {
+  const calls = [];
+  const runner = new VerificationRunner({
+    processRunner: async (...args) => {
+      calls.push(args);
+      return { exitCode: 1 };
+    },
+  });
+  await assert.rejects(
+    runner.ensureReady(),
+    /Verification sandbox image 'agentgate-verification:node24' is unavailable/,
+  );
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0][0], 'docker');
+  assert.deepEqual(calls[0][1], ['image', 'inspect', VERIFICATION_SANDBOX_IMAGE]);
+});
 
 test('Copilot dispatch applies non-prompt safety controls', async () => {
   const calls = [];
@@ -442,6 +538,26 @@ test('repository boundary protects absolute verification paths inside the reposi
   );
 });
 
+test('repository boundary rejects shell-command verification forms', (t) => {
+  const files = fixture(t);
+  const contract = {
+    ...goal(),
+    verificationCommand: "bash -c 'node --test scripts/a.test.mjs'",
+  };
+  const changed = checklist();
+  changed.features[1].verification = contract.verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(contract),
+    /Shell command verification forms are not supported/,
+  );
+});
+
 test('repository boundary prevents starting or changing another feature', (t) => {
   const files = fixture(t);
   const boundary = new RepositorySafetyBoundary({
@@ -487,7 +603,24 @@ test('repository boundary allows only the checker to pass the active feature', (
   after.checklist.features[1].testedAt = '2026-10-10';
 
   assert.doesNotThrow(
-    () => boundary.assertTransition(before, after, goal(), 'checker'),
+    () => boundary.assertTransition(before, after, goal(), 'checker', {
+      checkerOutcome: 'pass',
+      reviewedRevisionValid: true,
+    }),
+  );
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'checker', {
+      checkerOutcome: 'fail',
+      reviewedRevisionValid: true,
+    }),
+    /status changed outside checker PASS/,
+  );
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'checker', {
+      checkerOutcome: 'pass',
+      reviewedRevisionValid: false,
+    }),
+    /status changed outside checker PASS/,
   );
   assert.throws(
     () => boundary.assertTransition(before, after, goal(), 'maker'),

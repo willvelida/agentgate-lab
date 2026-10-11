@@ -18,8 +18,8 @@ ms.date: 2026-10-10
 | --- | --- | --- | --- | --- | --- |
 | F001 | Versioned goal contract declares the loop goal and limits. | pass | `node --test scripts/goal-contract.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final verification passed 3/3, exit 0, run `2026-10-10T09-26-09-834Z-f1040b4c-cbdb-46cc-82cf-d18443f072f8`. Final architecture passed, exit 0, run `2026-10-10T09-25-48-624Z-c7e14866-251f-4d8b-907e-2f32ba77b934`. | 2026-10-10 |
 | F002 | Persisted loop state records rounds and supports resume. | pass | `node --test scripts/loop-state.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final verification passed 4/4, exit 0, run `2026-10-10T09-43-04-551Z-29499005-62c8-4b6f-9560-967a17948b4b`. Final architecture passed, exit 0, run `2026-10-10T09-43-02-831Z-09238404-edb3-4973-98cb-2bc6e55f7c60`. | 2026-10-10 |
-| F003 | Controller coordinates maker/checker rounds and bounded stops. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Fresh-session evaluator PASS: average 4.8, minimum 4, no required fixes. Final verification passed 8/8, exit 0, run `2026-10-10T11-14-42-578Z-6f1deb30-5ae3-4f27-a286-fb1b9e6e0a50`. Final architecture passed, exit 0, run `2026-10-10T11-14-42-562Z-ea60abc5-4475-465f-8ef4-21c0755ed278`. | 2026-10-10 |
-| F004 | Serial execution and publication/verification safety boundaries are enforced. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Final safety tests passed 12/12, exit 0, run `2026-10-10T19-36-43-923Z-9a659e65-9327-4880-b599-64829a21ee77`. Final architecture passed, exit 0, run `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`. | 2026-10-10 |
+| F003 | Controller coordinates maker/checker rounds and bounded stops. | pass | `node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Latest review verification passed 34/34, exit 0, run `2026-10-11T06-11-16-455Z-482ab60c-39d2-4735-a77e-53b5da897022`; architecture passed, exit 0, run `2026-10-11T06-11-16-462Z-dcb1eec8-3726-4e8c-8e5f-8c70adfeac7e`. | 2026-10-11 |
+| F004 | Serial execution and publication/verification safety boundaries are enforced. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Fresh-session evaluator PASS: average 4.8, minimum 4, no required fixes. Latest review verification passed 19/19, exit 0, run `2026-10-11T06-20-36-178Z-82270020-757f-4708-ade5-942519515fe6`; architecture passed, exit 0, run `2026-10-11T06-20-36-167Z-d2f5a417-159d-47d4-8b0c-c705c5ca9a82`. | 2026-10-11 |
 | F005 | Required loop outcomes are covered by automated tests. | pass | `node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs` | Fresh-session evaluator PASS: average 5.0, minimum 5, no required fixes. Evaluator verification passed 13/13, exit 0, run `2026-10-10T22-11-59-192Z-6d7012fd-31cf-4c67-a089-52699f739256`. Evaluator architecture passed, exit 0, run `2026-10-10T22-11-59-192Z-93eaf392-efee-4618-8779-e5e84edeab6b`. | 2026-10-10 |
 | F006 | Documentation, progress, and architecture decisions describe the loop. | pass | `bash scripts/check-architecture.sh` | Fresh-session evaluator PASS after repair: average 4.8, minimum 4, no required fixes. Evaluator verification passed, exit 0, run `2026-10-10T23-04-43-992Z-b7220c27-8cb0-49d2-a607-10216d55dc64`; architecture passed, exit 0, run `2026-10-10T23-04-44-009Z-e2ad2dca-210f-4513-a5fa-4108c27281a5`. | 2026-10-11 |
 
@@ -351,14 +351,67 @@ working-tree changes:
 * `git diff --check` passed, exit 0, run
   `2026-10-11T03-49-24-785Z-885b22b0-5791-4066-b563-5d3c85e646e2`.
 
-A fresh F003/F004 evaluation is still required before approval.
-The related PR threads remain open because these local changes have not been
-published or replied to.
+A fresh evaluation and verification have now covered the PR follow-up changes.
+The related PR threads remain open until the changes are published and replied
+to.
 
 * 2026-10-11: F003 evaluator verdict PASS (avg 5.0, min 5) for commit `94e4f8aceb7bb5a2dc6275de0b699b7ec792fe29` plus six uncommitted tracked changes. Verification passed 21/21 (run `2026-10-11T03-54-56-528Z-d7e9d165-c905-4020-bc13-ee24a99438bf`, exit 0); architecture passed (run `2026-10-11T03-54-20-309Z-aa02825a-a4a3-4523-a42c-a446ab2d9282`, exit 0). See evaluator-rubric.md.
 * 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4) for commit `94e4f8aceb7bb5a2dc6275de0b699b7ec792fe29` plus six uncommitted tracked changes. Verification passed 15/15 (run `2026-10-11T03-54-56-468Z-462b3089-a347-42d2-b0ec-d9de0f595cab`, exit 0); architecture passed (run `2026-10-11T03-54-20-309Z-aa02825a-a4a3-4523-a42c-a446ab2d9282`, exit 0). See evaluator-rubric.md.
 * 2026-10-11: F004 evaluator verdict PASS (avg 4.6, min 4). See evaluator-rubric.md.
+
+## 2026-10-11 fifth PR feedback batch
+
+Addressed the remaining four review threads with per-state-file locking,
+interrupted-actor resume, rejection of shell-form verification commands,
+checker-PASS and revision validation, and Docker-isolated verification.
+
+Verification on `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus the working
+tree changes:
+
+* F003 tests passed 34/34, exit 0, run
+  `2026-10-11T06-33-36-541Z-9aa6b39e-b8f0-46e5-a091-1c7c0237ddea`;
+  architecture passed, exit 0, run
+  `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`.
+* F004 tests passed 19/19, exit 0, run
+  `2026-10-11T06-33-36-671Z-6ed29501-d33b-426c-8a0b-d86983422920`.
+* Fresh evaluators passed F003 at 5.0/5 and F004 at 4.8/5. The rubric
+  records are retained locally and ignored by Git.
+* Verification runner tests passed 9/9, exit 0, run
+  `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`.
+* Docker sandbox image build passed, run
+  `2026-10-11T05-58-22-975Z-e02f89d6-6a67-4a4b-a76f-cc8c21ed190e`.
+
+Reviewed revision: `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus the
+current changes. Commit, push, replies, thread resolution, and exact-head CI
+remain pending.
 * 2026-10-11: F003 evaluator verdict PASS (avg 4.6, min 4) for commit `cc0eec3d0e46102f8493915f21756716a5ef89a4` plus uncommitted controller/test changes and directly related cleanup guidance. Verification passed 22/22 (run `2026-10-11T04-27-54-260Z-b6b6c0c5-69c8-4396-b7d6-a24facb3d19f`, exit 0); architecture passed (run `2026-10-11T04-28-17-323Z-148bc92e-773c-441d-a9a0-3c1176374d68`, exit 0); `git diff --check` passed (run `2026-10-11T04-28-16-871Z-640e587d-5c0c-4728-ba6d-4d0ceffb5998`, exit 0). See evaluator-rubric.md.
 * 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4) for commit `cc0eec3d0e46102f8493915f21756716a5ef89a4` plus current shared controller/test changes, directly related cleanup guidance, and this evaluator log. Verification passed 15/15 (run `2026-10-11T04-36-49-188Z-4ff76e4a-05bb-480c-b4e3-4eb2d1edfc95`, exit 0); architecture passed (run `2026-10-11T04-28-17-323Z-148bc92e-773c-441d-a9a0-3c1176374d68`, exit 0). See evaluator-rubric.md.
 * 2026-10-11: F003 evaluator verdict PASS (avg 4.6, min 4) for commit `cc0eec3d0e46102f8493915f21756716a5ef89a4` plus uncommitted controller/test changes and directly related cleanup guidance in `docs/harness-agent.md`. The added paragraph is documentation-only and does not change verification code. Verification passed 23/23 (run `2026-10-11T04-39-41-946Z-b50ab48a-1181-40e3-b4ae-67f27437c9ad`, exit 0); architecture passed (run `2026-10-11T04-38-49-393Z-1827b110-5938-44c5-b11e-5c669673dc7c`, exit 0). See evaluator-rubric.md.
 * 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4) for commit `cc0eec3d0e46102f8493915f21756716a5ef89a4` plus uncommitted shared controller/test changes and directly related cleanup guidance in `docs/harness-agent.md`. The added paragraph is documentation-only and does not change verification code. Verification passed 15/15 (run `2026-10-11T04-39-41-327Z-8d4f9c13-7f52-4931-aea7-e02ef8be0c3b`, exit 0); architecture passed (run `2026-10-11T04-38-49-393Z-1827b110-5938-44c5-b11e-5c669673dc7c`, exit 0). See evaluator-rubric.md.
+
+## 2026-10-11 fifth review feedback batch
+
+F003 review follow-up adds exclusive state-path locking and preserves the
+interrupted actor as the next action after a successful safety-transition
+check. Existing state locks are not cleared automatically; operators must
+verify the controller and dispatched child processes have stopped before
+manual recovery.
+
+Verification on `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus uncommitted
+F003 changes:
+
+* `node --test scripts/maker-checker-loop.test.mjs scripts/loop-state.test.mjs`
+  passed 34/34, exit 0, run
+  `2026-10-11T05-14-01-011Z-2578773e-4269-4879-9db5-4269846cfc8f`;
+* `bash scripts/check-architecture.sh` passed, exit 0, run
+  `2026-10-11T05-14-00-951Z-9ff6093f-1dcf-4728-a167-c62f8c0bf044`.
+
+Fresh-session F003 evaluation is recorded below. F004 review findings have not been
+started.
+* 2026-10-11: F003 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+* 2026-10-11: F003 evaluator verdict PASS (avg 4.6, min 4). Verification passed 34/34 (run `2026-10-11T05-30-01-506Z-bc925499-fda3-45df-a506-a29d290434fb`, exit 0); architecture passed (run `2026-10-11T05-30-01-924Z-88227f31-5b0a-4b09-9b09-7d51229ec29e`, exit 0). Reviewed commit `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus ten uncommitted tracked changes. See evaluator-rubric.md.
+* 2026-10-11: F004 evaluator verdict FAIL (avg 4.2, min 2). Verification passed 16/16 (run `2026-10-11T05-30-01-813Z-c8c0b54c-c1bb-4fed-acea-31850264c62a`, exit 0); architecture passed (run `2026-10-11T05-30-01-504Z-0fa304ba-8440-47fd-9200-e6265f80b19c`, exit 0). Reviewed commit `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus ten uncommitted tracked changes. See evaluator-rubric.md.
+* 2026-10-11: F003 evaluator verdict PASS (avg 4.6, min 4) for commit `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus the current uncommitted diff. Exact verification passed 34/34 (run `2026-10-11T05-56-46-159Z-d31f93a0-3400-429e-aa54-3532a2c9c717`, exit 0); architecture passed (run `2026-10-11T05-56-46-141Z-4b15414b-9094-4973-8657-85b8bc149b02`, exit 0). Supplemental sandbox verification passed 34/34 (run `2026-10-11T06-00-22-236Z-c65f9f0b-4e20-412a-ad49-494506299994`, exit 0); sandbox architecture passed (run `2026-10-11T06-00-22-223Z-f4dc1815-ca13-42d4-8748-41db1f25bbf2`, exit 0). Required minor fix: correct the introductory interrupted-actor resume guarantee in `docs/harness-agent.md:93`. See evaluator-rubric.md.
+* 2026-10-11: F003 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+* 2026-10-11: F003 evaluator verdict PASS (avg 4.8, min 4). Verification passed 34/34 (run `2026-10-11T06-14-11-111Z-be2c7b85-0194-4a3c-989a-5c6e6df081f5`, exit 0); architecture passed (run `2026-10-11T06-14-11-084Z-aa721a94-7f51-4f66-9861-7c7f2221149f`, exit 0). Reviewed commit `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus uncommitted changes. See evaluator-rubric.md.
+* 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4). See evaluator-rubric.md.

@@ -1,7 +1,7 @@
 ---
 title: Progress
 description: Repository-level snapshot of what is built, what is in progress, and what is planned for AgentGate Lab.
-ms.date: 2026-10-10
+ms.date: 2026-10-11
 ---
 
 ## Purpose
@@ -21,19 +21,26 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* PR #31 follow-up addresses exclusive state-file locking, same-actor resume
+  after interruption, shell-command verification rejection, checker-PASS
+  transition gating, and Docker-isolated verification. F003 passed fresh
+  evaluation (5.0/5); F004 passed fresh evaluation (4.8/5). Commit, push,
+  review replies, and exact-head CI are pending.
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
   The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
   check, and DCO. Follow-up commit
   `5c1f9dc580723224b0fc11375e7008ca7810ec60` is pushed to
   `origin/feat/harness-extension`; the interrupt-cleanup review thread was
   answered and resolved.
-* F003 and F004 passed 23/23 and 15/15; architecture passed, and fresh
-  independent evaluations returned PASS (averages 4.6 and 4.8, minimum 4).
-  For code head `5c1f9dc`, Build run `38112705410`, links and progress-reminder
-  in run `38112705413`, and DCO all passed. Documentation follow-up
-  `1366586f2c2c81570e410d6ee8b66f02d034d469` includes D028 and this handoff;
-  on that exact head, Build run `38113072337`, links and progress-reminder in
-  run `38113072350`, and DCO all passed.
+* Latest F003 verification passed 34/34 (run
+  `2026-10-11T06-33-36-541Z-9aa6b39e-b8f0-46e5-a091-1c7c0237ddea`); the
+  architecture check passed (run
+  `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
+  Latest F004 verification passed 19/19 (run
+  `2026-10-11T06-33-36-671Z-6ed29501-d33b-426c-8a0b-d86983422920`).
+  Verification-runner tests passed 9/9 (run
+  `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
+  Fresh-session evaluations passed F003 at 5.0/5 and F004 at 4.8/5.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -150,13 +157,13 @@ final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
-* Issue #30 F004 is a local controller capability boundary, not an
-  operating-system sandbox or authorization implementation. It removes shell,
-  direct URL, Git metadata write, and MCP capabilities from loop sessions and
-  detects protected repository transitions. It does not constrain processes
-  started outside the controller. Controller-run verification inherits the
-  caller's environment and permissions; verification commands and imported
-  repository code must be trusted.
+* Issue #30 F004 runs controller verification in a Docker container with a
+  read-only repository mount, no network, no host environment variables or
+  credentials, and no Docker socket. The Docker daemon, host kernel, and
+  sandbox image remain trusted; container-runtime or kernel escapes are not
+  addressed. The image supports Node.js 24, Bash, and Git only; other
+  toolchains and network-fetched dependencies are unavailable. The controller
+  is not an application authentication or authorization boundary.
 * If the operating system cannot terminate a child process tree, the controller
   remains pending and retries cleanup rather than exiting. This preserves
   supervision and blocks new work, but controller lifetime is unbounded until
@@ -456,53 +463,49 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: handled controller SIGINT/SIGTERM by terminating the detached
-  child process tree and waiting for cleanup; documented the intentional
-  cleanup-first lifecycle; added regression coverage; obtained fresh F003/F004
-  evaluator PASS verdicts; and answered and resolved the new PR review thread.
-* Scope: issue #30's controller process lifecycle, its regression tests, and
-  directly related operator and decision documentation. Feature checklist
-  statuses remain unchanged.
-* Files modified: `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
-  `docs/decisions.md` (D028), this progress log, and the issue #30
-  `agent-progress.md`. The evaluator rubric is ignored.
-* Verification on code commit `5c1f9dc580723224b0fc11375e7008ca7810ec60`:
-  * F003 passed 23/23, exit 0, run
-    `2026-10-11T04-49-29-113Z-9592a27f-9e16-4335-ae26-111dcefcb22d`.
-  * F004 passed 15/15, exit 0, run
-    `2026-10-11T04-47-37-865Z-1b944add-9f7a-48f0-9e7e-d629646766ce`.
-  * `bash scripts/check-architecture.sh` passed, exit 0, run
-    `2026-10-11T04-49-29-208Z-b0037ac8-fb1c-40b1-9c31-910346b35487`.
-  * `git diff --check` passed, exit 0, run
-    `2026-10-11T04-51-02-025Z-5b9a7004-a9fe-4c6f-9152-b5c44069d1e5`.
-  * The initial Windows interrupt test failed because signaling the nested
-    process terminated it before its handler ran (run
-    `2026-10-11T04-20-24-084Z-0c8445c2-0580-4c18-8696-63df711ea403`, exit 1).
-    The test was changed to exercise the handler on Windows and now verifies
-    child exit on both platforms; the F003 reruns passed.
-* Fresh-session evaluation: F003 PASS (average 4.6, minimum 4); F004 PASS
-  (average 4.8, minimum 4). The feature evidence and ignored evaluator rubric
-  record their run IDs and scores.
-* Boundedness: dispatch and productive loop work stop at their existing
-  limits. Cleanup retry has no elapsed-time cap; a persistent OS cleanup
-  failure can keep the controller pending indefinitely. D028 records this
-  decision.
-* Reviewed code commit: `5c1f9dc580723224b0fc11375e7008ca7810ec60`, pushed to
-  `feat/harness-extension`; D028 and the handoff are published in
-  `1366586f2c2c81570e410d6ee8b66f02d034d469`. The working tree was clean after
-  that push. No startup check applies to harness scripts.
-* Publication: the interrupt-cleanup review thread was answered and resolved.
-  For exact code head `5c1f9dc`, Build run `38112705410`, links and
-  progress-reminder in run `38112705413`, and DCO all passed. For documentation
-  head `1366586`, Build run `38113072337`, links and progress-reminder in run
-  `38113072350`, and DCO all passed. Only the PR validation summary remained
-  to update.
-* Cleanup: no long-lived process or service remains. The interrupt regression
-  verified child exit; fixtures removed their temporary directories. Ignored
-  verification reports and evaluator rubric are intentionally retained.
-* Next steps: update PR #31's validation summary while preserving the template;
-  no source or additional documentation changes are expected.
+* Accomplished: addressed four unresolved PR #31 findings covering concurrent
+  controller state, shell-form verification bypass, interrupted-run resume,
+  and checker-result/revision validation. Added Docker isolation for
+  controller verification and its protected-write/push integration regression.
+  F003 and F004 both passed fresh independent evaluation.
+* Scope: issue #30 maker-checker loop state, safety policy, verification
+  runner, tests, CI image setup, and directly related operator and decision
+  documentation. Existing feature statuses were not changed.
+* Files modified: `.github/workflows/build.yml`, `docs/decisions.md`,
+  `docs/harness-agent.md`, `docs/verification.md`, this progress log,
+  `docs/features/.../agent-progress.md`, and the loop, safety, and verification
+  runner modules and tests. The ignored evaluator rubric and feature checklist
+  are local.
+* Verification on commit `4e32b86cf0b6d885f88c2c19bf2f5f0dfef1ce54` plus the
+  uncommitted changes:
+  * F003 exact tests passed 34/34, exit 0, run
+    `2026-10-11T06-33-36-541Z-9aa6b39e-b8f0-46e5-a091-1c7c0237ddea`;
+    architecture passed, exit 0, run
+    `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`.
+  * F004 exact tests passed 19/19, exit 0, run
+    `2026-10-11T06-33-36-671Z-6ed29501-d33b-426c-8a0b-d86983422920`.
+  * Fresh evaluators: F003 PASS (5.0/5); F004 PASS (4.8/5); no required
+    fixes. Their run IDs, reviewed revisions, and scores are in the feature
+    evidence log. `node --test scripts/run-verification.test.mjs` passed 9/9
+    (run `2026-10-11T06-33-36-631Z-cebe58d1-9745-44e5-a98d-45259ea55c01`).
+  * Docker image build passed (run
+    `2026-10-11T05-58-22-975Z-e02f89d6-6a67-4a4b-a76f-cc8c21ed190e`).
+  * Earlier `git diff --check` passed (run
+    `2026-10-11T05-56-58-520Z-d56454d9-9b67-4087-a935-e6648efdb07a`).
+* Boundaries: the sandbox trusts Docker, the image, and the host kernel. It
+  provides Node.js 24, Bash, and Git; it does not make the controller an
+  application security boundary. D030 records the isolation decision and
+  constraints.
+* Startup and cleanup: application startup checks do not apply to these
+  harness-only changes. No long-running application service was started.
+  Docker regression containers were removed; the locally built image and
+  ignored verification evidence are intentionally retained.
+* Publication: changes are not yet committed or pushed. The four addressed
+  PR threads remain unresolved, and CI has not run for these changes.
+* Next steps: run final whitespace and documentation checks, commit with
+  sign-off, push `feat/harness-extension`, reply to and resolve the four
+  addressed threads, update the PR body while preserving its template, and
+  record CI for the exact published head.
 
 ## Built
 

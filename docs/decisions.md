@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-10
+ms.date: 2026-10-11
 ---
 
 ## Purpose
@@ -505,3 +505,45 @@ Each entry records:
   system cannot confirm process-tree termination. A hard lifetime bound needs
   OS-enforced containment, such as a kill-on-close process group or job object,
   in a separate design.
+
+## D029: serialize controllers and preserve interrupted actors
+
+* Date: 2026-10-11
+* Decision: acquire an exclusive lock directory keyed by the resolved state
+  path before loading state, and hold it until the controller returns. Never
+  remove a stale lock automatically based only on its recorded process ID.
+  After a verified controller interruption and successful safety-transition
+  check, record an `interrupted` round that resumes the same actor.
+* Why: concurrent controllers can dispatch the same actor and overwrite
+  persisted evidence. A controller PID can stop while a detached child remains
+  active, so PID-based stale-lock recovery could admit concurrent work. An
+  interruption is recoverable and should not become a permanent human stop.
+* Alternatives rejected: allowing multiple controllers to share a state file;
+  automatically clearing a lock when its PID is absent, because that does not
+  prove the dispatched process tree has stopped.
+* Constraints: after a crash, an operator must verify that the controller and
+  all dispatched child processes have stopped before manually removing the
+  lock directory.
+
+## D030: isolate controller verification in Docker
+
+* Date: 2026-10-11
+* Decision: run controller verification commands in a locally built Node 24
+  Docker image with the repository mounted read-only, networking disabled,
+  no host environment variables or credentials, no Docker socket, and only
+  ephemeral writable filesystems. Keep report capture on the host.
+* Why: the controller previously executed verification code with the caller's
+  permissions, allowing a test or imported file to modify Git state or use
+  available credentials and network. A container with no host write mount or
+  egress removes those ordinary side-effect paths while retaining the exact
+  verification command.
+* Alternatives rejected: trusting repository code (D027), because the
+  verification code changes as part of the feature workflow; disabling
+  verification, because fresh independent checks are a required controller
+  gate.
+* Constraints: Docker and the prebuilt image are required before dispatch.
+  The image supports Node.js 24, Bash, and Git verification commands; it does
+  not expose arbitrary host toolchains or network package downloads.
+  The Docker daemon, host kernel, and image remain trusted; this is not
+  protection against container-runtime or kernel escapes. D030 supersedes
+  D027.

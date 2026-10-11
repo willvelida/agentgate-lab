@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  acquireLoopStateLock,
   createLoopState,
   getResumeDecision,
   loadLoopState,
@@ -15,8 +16,10 @@ import {
   DenyByDefaultCommandPolicy,
   RepositorySafetyBoundary,
 } from './maker-checker-safety.mjs';
+import { VERIFICATION_SANDBOX_IMAGE } from './verification-sandbox.mjs';
 
 const resultMarker = 'MAKER_CHECKER_RESULT:';
+const interruptedDispatchCode = 'ERR_MAKER_CHECKER_INTERRUPTED';
 const makerOutcomes = new Set([
   'completed',
   'blocked',
@@ -161,9 +164,10 @@ export function runProcess(executable, args, options) {
       cleanup();
       if (interruptedBy) {
         process.exitCode = interruptedBy === 'SIGINT' ? 130 : 143;
-        reject(new Error(
-          `Child process was interrupted by ${interruptedBy}.`,
-        ));
+        const error = new Error(`Child process was interrupted by ${interruptedBy}.`);
+        error.code = interruptedDispatchCode;
+        error.signal = interruptedBy;
+        reject(error);
       } else {
         reject(new Error(`Child process exceeded its ${options.timeoutMs} ms dispatch limit.`));
       }
@@ -405,12 +409,31 @@ export class VerificationRunner {
     this.readReport = readReport;
   }
 
+  async ensureReady() {
+    const { exitCode } = await this.processRunner(
+      'docker',
+      ['image', 'inspect', VERIFICATION_SANDBOX_IMAGE],
+      {
+        cwd: this.repositoryRoot,
+        timeoutMs: 10000,
+        allowNonZeroExit: true,
+      },
+    );
+    if (exitCode !== 0) {
+      throw new Error(
+        `Verification sandbox image '${VERIFICATION_SANDBOX_IMAGE}' is unavailable. `
+          + 'Build it with: docker build -f scripts/verification-sandbox.Dockerfile '
+          + `-t ${VERIFICATION_SANDBOX_IMAGE} scripts`,
+      );
+    }
+  }
+
   async run(command, { timeoutMs }) {
     const tokens = tokenizeCommand(command);
     const runner = resolve(this.repositoryRoot, 'scripts', 'run-verification.mjs');
     const { stderr } = await this.processRunner(
       this.nodeExecutable,
-      [runner, '--', ...tokens],
+      [runner, '--sandbox', '--', ...tokens],
       {
         cwd: this.repositoryRoot,
         timeoutMs,
@@ -550,7 +573,19 @@ function canonicalGoal(value) {
   return JSON.stringify(value) ?? 'null';
 }
 
-export async function runMakerCheckerLoop({
+export async function runMakerCheckerLoop(options) {
+  if (typeof options.getRevision !== 'function') {
+    throw new Error('runMakerCheckerLoop requires a getRevision function.');
+  }
+  const lock = acquireLoopStateLock(options.statePath);
+  try {
+    return await runMakerCheckerLoopWithLock(options);
+  } finally {
+    lock.release();
+  }
+}
+
+async function runMakerCheckerLoopWithLock({
   goal,
   statePath,
   dispatcher = new CopilotCliDispatcher(),
@@ -560,10 +595,9 @@ export async function runMakerCheckerLoop({
   architectureCommand = 'bash scripts/check-architecture.sh',
   now = () => new Date(),
 }) {
-  if (typeof getRevision !== 'function') {
-    throw new Error('runMakerCheckerLoop requires a getRevision function.');
+  if (typeof verificationRunner.ensureReady === 'function') {
+    await verificationRunner.ensureReady();
   }
-
   let state = existsSync(statePath)
     ? loadLoopState(statePath)
     : createLoopState(goal, now());
@@ -777,20 +811,29 @@ export async function runMakerCheckerLoop({
         );
         return { status: 'approval-required', state };
       }
-      state = persistRound(
-        statePath,
-        state,
-        terminalRound(
+      const interrupted = error.code === interruptedDispatchCode;
+      const round = interrupted
+        ? {
+          actor,
+          startedAt: startedAt.toISOString(),
+          finishedAt: finishedAt.toISOString(),
+          reviewedRevision: after,
+          outcome: 'interrupted',
+          feedback: error.message,
+          nextAction: actor,
+          verification: gateVerification,
+          humanIntervention: { required: false, reason: null },
+        }
+        : terminalRound(
           actor,
           after,
           finishedAt,
           'blocked',
           error.message,
           'Resolve the Copilot dispatch failure before resuming.',
-        ),
-        finishedAt,
-      );
-      return { status: 'blocked', state };
+        );
+      state = persistRound(statePath, state, round, finishedAt);
+      return { status: interrupted ? 'interrupted' : 'blocked', state };
     }
 
     let finishedAt = now();
@@ -801,6 +844,10 @@ export async function runMakerCheckerLoop({
         safetyBoundary.capture(activeGoal, { requireActive: false }),
         activeGoal,
         actor,
+        {
+          checkerOutcome: actor === 'checker' ? result.outcome : null,
+          reviewedRevisionValid: sameRevision(before, after),
+        },
       );
     } catch (error) {
       state = persistRound(
