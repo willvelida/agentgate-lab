@@ -513,8 +513,23 @@ where you left off.
   `2026-10-11T22-35-11-367Z-7f3bb9bc-e03e-4dee-950d-88654476014d`);
   architecture passed (run
   `2026-10-11T22-35-11-459Z-39c7c292-c36b-460f-9190-50ad18d6e89a`).
-* CI and review: see the PR description for the pushed SHA and exact-head
-  check results. Each addressed thread has a reply and is resolved.
+* Published head `f8e478beb6baa823d21c67e1e3712d3fbe3ebb45`: Build run
+  `38181357738` passed, Docs check run `38181357767` passed (links and
+  progress-reminder), and DCO passed.
+* Copilot's review of `f8e478b` found one High in-scope issue. A resumed maker
+  round counted as verified when every recorded entry passed, even if the
+  architecture check was missing (for example, after schema v1 migration).
+  The checker gate now requires a passed record for every required command,
+  with regression `reruns verification when a migrated round lacks the
+  architecture check`. Fresh-session evaluator PASS: F003 avg 4.8, min 4,
+  40/40 (run `2026-10-11T22-51-13-387Z-50b1360a-c977-4ff0-9301-cb95533ba412`);
+  F004 avg 4.6, min 4, 33/33 (run
+  `2026-10-11T22-51-13-360Z-0c36d383-6489-4f3e-88c7-d9d23e2496e2`);
+  architecture passed (run
+  `2026-10-11T22-51-13-347Z-d93ca6ab-b79e-4d38-bd60-c4150e6c23bc`). The
+  exact-head CI for this commit is recorded in the PR description, because a
+  commit cannot contain its own CI results. Each addressed thread has a reply
+  and is resolved.
 * Cleanup: runtime startup is not applicable. No long-lived service was
   started. Tests removed their own fixtures. Local evidence remains under
   ignored `.local/verification/`.

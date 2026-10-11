@@ -609,10 +609,13 @@ function latestMakerRound(state) {
   return [...state.rounds].reverse().find((round) => round.actor === 'maker') ?? null;
 }
 
-function hasPassedVerification(round) {
-  return Array.isArray(round?.verification)
-    && round.verification.length > 0
-    && round.verification.every((entry) => entry.status === 'passed');
+function hasPassedVerification(round, requiredCommands) {
+  if (!Array.isArray(round?.verification)) {
+    return false;
+  }
+  return requiredCommands.every((command) => round.verification.some(
+    (entry) => entry.command === command && entry.status === 'passed',
+  )) && round.verification.every((entry) => entry.status === 'passed');
 }
 
 function latestMakerRevision(state) {
@@ -784,7 +787,7 @@ async function runMakerCheckerLoopWithLock({
         );
         return { status: 'stale', state };
       }
-      if (!hasPassedVerification(latestMakerRound(state))) {
+      if (!hasPassedVerification(latestMakerRound(state), verificationCommands)) {
         safetyBefore = captureSafetyBefore(actor, before, startedAt);
         if (!safetyBefore) {
           return { status: 'approval-required', state };

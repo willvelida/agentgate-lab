@@ -224,8 +224,9 @@ dispatches an agent.
 The checker is dispatched only when every recorded result passes; a failed run
 sends the work back to the maker with the failure in its feedback, and a runner
 that cannot start stops the loop for human intervention. A resumed round that
-carries no passing evidence, including state written before this evidence
-existed, is verified again before the checker runs. Schema version 1 state
+lacks a passing record for every required command (the goal's verification
+command and the architecture check), including state written before this
+evidence existed, is verified again before the checker runs. Schema version 1 state
 written while `verification` was a single record is migrated to a one-entry
 list when loaded. Each agent prompt carries the goal, numbered constraints,
 and verification command, and states that the agent must not claim to have run

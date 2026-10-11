@@ -678,6 +678,53 @@ test('compares clean fingerprint-less legacy revisions by commit', async (t) => 
   assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['checker']);
 });
 
+test('reruns verification when a migrated round lacks the architecture check', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const makerRevision = revision('maker-feature-only');
+  saveLoopState(statePath, recordRound(
+    createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:01.000Z',
+      reviewedRevision: makerRevision,
+      outcome: 'completed',
+      feedback: 'Schema v1 round with only the feature command recorded.',
+      nextAction: 'checker',
+      verification: [{
+        command: contract.verificationCommand,
+        status: 'passed',
+        runId: 'feature-only-run',
+        exitCode: 0,
+        reportPath: '.local/verification/feature-only-run/report.json',
+      }],
+      humanIntervention: { required: false, reason: null },
+    },
+  ));
+  const runner = verificationRunner();
+  const dispatcher = new ScriptedDispatcher([{ outcome: 'pass', feedback: 'checker passed' }]);
+
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: () => makerRevision,
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.deepEqual(
+    runner.calls.map((call) => call.command),
+    [contract.verificationCommand, 'bash scripts/check-architecture.sh'],
+  );
+  assert.deepEqual(
+    dispatcher.calls[0].verificationRecords.map((entry) => entry.command),
+    [contract.verificationCommand, 'bash scripts/check-architecture.sh'],
+  );
+});
+
 test('returns checker fail feedback to a new maker while limits permit', async (t) => {
   const dispatcher = new ScriptedDispatcher([
     { outcome: 'completed', feedback: 'first maker' },
