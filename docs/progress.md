@@ -22,14 +22,15 @@ Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
-  The working-tree fixes for bounded process-tree termination and the
-  controller-verification trust boundary have fresh F003/F004 evaluator PASS
-  verdicts. Their latest focused verification passed 21/21 and 15/15,
-  respectively; architecture passed. The changes are being published and
-  reviewed comments updated; exact-head CI remains pending after push.
-* The issue #30 feature checklist records the fresh F003/F004 evaluations and
-  their verification run IDs. Do not treat the pull request as ready until
-  exact-head CI passes.
+  The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
+  check, and DCO. A follow-up now keeps the controller pending and retries
+  process-tree cleanup after termination errors; it is not yet verified or
+  independently evaluated, and remains uncommitted and unpublished.
+* The earlier F003/F004 evaluator verdicts do not cover this follow-up change.
+  Feature checklist states remain unchanged; obtain fresh verification and
+  independent evaluation before treating the new cleanup behavior as accepted.
+  The interrupt-cleanup review thread remains open; exact-head CI for local
+  changes is pending.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -153,6 +154,11 @@ final link and whitespace checks were repeated before commit.
   started outside the controller. Controller-run verification inherits the
   caller's environment and permissions; verification commands and imported
   repository code must be trusted.
+* If the operating system cannot terminate a child process tree, the controller
+  remains pending and retries cleanup rather than exiting. This preserves
+  supervision and blocks new work, but controller lifetime is unbounded until
+  termination is confirmed. A hard lifetime bound requires OS-enforced process
+  containment; it is not implemented by the current Node.js launcher.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
@@ -447,34 +453,37 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: fixed the process-timeout review finding with process-tree
-  termination, documented the controller-verification trust boundary, and
-  obtained fresh F003/F004 evaluator PASS verdicts. Updated the feature
-  evidence and repository progress for the review response and publication.
-* Scope: the two actionable code/documentation findings, fresh feature
-  evaluations, and accurate PR validation status. Feature checklist states
-  remain unchanged.
+* Accomplished: changed cleanup-failure handling so the controller retries
+  termination and stays pending rather than exiting while the child may still
+  act. POSIX cleanup waits for the process group to disappear.
+* Scope: issue #30's controller process lifecycle, its failure-path regression,
+  and directly related cleanup and decision documentation. Feature checklist
+  states and existing evaluator verdict records were not changed in this
+  implementation turn; those verdicts predate this diff and do not evaluate it.
 * Files modified: `scripts/maker-checker-loop.mjs`,
   `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
-  `docs/decisions.md`, this progress log, and the issue #30 `agent-progress.md`.
-* Decision: D027 records that controller-run verification code is trusted and
-  runs with the caller's environment and permissions.
-* Verification on `94e4f8aceb7bb5a2dc6275de0b699b7ec792fe29` plus the dirty
-  working tree: all four harness test files passed 45/45 (exit 0), run
-  `2026-10-11T03-46-05-011Z-eaf57498-25a5-41a3-8bfc-7c1c7a8de1be`;
-  `bash scripts/check-architecture.sh` passed (exit 0), run
-  `2026-10-11T03-46-05-081Z-09d986e9-4031-4ff6-b03a-3f8c6f3bec66`;
-  `git diff --check` passed (exit 0), run
-  `2026-10-11T03-49-24-785Z-885b22b0-5791-4066-b563-5d3c85e646e2`.
-* Evaluator and publication: fresh F003/F004 evaluation passed (F003 average
-  5.0, minimum 5; F004 average 4.8, minimum 4). Commit/push and PR-thread
-  replies/resolution are in progress; exact-head CI is pending after push.
-* Startup: not applicable; no service startup behavior changed.
-* Cleanup: no long-lived process remains. The timeout test terminated its
-  child process, and test fixtures removed their temporary repositories.
-  Ignored verification reports are intentionally retained.
-* Next steps: finish publishing the verified changes, reply to and resolve the
-  addressed PR threads, then inspect and record CI for the pushed head.
+  `docs/decisions.md`, and this progress log. No rubric, feature list, or
+  evaluator verdict was edited in this implementation turn.
+* Verification: pending. Run the exact F003 command and
+  `bash scripts/check-architecture.sh` through the evidence runner, then
+  request a fresh F003 evaluation for this diff. F004 code is unchanged, but
+  the shared controller change should be included in renewed F004 evidence
+  before its prior evaluation is relied on.
+* Boundedness: dispatch and further loop work stop at their existing limits.
+  Cleanup retry has no elapsed-time cap, because exiting while a child may act
+  would violate the safety invariant. A persistent OS cleanup failure can keep
+  the controller pending indefinitely; a hard total-lifetime guarantee needs
+  OS-enforced containment.
+* Reviewed revision: `cc0eec3d0e46102f8493915f21756716a5ef89a4` plus the
+  current uncommitted changes. No startup check applies to harness scripts.
+* Cleanup: no test was run in this session yet; processes and temporary
+  artifacts created by this session: none. Preserve local ignored verification
+  reports and prior evaluator artifacts.
+* Publication: no commit or push. Existing PR #31 and its interrupt-cleanup
+  thread remain pending; do not rely on old evaluator results for the new diff.
+* Next steps: run focused evidence-captured checks, repair any failures, obtain
+  fresh independent evaluation, then update PR review context and only commit
+  or publish when authorized.
 
 ## Built
 

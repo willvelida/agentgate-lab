@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -174,6 +177,137 @@ test('terminates a timed-out process tree without waiting for a cooperative chil
     /Child process exceeded its 100 ms dispatch limit/,
   );
   assert.ok(Date.now() - startedAt < 5000);
+});
+
+test('keeps dispatch pending and retries after process-tree termination failure', async () => {
+  let childProcess;
+  let attempts = 0;
+  let resolveFirstFailure;
+  let childClosed;
+  const firstFailure = new Promise((resolveFailure) => {
+    resolveFirstFailure = resolveFailure;
+  });
+  let dispatchSettled = false;
+  const dispatch = runProcess(
+    process.execPath,
+    ['-e', 'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);'],
+    {
+      cwd: process.cwd(),
+      timeoutMs: 100,
+      terminateProcessTree: async (child) => {
+        attempts += 1;
+        childProcess = child;
+        childClosed ??= once(child, 'close');
+        if (attempts === 1) {
+          resolveFirstFailure();
+          throw new Error('simulated cleanup failure');
+        }
+        child.kill('SIGKILL');
+      },
+    },
+  );
+  dispatch.then(
+    () => { dispatchSettled = true; },
+    () => { dispatchSettled = true; },
+  );
+
+  await firstFailure;
+
+  assert.ok(childProcess, 'the termination callback should receive the running child');
+  assert.equal(childProcess.exitCode, null);
+  assert.equal(childProcess.signalCode, null);
+  assert.equal(dispatchSettled, false, 'dispatch must stay pending while cleanup has failed');
+  await assert.rejects(dispatch, /Child process exceeded its 100 ms dispatch limit/);
+  await childClosed;
+  assert.ok(attempts >= 2, 'termination should be retried until it succeeds');
+  assert.equal(dispatchSettled, true, 'dispatch may settle only after the child has closed');
+});
+
+test('terminates the child process tree before handling controller interrupts', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-maker-checker-interrupt-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const signals = process.platform === 'win32' ? ['SIGINT'] : ['SIGINT', 'SIGTERM'];
+  const moduleUrl = new URL('./maker-checker-loop.mjs', import.meta.url).href;
+  const childCode = [
+    'require("node:fs").writeFileSync(process.argv[1], String(process.pid));',
+    'process.on("SIGTERM", () => {});',
+    'setInterval(() => {}, 1000);',
+  ].join(' ');
+
+  for (const signal of signals) {
+    const pidPath = join(root, `${signal}.pid`);
+    const controllerCode = `
+      import { runProcess } from ${JSON.stringify(moduleUrl)};
+      import { existsSync } from 'node:fs';
+      const dispatch = runProcess(process.execPath, [
+        '-e',
+        ${JSON.stringify(childCode)},
+        ${JSON.stringify(pidPath)},
+      ], { cwd: process.cwd(), timeoutMs: 10000 });
+      if (process.platform === 'win32') {
+        while (!existsSync(${JSON.stringify(pidPath)})) {
+          await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+        }
+        process.emit(${JSON.stringify(signal)});
+      }
+      try {
+        await dispatch;
+      } catch (error) {
+        console.error(error.message);
+      }
+    `;
+    const controller = spawn(
+      process.execPath,
+      ['--input-type=module', '--eval', controllerCode],
+      { cwd: process.cwd(), stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true },
+    );
+    let stderr = '';
+    controller.stderr.setEncoding('utf8');
+    controller.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    const closed = new Promise((resolveClose) => {
+      controller.once('close', (code, receivedSignal) => {
+        resolveClose({ code, signal: receivedSignal });
+      });
+    });
+
+    try {
+      const deadline = Date.now() + 5000;
+      while (!existsSync(pidPath) && controller.exitCode === null && Date.now() < deadline) {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+      }
+      assert.ok(existsSync(pidPath), 'the detached child should start before interruption');
+      const childPid = Number(readFileSync(pidPath, 'utf8'));
+
+      if (process.platform !== 'win32') {
+        controller.kill(signal);
+      }
+      let closeTimeout;
+      const closeTimedOut = new Promise((_, rejectClose) => {
+        closeTimeout = setTimeout(
+          () => rejectClose(new Error('Controller did not exit after interruption.')),
+          5000,
+        );
+      });
+      let result;
+      try {
+        result = await Promise.race([closed, closeTimedOut]);
+      } finally {
+        clearTimeout(closeTimeout);
+      }
+      assert.deepEqual(result, {
+        code: signal === 'SIGINT' ? 130 : 143,
+        signal: null,
+      });
+      assert.match(stderr, new RegExp(`interrupted by ${signal}`));
+      assert.throws(() => process.kill(childPid, 0), { code: 'ESRCH' });
+    } finally {
+      if (controller.exitCode === null && controller.signalCode === null) {
+        controller.kill('SIGKILL');
+      }
+    }
+  }
 });
 
 test('stops successfully on checker pass for unchanged work', async (t) => {

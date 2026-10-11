@@ -114,6 +114,17 @@ async function terminateProcessTree(child) {
   signalProcessGroup(child.pid, 'SIGTERM');
   await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
   signalProcessGroup(child.pid, 'SIGKILL');
+  while (true) {
+    try {
+      process.kill(-child.pid, 0);
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+    } catch (error) {
+      if (error.code === 'ESRCH') {
+        return;
+      }
+      throw error;
+    }
+  }
 }
 
 export function runProcess(executable, args, options) {
@@ -124,30 +135,89 @@ export function runProcess(executable, args, options) {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    const childClosed = new Promise((resolveClosed) => {
+      child.once('close', resolveClosed);
+    });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
     let settled = false;
-    const timer = setTimeout(() => {
-      if (settled || child.exitCode !== null || child.signalCode !== null) {
+    let stopRequested = false;
+    let interruptedBy = null;
+    let terminationPromise = null;
+    let timer;
+
+    function cleanup() {
+      clearTimeout(timer);
+      process.removeListener('SIGINT', onSigint);
+      process.removeListener('SIGTERM', onSigterm);
+    }
+
+    function finishStop() {
+      if (settled) {
         return;
       }
+      settled = true;
+      cleanup();
+      if (interruptedBy) {
+        process.exitCode = interruptedBy === 'SIGINT' ? 130 : 143;
+        reject(new Error(
+          `Child process was interrupted by ${interruptedBy}.`,
+        ));
+      } else {
+        reject(new Error(`Child process exceeded its ${options.timeoutMs} ms dispatch limit.`));
+      }
+    }
+
+    async function terminateAndWait() {
+      let lastError;
+      while (true) {
+        try {
+          await (options.terminateProcessTree ?? terminateProcessTree)(child);
+          await childClosed;
+          if (lastError) {
+            process.stderr.write('Process-tree termination succeeded after retry.\n');
+          }
+          return;
+        } catch (error) {
+          if (error.message !== lastError?.message) {
+            process.stderr.write(
+              `Process-tree termination failed; retrying while the child may still act: `
+                + `${error.message}\n`,
+            );
+          }
+          lastError = error;
+          await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+        }
+      }
+    }
+
+    function requestStop(signal = null) {
+      if (settled) {
+        return;
+      }
+      if (signal) {
+        interruptedBy = signal;
+      }
+      if (stopRequested) {
+        return;
+      }
+      stopRequested = true;
       timedOut = true;
-      terminateProcessTree(child).then(
-        () => {
-          settled = true;
-          reject(new Error(`Child process exceeded its ${options.timeoutMs} ms dispatch limit.`));
-        },
-        (error) => {
-          settled = true;
-          reject(new Error(
-            `Child process exceeded its ${options.timeoutMs} ms dispatch limit,`
-              + ` and process-tree termination failed: ${error.message}`,
-            { cause: error },
-          ));
-        },
-      );
+      clearTimeout(timer);
+      terminationPromise = terminateAndWait();
+      terminationPromise.then(finishStop);
+    }
+
+    const onSigint = () => requestStop('SIGINT');
+    const onSigterm = () => requestStop('SIGTERM');
+    timer = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) {
+        requestStop();
+      }
     }, options.timeoutMs);
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
@@ -158,18 +228,21 @@ export function runProcess(executable, args, options) {
       stderr += chunk;
     });
     child.on('error', (error) => {
-      clearTimeout(timer);
       if (!settled) {
         settled = true;
+        cleanup();
         reject(new Error(`Unable to start ${executable}: ${error.message}`, { cause: error }));
       }
     });
     child.on('close', (code, signal) => {
-      clearTimeout(timer);
-      if (settled || timedOut) {
+      if (settled) {
+        return;
+      }
+      if (timedOut) {
         return;
       }
       settled = true;
+      cleanup();
       if (code !== 0 && !options.allowNonZeroExit) {
         reject(new Error(
           `Copilot session failed with exit code ${code}`
