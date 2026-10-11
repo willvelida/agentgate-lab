@@ -21,33 +21,40 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31 is currently at remote head
-  `8d8d1265d275b22cb5fc66e148f5159512d4677e` on `feat/harness-extension`.
-  Five review threads were unresolved at the latest refresh; the progress-log
-  thread is already resolved. Uncommitted follow-up fixes protect
-  instruction/configuration and host verification files, reject shell
-  command-mode forms, explicitly remove sandbox containers, and run the goal
-  contract tests in CI. F003 and F004 have fresh evaluator PASS verdicts
-  (averages 4.8/5); publication and exact-head CI remain pending.
+* PR #31 is at remote head
+  `9152b1a0d6ec26781ae6058c3b90dd883b465bd9` on `feat/harness-extension`;
+  Build, Docs check, and Copilot review passed for that head, but those runs
+  do not cover the current working-tree changes. Five inline review threads
+  remain open. The working tree addresses the
+  instruction-surface, shell-option parsing, container-cleanup, host-runner
+  protection, output bound, protected-path symlinks, and verification-input
+  findings. It also fixes three additional Copilot findings: local
+  initialization builds the sandbox and runs the harness tests, elapsed-time
+  limits respect Node.js timer bounds, and the goal issue must match the
+  checklist issue. F003 and F004 both have fresh evaluator PASS verdicts.
+  Their exact tests, the combined maker-checker suite, architecture check,
+  and diff whitespace check pass on the current tree. F004 rejects ambiguous
+  slash tokens after a closing brace and preserves regex context after
+  `for await`. Changes remain uncommitted and unpublished.
 * Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
   The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
   check, and DCO. Follow-up commit
   `5c1f9dc580723224b0fc11375e7008ca7810ec60` is pushed to
   `origin/feat/harness-extension`; the interrupt-cleanup review thread was
   answered and resolved.
-* Current PR-review verification on the dirty tree: F003 regression tests
-  passed 34/34, exit 0, run
-  `2026-10-11T07-17-50-336Z-e29073af-ee3f-43d2-9a33-b12921922952`;
-  F004 tests passed 23/23, exit 0, run
-  `2026-10-11T07-43-26-147Z-1f8a79dc-cdee-4f82-9d64-21c7a58648a7`;
-  the CI maker-checker test group passed 60/60, exit 0, run
-  `2026-10-11T07-43-26-215Z-d5466336-a5fa-435a-98bc-4ad09d8c1fd2`;
-  verification-runner tests passed 9/9, exit 0, run
-  `2026-10-11T07-43-26-076Z-d05278cb-03f2-4efa-ad14-b21f3eec14df`;
+* Current review validation on base `9152b1a0d6ec26781ae6058c3b90dd883b465bd9`
+  plus the dirty tree: exact F003 tests passed 35/35, exit 0, run
+  `2026-10-11T19-49-08-484Z-552ad0ad-782e-4117-a4e5-116399f553fb`; exact
+  F004 tests passed 33/33, exit 0, run
+  `2026-10-11T19-48-33-371Z-b51f33d2-b94c-4802-9a2b-b104de4e554f`; the
+  combined maker-checker suite passed 72/72, exit 0, run
+  `2026-10-11T19-49-08-458Z-1d9b812d-27ab-4795-9a9f-ea00a7fd3176`;
   architecture passed, exit 0, run
-  `2026-10-11T07-42-55-463Z-71f1688f-d94a-4a8f-beef-854cb16f4fac`.
-  Fresh F003 and F004 evaluators both returned PASS, average 4.8/minimum 4.
-  No exact-head CI applies to these uncommitted changes.
+  `2026-10-11T19-49-08-448Z-de4a674a-64d1-4e4e-9c0f-f4d6da75b88d`; and
+  `git diff --check` passed, exit 0, run
+  `2026-10-11T19-49-08-457Z-48d13718-4b17-4fe2-ae06-66551366e0fb`.
+  A Bash evidence-runner attempt could not locate Node.js; the PowerShell
+  runner captured the passing focused checks. Exact-head CI remains pending.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -469,66 +476,55 @@ where you left off.
 
 ## Last session
 
-* Date: 2026-10-11
-* Accomplished: refreshed PR #31 and confirmed five unresolved findings,
-  including the unprotected host verification launcher. Implemented and
-  locally verified the instruction/configuration and launcher protections,
-  rejection of shell command-mode flags despite intervening options,
-  explicit verification-container cleanup, and the missing goal-contract test
-  in CI. Updated sandbox and operator guidance. Fresh-session F003 and F004
-  evaluations both returned PASS (average 4.8, minimum 4).
-* Scope: F003 process cleanup and F004 controller verification/instruction
-  safety. Feature status values remain unchanged.
-* Files modified: `scripts/maker-checker-safety.mjs`,
-  `scripts/maker-checker-safety.test.mjs`, `scripts/verification-sandbox.mjs`,
-  `scripts/maker-checker-loop.mjs`, `scripts/run-verification.mjs`,
-  `.github/workflows/build.yml`, `docs/decisions.md`, `docs/harness-agent.md`,
-  `docs/verification.md`,
-  `docs/features/.../agent-progress.md`, and this log.
-* Verification reviewed the dirty tree atop commit
-  `8d8d1265d275b22cb5fc66e148f5159512d4677e`:
-  * F003 exact tests passed 34/34, exit 0, run
-    `2026-10-11T07-12-19-137Z-d677b96e-38fc-407c-98fe-46e9369a5311`.
-  * F004 exact tests passed 23/23, exit 0, run
-    `2026-10-11T07-12-19-137Z-76f49ac9-77b7-4b17-bbf4-9302b00cc810`.
-  * The updated CI maker-checker test command, including
-    `scripts/goal-contract.test.mjs`, passed 60/60, exit 0, run
-    `2026-10-11T07-11-19-707Z-aa366f0b-1908-4dbd-9c8e-d33863999aef`.
-  * Verification-runner tests passed 9/9, exit 0, run
-    `2026-10-11T07-11-19-918Z-7ac52640-0142-4339-b3c7-8f1319e385b2`.
-  * `bash scripts/check-architecture.sh` passed, exit 0, run
-    `2026-10-11T07-11-19-800Z-5c166269-43cb-41dc-aa97-a1dcb624195b`.
-  * Fresh-session F003 evaluator PASS (average 4.8, minimum 4), reviewed
-    `8d8d1265d275b22cb5fc66e148f5159512d4677e` plus the 11-file dirty diff.
-    Exact F003 tests passed 34/34, run
-    `2026-10-11T07-17-50-336Z-e29073af-ee3f-43d2-9a33-b12921922952`; complete
-    harness tests passed 60/60, run
-    `2026-10-11T07-17-50-384Z-c64d686a-3300-4696-a43c-fb4e45c5bb82`;
-    runner tests passed 9/9, run
-    `2026-10-11T07-17-50-494Z-1111afba-1cc2-40c7-9dd5-e67518bb23a7`;
-    architecture passed, run
-    `2026-10-11T07-17-50-321Z-d19df911-786f-4abf-8175-3af4fdbeccbb`.
-  * Fresh-session F004 evaluator PASS (average 4.8, minimum 4), reviewed
-    `8d8d1265d275b22cb5fc66e148f5159512d4677e` plus the 11 modified tracked
-    files. Exact F004 tests passed 23/23, run
-    `2026-10-11T07-43-26-147Z-1f8a79dc-cdee-4f82-9d64-21c7a58648a7`;
-    complete harness tests passed 60/60, run
-    `2026-10-11T07-43-26-215Z-d5466336-a5fa-435a-98bc-4ad09d8c1fd2`;
-    runner tests passed 9/9, run
-    `2026-10-11T07-43-26-076Z-d05278cb-03f2-4efa-ad14-b21f3eec14df`;
-    architecture passed, run
-    `2026-10-11T07-42-55-463Z-71f1688f-d94a-4a8f-beef-854cb16f4fac`.
-  * A Docker-container inventory query found no remaining verification
-    containers. The cleanup-failure regression removes its own retained test
-    fixture. Earlier Git-Bash wrapper attempts could not locate Node.js; the
-    documented PowerShell evidence wrapper ran all checks successfully.
-* Boundaries: the sandbox still trusts Docker, its image, and the host kernel;
-  it is not an application security boundary. Application startup checks do
-  not apply, and no long-running application process was started.
-* Publication and review: no new commit or push yet. Five targeted review
-  threads remain unresolved; exact-head CI has not run for this dirty tree.
-* Next: commit and push the verified follow-up, record exact-head CI, update
-  the PR description, then reply to and resolve the five addressed threads.
+* Date: 2026-10-12
+* Accomplished: reviewed and repaired the PR #31 findings covering bounded
+  child output, protected-path symlinks, complete verification inputs,
+  comment-separated imports, Docker trust-boundary documentation,
+  initialization checks, timer limits, and goal/checklist consistency. F004
+  regression tests cover regex literals, ambiguous slash context after a
+  closing brace, numeric division, and async `for await` control headers.
+  Both F003 and F004 have fresh independent PASS evaluations.
+* Scope: F001 timer validation, F003 process-output limits, and F004
+  verification-input protection, plus related harness docs and initialization.
+  Feature statuses remain `pass`; feature evidence summaries reflect the
+  latest verification and evaluator results.
+* Files modified: `init.sh`, `scripts/goal-contract.mjs`,
+  `scripts/goal-contract.schema.json`, `scripts/goal-contract.test.mjs`,
+  `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
+  `scripts/maker-checker-safety.mjs`, `scripts/maker-checker-safety.test.mjs`,
+  `docs/decisions.md`, `docs/harness-agent.md`, `docs/progress.md`, the
+  issue #30 `agent-progress.md`, and `features_list.json`. The evaluator
+  rubric is ignored and retained locally.
+* Verification on base `9152b1a0d6ec26781ae6058c3b90dd883b465bd9` plus the
+  uncommitted working tree:
+  * Exact F003 passed 35/35, exit 0, run
+    `2026-10-11T20-09-31-286Z-f3327a69-90f4-4447-8e65-0c236128042f`.
+  * Exact F004 passed 33/33, exit 0, run
+    `2026-10-11T20-09-31-152Z-6da5e4e3-c3a2-4aa9-a116-90d1f0844faa`.
+  * Combined maker-checker suites passed 72/72, exit 0, run
+    `2026-10-11T19-57-40-114Z-7bf3224c-1679-41aa-a5f5-74bb2b907484`.
+  * Architecture passed, exit 0, run
+    `2026-10-11T20-10-48-131Z-040df36b-048f-49cb-8faa-224d161abed1`;
+    `git diff --check` passed, exit 0, run
+    `2026-10-11T20-10-48-131Z-3959c1a4-06f0-43b4-b459-3863bc387ae0`.
+  * Fresh F003 evaluator PASS (average 4.8, minimum 4) reviewed the complete
+    12-file implementation diff. Fresh F004 evaluator PASS (average 4.8,
+    minimum 4) reviewed that diff including the final scanner fix; exact
+    verification passed 33/33 and architecture passed. See the feature
+    evidence log for both evaluator run IDs.
+  * An earlier F004 run failed 32/33 on the new `for await` regression (run
+    `2026-10-11T19-54-54-622Z-d61435c8-b9a2-4362-9dae-1b3e064dbae9`, exit 1).
+    Scanner context tracking was corrected and the regression now passes.
+* Boundaries and cleanup: service startup does not apply. No long-lived
+  process was started. Tests removed their temporary fixtures and containers.
+  Local verification evidence is retained under ignored
+  `.local/verification/`.
+* Publication and review: changes are not yet committed or pushed. PR #31 has
+  five open inline threads. Successful CI for the remote head predates this
+  working tree. PR body updates, replies, and thread resolutions remain.
+* Next: run final checks after evidence updates, commit with sign-off, push,
+  verify CI on the exact pushed head, update the PR body using its template,
+  and reply to and resolve each addressed review thread.
 
 ## Built
 

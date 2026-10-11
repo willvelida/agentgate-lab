@@ -20,6 +20,14 @@ main() {
   repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   cd "${repo_root}"
 
+  run_step "Build verification sandbox" \
+    docker build -f scripts/verification-sandbox.Dockerfile \
+      -t agentgate-verification:node24 scripts
+  run_step "Test maker-checker harness" \
+    node --test scripts/goal-contract.test.mjs \
+      scripts/maker-checker-loop.test.mjs \
+      scripts/loop-state.test.mjs \
+      scripts/maker-checker-safety.test.mjs
   run_step "Check project boundaries" \
     bash scripts/check-architecture.sh
   run_step "Test project boundary checks" \

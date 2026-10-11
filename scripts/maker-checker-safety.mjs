@@ -1,29 +1,42 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { builtinModules } from 'node:module';
 import {
   existsSync,
   lstatSync,
   readFileSync,
   readdirSync,
-  readlinkSync,
 } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 
 const shellExclusion = '--excluded-tools=shell';
 const urlDenial = '--deny-tool=url';
+const javascriptTrivia = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
+const nodeBuiltins = new Set(
+  builtinModules.flatMap((moduleName) => [
+    moduleName,
+    moduleName.replace(/^node:/, ''),
+    `node:${moduleName.replace(/^node:/, '')}`,
+  ]),
+);
 
 function stableJson(value) {
   return JSON.stringify(value);
 }
 
 function fileDigest(path) {
-  if (!existsSync(path)) return null;
+  let rootStat;
+  try {
+    rootStat = lstatSync(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
   const hash = createHash('sha256');
-  const updatePath = (currentPath) => {
-    const stat = lstatSync(currentPath);
+  const updatePath = (currentPath, pathStat = lstatSync(currentPath)) => {
+    const stat = pathStat;
     if (stat.isSymbolicLink()) {
-      hash.update('symlink\0').update(readlinkSync(currentPath));
-      return;
+      throw new Error(`Protected path contains a symbolic link: ${currentPath}`);
     }
     if (stat.isDirectory()) {
       hash.update('directory\0');
@@ -36,7 +49,7 @@ function fileDigest(path) {
     }
     hash.update('file\0').update(readFileSync(currentPath));
   };
-  updatePath(path);
+  updatePath(path, rootStat);
   return hash.digest('hex');
 }
 
@@ -48,6 +61,11 @@ function controllerProtectedPaths(repositoryRoot) {
     '.github/instructions',
     '.github/prompts',
     '.github/copilot-instructions.md',
+    'scripts/goal-contract.mjs',
+    'scripts/goal-contract.schema.json',
+    'scripts/loop-state.mjs',
+    'scripts/maker-checker-loop.mjs',
+    'scripts/maker-checker-safety.mjs',
     'scripts/run-verification.mjs',
     'scripts/verification-sandbox.mjs',
   ].map((path) => resolve(repositoryRoot, path));
@@ -77,6 +95,308 @@ function shellUsesCommandMode(shell, argument) {
   return false;
 }
 
+function maskJavaScriptNonCode(source) {
+  const characters = source.split('');
+  let index = 0;
+  const regexPrefixKeywords = new Set([
+    'await',
+    'case',
+    'delete',
+    'do',
+    'else',
+    'in',
+    'instanceof',
+    'new',
+    'of',
+    'return',
+    'throw',
+    'typeof',
+    'void',
+    'yield',
+  ]);
+  const controlKeywords = new Set(['catch', 'for', 'if', 'switch', 'while', 'with']);
+
+  function mask(start, end) {
+    for (let offset = start; offset < end; offset += 1) {
+      if (characters[offset] !== '\n' && characters[offset] !== '\r') {
+        characters[offset] = ' ';
+      }
+    }
+  }
+
+  function scanQuotedString(quote) {
+    const start = index;
+    index += 1;
+    while (index < characters.length) {
+      if (characters[index] === '\\') {
+        index += 2;
+      } else if (characters[index] === quote) {
+        index += 1;
+        break;
+      } else {
+        index += 1;
+      }
+    }
+    mask(start, Math.min(index, characters.length));
+  }
+
+  function scanTemplate() {
+    const start = index;
+    index += 1;
+    mask(start, index);
+    let textStart = index;
+    while (index < characters.length) {
+      if (characters[index] === '\\') {
+        index += 2;
+      } else if (characters[index] === '`') {
+        index += 1;
+        mask(textStart, Math.min(index, characters.length));
+        return;
+      } else if (characters[index] === '$' && characters[index + 1] === '{') {
+        mask(textStart, index);
+        mask(index, index + 2);
+        index += 2;
+        scanCode(true);
+        textStart = index;
+      } else {
+        index += 1;
+      }
+    }
+    mask(textStart, characters.length);
+  }
+
+  function scanRegexLiteral() {
+    const start = index;
+    index += 1;
+    let inCharacterClass = false;
+    while (index < characters.length) {
+      const current = characters[index];
+      if (current === '\\') {
+        index += 2;
+      } else if (current === '\n' || current === '\r') {
+        break;
+      } else if (current === '[' && !inCharacterClass) {
+        inCharacterClass = true;
+        index += 1;
+      } else if (current === ']' && inCharacterClass) {
+        inCharacterClass = false;
+        index += 1;
+      } else if (current === '/' && !inCharacterClass) {
+        index += 1;
+        while (/[A-Za-z]/.test(characters[index] ?? '')) index += 1;
+        break;
+      } else {
+        index += 1;
+      }
+    }
+    mask(start, Math.min(index, characters.length));
+  }
+
+  function scanCode(templateExpression = false) {
+    let braceDepth = 0;
+    let canStartRegex = true;
+    let pendingControlParen = false;
+    let previousTokenWasClosingBrace = false;
+    const controlParens = [];
+    while (index < characters.length) {
+      const current = characters[index];
+      const next = characters[index + 1];
+      if (templateExpression && current === '}' && braceDepth === 0) {
+        index += 1;
+        return;
+      }
+      if (/\s/.test(current)) {
+        index += 1;
+      } else if (current === '/' && next === '/') {
+        const start = index;
+        index += 2;
+        while (index < characters.length && characters[index] !== '\n') {
+          index += 1;
+        }
+        mask(start, index);
+      } else if (current === '/' && next === '*') {
+        const start = index;
+        index += 2;
+        while (
+          index < characters.length
+          && !(characters[index] === '*' && characters[index + 1] === '/')
+        ) {
+          index += 1;
+        }
+        index = Math.min(index + 2, characters.length);
+        mask(start, index);
+      } else if (current === '/' && previousTokenWasClosingBrace) {
+        throw new Error(
+          'Node verification source has an ambiguous slash after a closing brace',
+        );
+      } else if (current === "'" || current === '"') {
+        previousTokenWasClosingBrace = false;
+        scanQuotedString(current);
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (current === '`') {
+        previousTokenWasClosingBrace = false;
+        scanTemplate();
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (current === '/' && (canStartRegex || next === '\\')) {
+        previousTokenWasClosingBrace = false;
+        scanRegexLiteral();
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (/[A-Za-z_$]/.test(current)) {
+        previousTokenWasClosingBrace = false;
+        const start = index;
+        index += 1;
+        while (/[\w$]/.test(characters[index] ?? '')) index += 1;
+        const identifier = characters.slice(start, index).join('');
+        const wasPendingControlParen = pendingControlParen;
+        canStartRegex = regexPrefixKeywords.has(identifier);
+        pendingControlParen = controlKeywords.has(identifier)
+          || identifier === 'await' && wasPendingControlParen;
+      } else if (/[0-9]/.test(current)) {
+        previousTokenWasClosingBrace = false;
+        index += 1;
+        while (/[\w.]/.test(characters[index] ?? '')) index += 1;
+        canStartRegex = false;
+        pendingControlParen = false;
+      } else if (current === '(') {
+        previousTokenWasClosingBrace = false;
+        controlParens.push(pendingControlParen);
+        index += 1;
+        canStartRegex = true;
+        pendingControlParen = false;
+      } else if (current === ')') {
+        previousTokenWasClosingBrace = false;
+        const isControlParen = controlParens.pop();
+        index += 1;
+        canStartRegex = isControlParen === true;
+        pendingControlParen = false;
+      } else if (current === '/' && next !== '/' && next !== '*') {
+        previousTokenWasClosingBrace = false;
+        index += 1;
+        canStartRegex = true;
+        pendingControlParen = false;
+      } else {
+        if (templateExpression && current === '{') {
+          braceDepth += 1;
+        } else if (templateExpression && current === '}') {
+          braceDepth -= 1;
+        }
+        if (current === '+' && next === '+' || current === '-' && next === '-') {
+          index += 2;
+          canStartRegex = false;
+        } else if (current === '=' && next === '>') {
+          index += 2;
+          canStartRegex = true;
+        } else {
+          index += 1;
+          canStartRegex = ![')', ']', '}', '.'].includes(current);
+        }
+        previousTokenWasClosingBrace = current === '}';
+        pendingControlParen = false;
+      }
+    }
+  }
+
+  scanCode();
+  return characters.join('');
+}
+
+function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
+  if (specifier === 'module' || specifier === 'node:module') {
+    throw new Error(
+      `Node verification imports unsupported module loader: ${specifier}`,
+    );
+  }
+  if (specifier.startsWith('node:') || nodeBuiltins.has(specifier)) {
+    return null;
+  }
+  if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
+    throw new Error(
+      `Node verification imports unsupported package input: ${specifier}`,
+    );
+  }
+
+  const importPath = resolve(dirname(importerPath), specifier);
+  const candidates = extname(importPath)
+    ? [importPath]
+    : [
+      importPath,
+      `${importPath}.mjs`,
+      `${importPath}.js`,
+      `${importPath}.cjs`,
+      `${importPath}.json`,
+    ];
+  const importedPath = candidates.find((candidate) => existsSync(candidate));
+  if (!importedPath) {
+    throw new Error(`Unable to enumerate Node verification import: ${specifier}`);
+  }
+  const repositoryRelative = relative(repositoryRoot, importedPath);
+  if (repositoryRelative.startsWith('..') || isAbsolute(repositoryRelative)) {
+    throw new Error(`Node verification import is outside the repository: ${specifier}`);
+  }
+  const importedStat = lstatSync(importedPath);
+  if (!importedStat.isFile() && !importedStat.isSymbolicLink()) {
+    throw new Error(`Node verification import is not a file: ${specifier}`);
+  }
+  return importedPath;
+}
+
+function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
+  const paths = new Set();
+  const visited = new Set();
+  const queue = [...testFiles];
+  while (queue.length > 0) {
+    const importerPath = queue.shift();
+    if (visited.has(importerPath)) continue;
+    visited.add(importerPath);
+    const source = readFileSync(importerPath, 'utf8');
+    const executableSource = maskJavaScriptNonCode(source);
+    const dynamicImport = new RegExp(`\\bimport${javascriptTrivia}\\(`);
+    const dynamicRequire = new RegExp(
+      `\\brequire${javascriptTrivia}\\(${javascriptTrivia}(?!['"][^'"]*['"]${javascriptTrivia}\\))`,
+    );
+    const indirectModuleLoader = new RegExp(
+      `\\b(?:createRequire|getBuiltinModule)\\b|\\brequire\\b${javascriptTrivia}(?!\\()`,
+    );
+    if (dynamicImport.test(executableSource)
+        || dynamicRequire.test(executableSource)
+        || indirectModuleLoader.test(executableSource)) {
+      throw new Error(
+        `Node verification input has an indirect module loader that cannot be protected: ${importerPath}`,
+      );
+    }
+    const staticImports = new RegExp(
+      `\\b(?:from|import)${javascriptTrivia}['"]([^'"]+)['"]`,
+      'g',
+    );
+    const staticRequires = new RegExp(
+      `\\brequire${javascriptTrivia}\\(${javascriptTrivia}['"]([^'"]+)['"]\\s*\\)`,
+      'g',
+    );
+    const specifiers = [
+      ...source.matchAll(staticImports),
+      ...source.matchAll(staticRequires),
+    ].filter((match) => executableSource[match.index] !== ' ')
+      .map((match) => match[1]);
+    for (const specifier of specifiers) {
+      const importedPath = resolveVerificationImport(repositoryRoot, importerPath, specifier);
+      if (!importedPath) continue;
+      if (protectedRoots.some((root) => (
+        importedPath === root || !relative(root, importedPath).startsWith('..')
+      ))) {
+        continue;
+      }
+      const relativePath = relative(repositoryRoot, importedPath);
+      if (relativePath.split(/[\\/]/)[0] === 'src') continue;
+      paths.add(importedPath);
+      queue.push(importedPath);
+    }
+  }
+  return [...paths];
+}
+
 function verificationPaths(repositoryRoot, verificationCommand) {
   const tokens = (verificationCommand.match(/"[^"]+"|'[^']+'|\S+/g) ?? [])
     .map((token) => token.replace(/^(['"])(.*)\1$/, '$2'));
@@ -97,6 +417,137 @@ function verificationPaths(repositoryRoot, verificationCommand) {
   }
 
   const paths = [];
+  const executable = tokens[0]?.split(/[\\/]/).at(-1)
+    .replace(/\.exe$/i, '')
+    .toLowerCase();
+  if (shells.has(executable)) {
+    if (executable !== 'bash'
+        || tokens.length !== 2
+        || !/^scripts[\\/].+\.sh$/i.test(tokens[1])) {
+      throw new Error(
+        'Shell verification must invoke one explicit scripts/*.sh file without shell options.',
+      );
+    }
+    paths.push(resolve(repositoryRoot, 'scripts'));
+  } else if (executable === 'node') {
+    if (tokens[1] !== '--test'
+        || tokens.length < 3
+        || !tokens.slice(2).every((token) => /\.(?:test|spec)\.mjs$/i.test(token)
+          && !/[*?\[\]]/.test(token))) {
+      throw new Error(
+        'Node verification must use node --test with explicit .test.mjs or .spec.mjs files.',
+      );
+    }
+    const testFiles = [];
+    const protectedRoots = [];
+    for (const token of tokens.slice(2)) {
+      const path = resolve(repositoryRoot, token);
+      const repositoryRelative = relative(repositoryRoot, path);
+      if (repositoryRelative.startsWith('..')
+          || isAbsolute(repositoryRelative)
+          || !existsSync(path)
+          || !lstatSync(path).isFile()) {
+        throw new Error(`Node verification test file is not a repository file: ${token}`);
+      }
+      const segments = repositoryRelative.split(/[\\/]/);
+      const testDirectoryIndex = segments.slice(0, -1).findIndex((segment) => (
+        /^(?:__tests__|tests?)$/i.test(segment) || /\.tests?$/i.test(segment)
+      ));
+      const rootIndex = segments[0] === 'scripts'
+        ? 0
+        : testDirectoryIndex;
+      if (rootIndex < 0) {
+        throw new Error(
+          `Node verification test file must be under scripts/ or a test directory: ${token}`,
+        );
+      }
+      const protectedRoot = resolve(repositoryRoot, ...segments.slice(0, rootIndex + 1));
+      protectedRoots.push(protectedRoot);
+      paths.push(protectedRoot);
+      paths.push(path);
+      testFiles.push(path);
+    }
+    paths.push(...verificationImportPaths(repositoryRoot, testFiles, protectedRoots));
+  } else if (executable === 'dotnet' && tokens[1]?.toLowerCase() === 'test') {
+    const target = tokens.slice(2).find((token) => /\.(?:sln|csproj)$/i.test(token));
+    if (!target) {
+      throw new Error('dotnet test verification must name an explicit solution or project.');
+    }
+    const targetPath = resolve(repositoryRoot, target);
+    if (!existsSync(targetPath)
+        || relative(repositoryRoot, targetPath).startsWith('..')) {
+      throw new Error(`dotnet test target is not a repository file: ${target}`);
+    }
+    paths.push(targetPath);
+    const testProjectDirectories = target.toLowerCase().endsWith('.csproj')
+      ? (/\.tests?\.csproj$/i.test(target) ? [targetPath] : [])
+      : [...readFileSync(targetPath, 'utf8').matchAll(/"([^"]+\.csproj)"/gi)]
+        .map((match) => resolve(dirname(targetPath), match[1].replaceAll('\\', '/')))
+        .filter((path) => /(?:^|[\\/])[^\\/]*\.tests?\.csproj$/i.test(path)
+          || /[\\/](?:tests?|__tests__)[\\/]/i.test(path));
+    if (testProjectDirectories.length === 0) {
+      throw new Error('dotnet test target must identify at least one test project.');
+    }
+    if (testProjectDirectories.some((path) => (
+      relative(repositoryRoot, path).startsWith('..') || !existsSync(path)
+    ))) {
+      throw new Error('dotnet test target references a test project outside the repository.');
+    }
+    const configNames = [
+      'Directory.Build.props',
+      'Directory.Build.targets',
+      'Directory.Packages.props',
+      'global.json',
+      'NuGet.Config',
+      'nuget.config',
+    ];
+    const configDirectories = new Set([resolve(repositoryRoot)]);
+    for (const projectPath of testProjectDirectories) {
+      paths.push(projectPath);
+      paths.push(dirname(projectPath));
+      let directory = dirname(projectPath);
+      while (directory !== resolve(repositoryRoot)
+          && !relative(repositoryRoot, directory).startsWith('..')) {
+        configDirectories.add(directory);
+        const parent = dirname(directory);
+        if (parent === directory) break;
+        directory = parent;
+      }
+    }
+    for (const directory of configDirectories) {
+      for (const configName of configNames) {
+        const configPath = resolve(directory, configName);
+        if (existsSync(configPath)) paths.push(configPath);
+      }
+    }
+  } else if (executable === 'docker'
+      && tokens[1]?.toLowerCase() === 'compose'
+      && tokens[2]?.toLowerCase() === 'run') {
+    if (tokens.length !== 6
+        || tokens[3] !== '--build'
+        || tokens[4] !== '--rm'
+        || !/^[a-z0-9][a-z0-9_-]*$/i.test(tokens[5])) {
+      throw new Error(
+        'Docker Compose verification must use `docker compose run --build --rm <service>`.',
+      );
+    }
+    const composeFiles = readdirSync(repositoryRoot)
+      .filter((name) => /^(?:compose|docker-compose)(?:\.override)?\.ya?ml$/i.test(name));
+    if (composeFiles.length === 0) {
+      throw new Error('Docker Compose verification requires a repository compose file.');
+    }
+    paths.push(...composeFiles.map((name) => resolve(repositoryRoot, name)));
+    for (const name of ['.dockerignore', '.env', '.env.local']) {
+      const envPath = resolve(repositoryRoot, name);
+      if (existsSync(envPath)) paths.push(envPath);
+    }
+  } else {
+    throw new Error(
+      'Verification command form is not supported; use explicit node tests, a scripts/*.sh '
+        + 'script, dotnet test with an explicit target, or docker compose run.',
+    );
+  }
+
   for (const unquoted of tokens) {
     if (unquoted.startsWith('-')) continue;
     const path = resolve(repositoryRoot, unquoted);
@@ -104,7 +555,7 @@ function verificationPaths(repositoryRoot, verificationCommand) {
     if (repositoryRelative.startsWith('..') || isAbsolute(repositoryRelative)) continue;
     if (existsSync(path)) paths.push(path);
   }
-  return paths;
+  return [...new Set(paths)];
 }
 
 function featureById(features, featureId) {
@@ -121,6 +572,9 @@ function duplicateFeatureId(features) {
 }
 
 function assertSafeStartingChecklist(checklist, goal) {
+  if (checklist.issue?.number !== goal.issue) {
+    throw new Error('Goal issue does not match its feature checklist.');
+  }
   const target = featureById(checklist.features, goal.featureId);
   if (!target) {
     throw new Error(`Feature ${goal.featureId} is missing from its checklist.`);

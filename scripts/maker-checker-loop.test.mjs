@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
   CopilotCliDispatcher,
+  MAX_PROCESS_OUTPUT_BYTES,
   ScriptedDispatcher,
   runMakerCheckerLoop,
   runProcess,
@@ -177,6 +178,40 @@ test('terminates a timed-out process tree without waiting for a cooperative chil
     /Child process exceeded its 100 ms dispatch limit/,
   );
   assert.ok(Date.now() - startedAt < 5000);
+});
+
+test('terminates a process that exceeds the combined output byte limit', async () => {
+  let childProcess;
+  let childClosed;
+  const dispatch = runProcess(
+    process.execPath,
+    [
+      '-e',
+      'process.stdout.write(Buffer.alloc(800 * 1024));'
+        + 'process.stderr.write(Buffer.alloc(300 * 1024));'
+        + 'setInterval(() => {}, 1000);',
+    ],
+    {
+      cwd: process.cwd(),
+      timeoutMs: 10000,
+      terminateProcessTree: async (child) => {
+        childProcess = child;
+        childClosed = once(child, 'close');
+        child.kill();
+      },
+    },
+  );
+
+  await assert.rejects(
+    dispatch,
+    new RegExp(`Child process exceeded its ${MAX_PROCESS_OUTPUT_BYTES} byte combined output limit`),
+  );
+  assert.ok(childProcess, 'output overflow should terminate the child process');
+  await childClosed;
+  assert.ok(
+    childProcess.exitCode !== null || childProcess.signalCode !== null,
+    'the process should be closed after output overflow',
+  );
 });
 
 test('keeps dispatch pending and retries after process-tree termination failure', async () => {

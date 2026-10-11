@@ -7,10 +7,11 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import {
   CopilotCliDispatcher,
@@ -89,6 +90,18 @@ function checklist() {
     ],
   };
 }
+
+test('repository boundary captures its actual F004 verification target', () => {
+  const boundary = new RepositorySafetyBoundary();
+  const snapshot = boundary.capture(goal(), { requireActive: false });
+  const verificationPath = resolve(
+    process.cwd(),
+    'scripts',
+    'maker-checker-safety.test.mjs',
+  );
+
+  assert.ok(Object.hasOwn(snapshot.protectedFiles, verificationPath));
+});
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'agentgate-maker-checker-safety-'));
@@ -514,7 +527,8 @@ test('repository boundary permits ordinary implementation changes', (t) => {
     commandRunner: commandRunner(),
   });
   const before = boundary.capture(goal());
-  const implementationPath = join(files.root, 'scripts', 'implementation.mjs');
+  const implementationPath = join(files.root, 'src', 'implementation.mjs');
+  mkdirSync(dirname(implementationPath), { recursive: true });
   writeFileSync(implementationPath, 'implementation\n');
   const after = boundary.capture(goal());
 
@@ -584,7 +598,282 @@ test('repository boundary protects the architecture verification script', (t) =>
 
   assert.throws(
     () => boundary.assertTransition(before, after, goal(), 'maker'),
-    /Protected file scripts[\\/]check-architecture\.sh changed/,
+    /Protected file scripts changed/,
+  );
+});
+
+test('repository boundary protects unlisted helpers in the verification tree', (t) => {
+  const files = fixture(t);
+  const helperPath = join(files.root, 'scripts', 'verification-helper.mjs');
+  writeFileSync(helperPath, 'trusted helper\n');
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  writeFileSync(helperPath, 'weakened helper\n');
+
+  assert.throws(
+    () => boundary.assertTransition(before, boundary.capture(goal()), goal(), 'maker'),
+    /Protected file scripts changed/,
+  );
+});
+
+test('repository boundary protects verification helpers imported outside the test tree', (t) => {
+  const files = fixture(t);
+  const testPath = join(files.root, 'tests', 'Sample.Tests', 'sample.test.mjs');
+  const helperPath = join(files.root, 'verification-helper.mjs');
+  mkdirSync(dirname(testPath), { recursive: true });
+  writeFileSync(
+    testPath,
+    "import /* tracked helper */ '../../verification-helper.mjs';\n",
+  );
+  writeFileSync(helperPath, 'export const verified = true;\n');
+  const verificationCommand = 'node --test tests/Sample.Tests/sample.test.mjs';
+  const contract = { ...goal(), verificationCommand };
+  const changed = checklist();
+  changed.features[1].verification = verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(contract);
+  writeFileSync(helperPath, 'export const verified = false;\n');
+
+  assert.throws(
+    () => boundary.assertTransition(before, boundary.capture(contract), contract, 'maker'),
+    /Protected file verification-helper\.mjs changed/,
+  );
+});
+
+test('default repository boundary protects controller modules for external verification', (t) => {
+  const files = fixture(t);
+  const verificationPath = join(
+    files.root,
+    'tests',
+    'Sample.Tests',
+    'sample.test.mjs',
+  );
+  mkdirSync(dirname(verificationPath), { recursive: true });
+  writeFileSync(verificationPath, 'test("sample", () => {});\n');
+  const verificationCommand = 'node --test tests/Sample.Tests/sample.test.mjs';
+  const contract = { ...goal(), verificationCommand };
+  const changed = checklist();
+  changed.features[1].verification = verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+
+  const controllerPaths = [
+    'scripts/goal-contract.mjs',
+    'scripts/goal-contract.schema.json',
+    'scripts/loop-state.mjs',
+    'scripts/maker-checker-loop.mjs',
+    'scripts/maker-checker-safety.mjs',
+    'scripts/run-verification.mjs',
+    'scripts/verification-sandbox.mjs',
+  ];
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  for (const protectedPath of controllerPaths) {
+    const absolutePath = join(files.root, protectedPath);
+    mkdirSync(dirname(absolutePath), { recursive: true });
+    writeFileSync(absolutePath, 'trusted controller module\n');
+    const before = boundary.capture(contract);
+    writeFileSync(absolutePath, 'tampered controller module\n');
+    const normalizedPath = protectedPath.replaceAll('\\', '/');
+
+    assert.throws(
+      () => boundary.assertTransition(
+        before,
+        boundary.capture(contract),
+        contract,
+        'maker',
+      ),
+      (error) => error.message
+        .replaceAll('\\', '/')
+        .includes(`Protected file ${normalizedPath} changed`),
+      protectedPath,
+    );
+  }
+});
+
+test('repository boundary rejects a goal issue that differs from the checklist', (t) => {
+  const files = fixture(t);
+  const changed = checklist();
+  changed.issue.number = 31;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /Goal issue does not match its feature checklist/,
+  );
+});
+
+test('repository boundary rejects symbolic links in protected paths', (t) => {
+  const files = fixture(t);
+  const targetDirectory = join(files.root, 'linked-target');
+  const linkPath = join(files.root, 'scripts', 'linked-helper');
+  mkdirSync(targetDirectory);
+  writeFileSync(join(targetDirectory, 'helper.mjs'), 'helper\n');
+  symlinkSync(
+    targetDirectory,
+    linkPath,
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /Protected path contains a symbolic link/,
+  );
+});
+
+test('verification contracts reject implicit discovery, package scripts, and unsupported tools', (t) => {
+  const commands = [
+    'node --test',
+    'node --test scripts/*.test.mjs',
+    'npm test',
+    'npm run test:unit',
+    'pytest tests/test_feature.py',
+    'dotnet test AgentGateLab.slnx',
+  ];
+  for (const verificationCommand of commands) {
+    const files = fixture(t);
+    const contract = { ...goal(), verificationCommand };
+    const changed = checklist();
+    changed.features[1].verification = verificationCommand;
+    writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+    const boundary = new RepositorySafetyBoundary({
+      repositoryRoot: files.root,
+      commandRunner: commandRunner(),
+    });
+    const expectedError = verificationCommand.endsWith('.slnx')
+      ? /dotnet test verification must name an explicit solution or project/
+      : /Node verification must use|Verification command form is not supported/;
+
+    assert.throws(
+      () => boundary.capture(contract),
+      expectedError,
+      verificationCommand,
+    );
+  }
+});
+
+test('verification contracts reject dynamic and external test imports', (t) => {
+  const unsupportedTestSources = [
+    "import('../test-helper.mjs');\n",
+    "import /* comment-separated */ ('../test-helper.mjs');\n",
+    'require /* comment-separated */ (helperPath);\n',
+    'const loadModule = require;\nloadModule(helperPath);\n',
+    "require('test-' + 'helper.mjs');\n",
+    "import { createRequire as loadHelper } from 'node:module';\nloadHelper(import.meta.url)('../test-helper.mjs');\n",
+    "import { createRequire as loadHelper } from 'module';\nloadHelper(import.meta.url)('../test-helper.mjs');\n",
+    "process.getBuiltinModule('module').createRequire(import.meta.url)('../test-helper.mjs');\n",
+    'const slashPattern = /\\/\\//; import("../test-helper.mjs");\n',
+    "if (true) {} /\\/\\//.test('x'); import('../test-helper.mjs');\n",
+    "{} /'/; import('../test-helper.mjs');\n",
+    String.raw`if (true) {} /\\\//.test('x'); import('../test-helper.mjs');`,
+    "async function run(items) { for await (const item of items) /'/; import('../test-helper.mjs'); }\n",
+    "const quotient = 4 / 2; import('../test-helper.mjs');\n",
+    "import helper from 'external-test-helper';\n",
+  ];
+  for (const source of unsupportedTestSources) {
+    const files = fixture(t);
+    writeFileSync(files.verificationPath, source);
+    const boundary = new RepositorySafetyBoundary({
+      repositoryRoot: files.root,
+      commandRunner: commandRunner(),
+    });
+
+    assert.throws(
+      () => boundary.capture(goal()),
+      /ambiguous slash after a closing brace|indirect module loader that cannot be protected|imports unsupported module loader|imports unsupported package input/,
+      source,
+    );
+  }
+});
+
+test('dotnet solution verification protects test helpers and shared build configuration', (t) => {
+  const files = fixture(t);
+  const projectDirectory = join(files.root, 'tests', 'Sample.Tests');
+  const projectPath = join(projectDirectory, 'Sample.Tests.csproj');
+  const solutionPath = join(files.root, 'AgentGateLab.sln');
+  const buildConfigPath = join(files.root, 'Directory.Build.props');
+  mkdirSync(projectDirectory, { recursive: true });
+  writeFileSync(projectPath, '<Project />\n');
+  writeFileSync(join(projectDirectory, 'TestHelper.cs'), 'trusted helper\n');
+  writeFileSync(
+    solutionPath,
+    'Project("{GUID}") = "Sample.Tests", "tests\\Sample.Tests\\Sample.Tests.csproj", "{GUID}"\n',
+  );
+  writeFileSync(buildConfigPath, '<Project />\n');
+  const verificationCommand = 'dotnet test AgentGateLab.sln --no-restore';
+  const contract = { ...goal(), verificationCommand };
+  const changed = checklist();
+  changed.features[1].verification = verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const beforeConfigChange = boundary.capture(contract);
+  writeFileSync(buildConfigPath, '<Project><PropertyGroup /></Project>\n');
+  assert.throws(
+    () => boundary.assertTransition(
+      beforeConfigChange,
+      boundary.capture(contract),
+      contract,
+      'maker',
+    ),
+    /Protected file Directory\.Build\.props changed/,
+  );
+
+  const beforeHelperChange = boundary.capture(contract);
+  writeFileSync(join(projectDirectory, 'TestHelper.cs'), 'weakened helper\n');
+  assert.throws(
+    () => boundary.assertTransition(
+      beforeHelperChange,
+      boundary.capture(contract),
+      contract,
+      'maker',
+    ),
+    /Protected file tests[\\/]Sample\.Tests changed/,
+  );
+});
+
+test('docker compose verification protects the root compose configuration', (t) => {
+  const files = fixture(t);
+  const composePath = join(files.root, 'compose.yaml');
+  writeFileSync(composePath, 'services:\n  checks:\n    image: node:24\n');
+  const verificationCommand = 'docker compose run --build --rm checks';
+  const contract = { ...goal(), verificationCommand };
+  const changed = checklist();
+  changed.features[1].verification = verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(contract);
+  writeFileSync(composePath, 'services:\n  checks:\n    image: node:24\n    entrypoint: true\n');
+
+  assert.throws(
+    () => boundary.assertTransition(before, boundary.capture(contract), contract, 'maker'),
+    /Protected file compose\.yaml changed/,
   );
 });
 
@@ -651,7 +940,7 @@ test('repository boundary protects the host-side verification launcher', (t) => 
   writeFileSync(runnerPath, 'modified runner\n');
   assert.throws(
     () => boundary.assertTransition(before, boundary.capture(goal()), goal(), 'maker'),
-    /Protected file scripts[\\/]run-verification\.mjs changed/,
+    /Protected file scripts changed/,
   );
 
   const beforeSandboxChange = boundary.capture(goal());
@@ -663,7 +952,7 @@ test('repository boundary protects the host-side verification launcher', (t) => 
       goal(),
       'maker',
     ),
-    /Protected file scripts[\\/]verification-sandbox\.mjs changed/,
+    /Protected file scripts changed/,
   );
 });
 

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const schemaPath = fileURLToPath(new URL('./goal-contract.schema.json', import.meta.url));
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 function invalid(path, message) {
   return `${path}: ${message}`;
@@ -67,6 +68,13 @@ export function validateGoalContract(contract) {
     })) {
       const error = validateInteger(contract.limits[key], `$.limits.${key}`, minimum);
       if (error) errors.push(error);
+    }
+    if (Number.isInteger(contract.limits.maxElapsedTimeMs)
+        && contract.limits.maxElapsedTimeMs > MAX_TIMER_DELAY_MS) {
+      errors.push(invalid(
+        '$.limits.maxElapsedTimeMs',
+        `must be less than or equal to ${MAX_TIMER_DELAY_MS}`,
+      ));
     }
   }
 

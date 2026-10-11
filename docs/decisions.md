@@ -454,9 +454,11 @@ Each entry records:
 
 * Date: 2026-10-11
 * Decision: verification commands protect every existing repository-local path
-  they reference, including absolute paths. Copilot dispatch denies writes to
-  both the `.git` directory and every descendant below it using the CLI's
-  recursive path pattern.
+  they reference, including absolute paths and statically imported local test
+  helpers. Node test contracts reject dynamic imports and non-built-in package
+  imports so the controller can enumerate verification inputs. Copilot dispatch
+  denies writes to both the `.git` directory and every descendant below it
+  using the CLI's recursive path pattern.
 * Why: skipping absolute command paths allowed a verification file inside the
   repository to be changed without detection. Denying only the `.git`
   directory itself did not cover writes to nested refs and other metadata.
@@ -464,29 +466,35 @@ Each entry records:
   absolute paths are valid runner inputs; relying on post-round repository
   checks alone, because Git metadata mutations can affect publication before
   the controller observes the transition.
-* Constraints: ordinary implementation files remain writable for the maker;
-  changes to verification inputs and Git metadata still require explicit
-  human approval.
+* Constraints: ordinary implementation files under `src/` remain writable for
+  the maker; changes to verification inputs and Git metadata still require
+  explicit human approval. Node tests use explicit `.test.mjs` or `.spec.mjs`
+  files and statically enumerated repository-local helpers. The source scanner
+  rejects slash tokens after a closing brace when regex-versus-division context
+  cannot be classified safely.
 
 ## D027: controller verification requires trusted repository code
 
 * Date: 2026-10-11
-* Decision: treat goal verification commands and the repository code they
-  execute as trusted. They run under the caller's operating-system identity
-  and inherit its environment, including available credentials, network, and
-  Git capabilities. The loop's publication restrictions apply to dispatched
-  agent processes, not arbitrary code launched by verification.
-* Why: controller-run verification can import maker-edited implementation
-  code. Without a portable operating-system sandbox, running that code with
-  the caller's permissions cannot guarantee the absence of side effects.
-* Alternatives rejected: claiming verification is publication-safe because
-  agent shell access is disabled, since tests and imported code execute in a
-  separate process with host privileges; adding a platform-specific sandbox
-  in this loop change, because that would require a separate security design
-  and would not preserve the existing Windows and Linux workflow uniformly.
-* Constraints: users must review verification commands and imported code
-  before running the loop. Do not describe the loop as a security boundary or
-  use it to execute untrusted repository changes.
+* Decision: the host verification runner launches repository test commands
+  inside the `agentgate-verification:node24` Docker image. The container runs
+  as non-root, with networking disabled, a read-only repository mount, no
+  inherited host environment or credentials, no Docker socket, dropped
+  capabilities, and ephemeral writable locations. The runner and sandbox
+  launcher themselves execute on the host and are protected verification
+  inputs.
+* Why: maker-edited tests and imported implementation code need a constrained
+  environment, while the trusted host runner must retain access to Docker to
+  create and clean up the container.
+* Alternatives rejected: describing the test process as inheriting the
+  caller's credentials and network, because the configured container
+  explicitly excludes them; claiming the sandbox is a complete security
+  boundary, because its safety depends on the host kernel, Docker daemon, and
+  verification image.
+* Constraints: users must trust the protected runner, sandbox launcher,
+  Docker daemon, host kernel, and image. The image provides Node.js 24, Bash,
+  and Git only, with no network-fetched dependencies. This local harness is
+  not an application authentication or authorization boundary.
 
 ## D028: process cleanup takes precedence over controller liveness
 

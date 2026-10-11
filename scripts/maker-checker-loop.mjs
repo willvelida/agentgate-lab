@@ -8,6 +8,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
 import {
   acquireLoopStateLock,
@@ -29,6 +30,7 @@ import {
 
 const resultMarker = 'MAKER_CHECKER_RESULT:';
 const interruptedDispatchCode = 'ERR_MAKER_CHECKER_INTERRUPTED';
+export const MAX_PROCESS_OUTPUT_BYTES = 1024 * 1024;
 const makerOutcomes = new Set([
   'completed',
   'blocked',
@@ -152,9 +154,13 @@ export function runProcess(executable, args, options) {
     });
     let stdout = '';
     let stderr = '';
+    let outputBytes = 0;
+    const stdoutDecoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
     let timedOut = false;
     let settled = false;
     let stopRequested = false;
+    let stopErrorMessage = null;
     let interruptedBy = null;
     let terminationPromise = null;
     let timer;
@@ -178,7 +184,10 @@ export function runProcess(executable, args, options) {
         error.signal = interruptedBy;
         reject(error);
       } else {
-        reject(new Error(`Child process exceeded its ${options.timeoutMs} ms dispatch limit.`));
+        reject(new Error(
+          stopErrorMessage
+            ?? `Child process exceeded its ${options.timeoutMs} ms dispatch limit.`,
+        ));
       }
     }
 
@@ -205,12 +214,15 @@ export function runProcess(executable, args, options) {
       }
     }
 
-    function requestStop(signal = null) {
+    function requestStop(signal = null, errorMessage = null) {
       if (settled) {
         return;
       }
       if (signal) {
         interruptedBy = signal;
+      }
+      if (errorMessage) {
+        stopErrorMessage = errorMessage;
       }
       if (stopRequested) {
         return;
@@ -232,14 +244,26 @@ export function runProcess(executable, args, options) {
     process.on('SIGINT', onSigint);
     process.on('SIGTERM', onSigterm);
 
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
+    const captureOutput = (stream, chunk) => {
+      if (stopRequested) {
+        return;
+      }
+      if (outputBytes + chunk.length > MAX_PROCESS_OUTPUT_BYTES) {
+        requestStop(
+          null,
+          `Child process exceeded its ${MAX_PROCESS_OUTPUT_BYTES} byte combined output limit.`,
+        );
+        return;
+      }
+      outputBytes += chunk.length;
+      if (stream === 'stdout') {
+        stdout += stdoutDecoder.write(chunk);
+      } else {
+        stderr += stderrDecoder.write(chunk);
+      }
+    };
+    child.stdout.on('data', (chunk) => captureOutput('stdout', chunk));
+    child.stderr.on('data', (chunk) => captureOutput('stderr', chunk));
     child.on('error', (error) => {
       if (!settled) {
         settled = true;
@@ -256,6 +280,8 @@ export function runProcess(executable, args, options) {
       }
       settled = true;
       cleanup();
+      stdout += stdoutDecoder.end();
+      stderr += stderrDecoder.end();
       if (code !== 0 && !options.allowNonZeroExit) {
         reject(new Error(
           `Copilot session failed with exit code ${code}`

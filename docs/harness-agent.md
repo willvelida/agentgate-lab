@@ -184,6 +184,19 @@ The controller protects the goal contract, the feature verification files,
 and `scripts/check-architecture.sh` from changes during a round. It validates
 those transitions even when agent dispatch fails or times out.
 
+Verification contracts use explicit, supported command forms. Node tests must
+name `.test.mjs` or `.spec.mjs` files; implicit `node --test` discovery,
+dynamic imports/requires, and imports from non-built-in packages are rejected.
+The complete `scripts/` or conventional test-project tree is protected, as are
+statically imported local test helpers outside that tree. Files under `src/`
+remain mutable as implementation under test. Bash verification invokes one
+`scripts/*.sh` file directly. `dotnet test` must name a `.sln` solution or test
+project, and the controller protects its test-project trees and shared build
+configuration. Docker Compose
+verification uses `docker compose run --build --rm <service>` and protects the
+root Compose and environment configuration. Unsupported command forms fail
+closed rather than running with untracked verification inputs.
+
 Because agents have no shell, the controller runs the goal's
 `verificationCommand` itself through the
 [evidence runner](./verification.md) after each completed maker round, then

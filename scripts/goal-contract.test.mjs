@@ -50,3 +50,21 @@ test('rejects unknown fields and unsupported schema versions', () => {
   assert.ok(result.errors.includes('$.unexpected: is not allowed'));
   assert.ok(result.errors.includes('$.schemaVersion: must be 1'));
 });
+
+test('rejects elapsed-time limits beyond the Node.js timer maximum', () => {
+  const maximum = 2_147_483_647;
+  const atMaximum = validateGoalContract({
+    ...validContract,
+    limits: { ...validContract.limits, maxElapsedTimeMs: maximum },
+  });
+  const aboveMaximum = validateGoalContract({
+    ...validContract,
+    limits: { ...validContract.limits, maxElapsedTimeMs: maximum + 1 },
+  });
+
+  assert.equal(atMaximum.valid, true);
+  assert.equal(aboveMaximum.valid, false);
+  assert.ok(aboveMaximum.errors.some((error) => (
+    error.includes('$.limits.maxElapsedTimeMs')
+  )));
+});
