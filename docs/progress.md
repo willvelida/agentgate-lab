@@ -30,8 +30,10 @@ health before it changes anything.
 * F003 and F004 passed 23/23 and 15/15; architecture passed, and fresh
   independent evaluations returned PASS (averages 4.6 and 4.8, minimum 4).
   For code head `5c1f9dc`, Build run `38112705410`, links and progress-reminder
-  in run `38112705413`, and DCO all passed. A documentation handoff commit
-  remains to be published and checked before the PR is considered ready.
+  in run `38112705413`, and DCO all passed. Documentation follow-up
+  `1366586f2c2c81570e410d6ee8b66f02d034d469` includes D028 and this handoff;
+  on that exact head, Build run `38113072337`, links and progress-reminder in
+  run `38113072350`, and DCO all passed.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -487,18 +489,20 @@ where you left off.
   failure can keep the controller pending indefinitely. D028 records this
   decision.
 * Reviewed code commit: `5c1f9dc580723224b0fc11375e7008ca7810ec60`, pushed to
-  `feat/harness-extension`; this handoff and D028 are documentation follow-ups
-  to publish. No startup check applies to harness scripts.
+  `feat/harness-extension`; D028 and the handoff are published in
+  `1366586f2c2c81570e410d6ee8b66f02d034d469`. The working tree was clean after
+  that push. No startup check applies to harness scripts.
 * Publication: the interrupt-cleanup review thread was answered and resolved.
   For exact code head `5c1f9dc`, Build run `38112705410`, links and
-  progress-reminder in run `38112705413`, and DCO all passed. The final
-  documentation head's CI status remains to be checked.
+  progress-reminder in run `38112705413`, and DCO all passed. For documentation
+  head `1366586`, Build run `38113072337`, links and progress-reminder in run
+  `38113072350`, and DCO all passed. Only the PR validation summary remained
+  to update.
 * Cleanup: no long-lived process or service remains. The interrupt regression
   verified child exit; fixtures removed their temporary directories. Ignored
   verification reports and evaluator rubric are intentionally retained.
-* Next steps: publish D028 and this updated handoff, confirm CI for that final
-  pushed head, update the PR validation summary without changing its template
-  structure, and confirm the working-tree state.
+* Next steps: update PR #31's validation summary while preserving the template;
+  no source or additional documentation changes are expected.
 
 ## Built
 
