@@ -972,9 +972,8 @@ async function runMakerCheckerLoopWithLock({
       nextAction = 'stop';
       intervention = humanStop('Review the stale checker result before resuming.');
     } else if (actor === 'maker') {
-      const previousMaker = latestMakerRevision(state);
       if (outcome === 'no-progress'
-          || (previousMaker && sameRevision(previousMaker, after))) {
+          || sameRevision(before, after)) {
         outcome = 'no-progress';
       }
       if (outcome === 'no-progress'

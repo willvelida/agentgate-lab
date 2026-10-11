@@ -12,6 +12,14 @@ import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 const shellExclusion = '--excluded-tools=shell';
 const urlDenial = '--deny-tool=url';
 const javascriptTrivia = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
+const executableLoaderModules = new Set([
+  'child_process',
+  'node:child_process',
+  'cluster',
+  'node:cluster',
+  'worker_threads',
+  'node:worker_threads',
+]);
 const nodeBuiltins = new Set(
   builtinModules.flatMap((moduleName) => [
     moduleName,
@@ -304,7 +312,10 @@ function maskJavaScriptNonCode(source) {
 }
 
 function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
-  if (specifier === 'module' || specifier === 'node:module') {
+  if (specifier === 'module'
+      || specifier === 'node:module'
+      || specifier === 'vm'
+      || specifier === 'node:vm') {
     throw new Error(
       `Node verification imports unsupported module loader: ${specifier}`,
     );
@@ -343,6 +354,12 @@ function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
   return importedPath;
 }
 
+function isPathWithin(root, candidate) {
+  const repositoryRelative = relative(root, candidate);
+  return repositoryRelative === ''
+    || (!repositoryRelative.startsWith('..') && !isAbsolute(repositoryRelative));
+}
+
 function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
   const paths = new Set();
   const visited = new Set();
@@ -356,15 +373,43 @@ function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
     const dynamicImport = new RegExp(`\\bimport${javascriptTrivia}\\(`);
     const dynamicRequire = new RegExp(
       `\\brequire${javascriptTrivia}\\(${javascriptTrivia}(?!['"][^'"]*['"]${javascriptTrivia}\\))`,
+      'g',
     );
     const indirectModuleLoader = new RegExp(
       `\\b(?:createRequire|getBuiltinModule)\\b|\\brequire\\b${javascriptTrivia}(?!\\()`,
     );
+    const hasDynamicRequire = [...source.matchAll(dynamicRequire)].some((match) => (
+      executableSource[match.index] !== ' '
+    ));
     if (dynamicImport.test(executableSource)
-        || dynamicRequire.test(executableSource)
+        || hasDynamicRequire
         || indirectModuleLoader.test(executableSource)) {
       throw new Error(
         `Node verification input has an indirect module loader that cannot be protected: ${importerPath}`,
+      );
+    }
+    if (/\b(?:eval|Function)\b/.test(executableSource)) {
+      throw new Error(
+        `Node verification input uses unsupported dynamic code execution: ${importerPath}`,
+      );
+    }
+    const computedDynamicCodeExecution = /\b(?:globalThis|global|window|self)\s*\[\s*(['"])(?:eval|Function)\1\s*\]/g;
+    if ([...source.matchAll(computedDynamicCodeExecution)].some((match) => (
+      executableSource[match.index] !== ' '
+    ))) {
+      throw new Error(
+        `Node verification input uses unsupported dynamic code execution: ${importerPath}`,
+      );
+    }
+    const reflectiveDynamicCodeExecution = new RegExp(
+      `(?:\\.${javascriptTrivia}constructor\\b|\\[${javascriptTrivia}(['"])constructor\\1${javascriptTrivia}\\])`,
+      'g',
+    );
+    if ([...source.matchAll(reflectiveDynamicCodeExecution)].some((match) => (
+      executableSource[match.index] !== ' '
+    ))) {
+      throw new Error(
+        `Node verification input uses unsupported reflective dynamic code execution: ${importerPath}`,
       );
     }
     const staticImports = new RegExp(
@@ -381,6 +426,15 @@ function verificationImportPaths(repositoryRoot, testFiles, protectedRoots) {
     ].filter((match) => executableSource[match.index] !== ' ')
       .map((match) => match[1]);
     for (const specifier of specifiers) {
+      if (executableLoaderModules.has(specifier)
+          && !protectedRoots.some((root) => (
+            relative(repositoryRoot, root).replaceAll('\\', '/') === 'scripts'
+            && isPathWithin(root, importerPath)
+          ))) {
+        throw new Error(
+          `Node verification input imports unsupported executable loader: ${specifier}`,
+        );
+      }
       const importedPath = resolveVerificationImport(repositoryRoot, importerPath, specifier);
       if (!importedPath) continue;
       if (protectedRoots.some((root) => (
@@ -468,83 +522,10 @@ function verificationPaths(repositoryRoot, verificationCommand) {
       testFiles.push(path);
     }
     paths.push(...verificationImportPaths(repositoryRoot, testFiles, protectedRoots));
-  } else if (executable === 'dotnet' && tokens[1]?.toLowerCase() === 'test') {
-    const target = tokens.slice(2).find((token) => /\.(?:sln|csproj)$/i.test(token));
-    if (!target) {
-      throw new Error('dotnet test verification must name an explicit solution or project.');
-    }
-    const targetPath = resolve(repositoryRoot, target);
-    if (!existsSync(targetPath)
-        || relative(repositoryRoot, targetPath).startsWith('..')) {
-      throw new Error(`dotnet test target is not a repository file: ${target}`);
-    }
-    paths.push(targetPath);
-    const testProjectDirectories = target.toLowerCase().endsWith('.csproj')
-      ? (/\.tests?\.csproj$/i.test(target) ? [targetPath] : [])
-      : [...readFileSync(targetPath, 'utf8').matchAll(/"([^"]+\.csproj)"/gi)]
-        .map((match) => resolve(dirname(targetPath), match[1].replaceAll('\\', '/')))
-        .filter((path) => /(?:^|[\\/])[^\\/]*\.tests?\.csproj$/i.test(path)
-          || /[\\/](?:tests?|__tests__)[\\/]/i.test(path));
-    if (testProjectDirectories.length === 0) {
-      throw new Error('dotnet test target must identify at least one test project.');
-    }
-    if (testProjectDirectories.some((path) => (
-      relative(repositoryRoot, path).startsWith('..') || !existsSync(path)
-    ))) {
-      throw new Error('dotnet test target references a test project outside the repository.');
-    }
-    const configNames = [
-      'Directory.Build.props',
-      'Directory.Build.targets',
-      'Directory.Packages.props',
-      'global.json',
-      'NuGet.Config',
-      'nuget.config',
-    ];
-    const configDirectories = new Set([resolve(repositoryRoot)]);
-    for (const projectPath of testProjectDirectories) {
-      paths.push(projectPath);
-      paths.push(dirname(projectPath));
-      let directory = dirname(projectPath);
-      while (directory !== resolve(repositoryRoot)
-          && !relative(repositoryRoot, directory).startsWith('..')) {
-        configDirectories.add(directory);
-        const parent = dirname(directory);
-        if (parent === directory) break;
-        directory = parent;
-      }
-    }
-    for (const directory of configDirectories) {
-      for (const configName of configNames) {
-        const configPath = resolve(directory, configName);
-        if (existsSync(configPath)) paths.push(configPath);
-      }
-    }
-  } else if (executable === 'docker'
-      && tokens[1]?.toLowerCase() === 'compose'
-      && tokens[2]?.toLowerCase() === 'run') {
-    if (tokens.length !== 6
-        || tokens[3] !== '--build'
-        || tokens[4] !== '--rm'
-        || !/^[a-z0-9][a-z0-9_-]*$/i.test(tokens[5])) {
-      throw new Error(
-        'Docker Compose verification must use `docker compose run --build --rm <service>`.',
-      );
-    }
-    const composeFiles = readdirSync(repositoryRoot)
-      .filter((name) => /^(?:compose|docker-compose)(?:\.override)?\.ya?ml$/i.test(name));
-    if (composeFiles.length === 0) {
-      throw new Error('Docker Compose verification requires a repository compose file.');
-    }
-    paths.push(...composeFiles.map((name) => resolve(repositoryRoot, name)));
-    for (const name of ['.dockerignore', '.env', '.env.local']) {
-      const envPath = resolve(repositoryRoot, name);
-      if (existsSync(envPath)) paths.push(envPath);
-    }
   } else {
     throw new Error(
       'Verification command form is not supported; use explicit node tests, a scripts/*.sh '
-        + 'script, dotnet test with an explicit target, or docker compose run.',
+        + 'script.',
     );
   }
 

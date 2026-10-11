@@ -1,7 +1,7 @@
 ---
 title: Progress
 description: Repository-level snapshot of what is built, what is in progress, and what is planned for AgentGate Lab.
-ms.date: 2026-10-11
+ms.date: 2026-10-12
 ---
 
 ## Purpose
@@ -21,40 +21,17 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31 is at remote head
-  `9152b1a0d6ec26781ae6058c3b90dd883b465bd9` on `feat/harness-extension`;
-  Build, Docs check, and Copilot review passed for that head, but those runs
-  do not cover the current working-tree changes. Five inline review threads
-  remain open. The working tree addresses the
-  instruction-surface, shell-option parsing, container-cleanup, host-runner
-  protection, output bound, protected-path symlinks, and verification-input
-  findings. It also fixes three additional Copilot findings: local
-  initialization builds the sandbox and runs the harness tests, elapsed-time
-  limits respect Node.js timer bounds, and the goal issue must match the
-  checklist issue. F003 and F004 both have fresh evaluator PASS verdicts.
-  Their exact tests, the combined maker-checker suite, architecture check,
-  and diff whitespace check pass on the current tree. F004 rejects ambiguous
-  slash tokens after a closing brace and preserves regex context after
-  `for await`. Changes remain uncommitted and unpublished.
-* Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
-  The pushed timeout/trust-boundary changes in `cc0eec3` passed Build, Docs
-  check, and DCO. Follow-up commit
-  `5c1f9dc580723224b0fc11375e7008ca7810ec60` is pushed to
-  `origin/feat/harness-extension`; the interrupt-cleanup review thread was
-  answered and resolved.
-* Current review validation on base `9152b1a0d6ec26781ae6058c3b90dd883b465bd9`
-  plus the dirty tree: exact F003 tests passed 35/35, exit 0, run
-  `2026-10-11T19-49-08-484Z-552ad0ad-782e-4117-a4e5-116399f553fb`; exact
-  F004 tests passed 33/33, exit 0, run
-  `2026-10-11T19-48-33-371Z-b51f33d2-b94c-4802-9a2b-b104de4e554f`; the
-  combined maker-checker suite passed 72/72, exit 0, run
-  `2026-10-11T19-49-08-458Z-1d9b812d-27ab-4795-9a9f-ea00a7fd3176`;
-  architecture passed, exit 0, run
-  `2026-10-11T19-49-08-448Z-de4a674a-64d1-4e4e-9c0f-f4d6da75b88d`; and
-  `git diff --check` passed, exit 0, run
-  `2026-10-11T19-49-08-457Z-48d13718-4b17-4fe2-ae06-66551366e0fb`.
-  A Bash evidence-runner attempt could not locate Node.js; the PowerShell
-  runner captured the passing focused checks. Exact-head CI remains pending.
+* PR #31 is at pushed head `b7c7202515933b9991e662484f6bb7299080f090` on
+  `feat/harness-extension`. Docs check and DCO passed on that head; Build
+  failed because the F004 test depended on an ignored local feature list, now
+  replaced by an isolated fixture. Review follow-ups address dynamic loaders,
+  unsupported sandbox toolchains, first-turn no-progress accounting, and
+  progress evidence. A fresh F004 evaluation then found reflective
+  `constructor.constructor` loading; the scanner now rejects reflective
+  constructor access and has regression coverage. Exact F003/F004 checks and
+  architecture validation pass on the dirty tree. Fresh evaluators now pass
+  F003 (4.8/5) and F004 (4.6/5), including the reflective-loader fix. Commit,
+  push, exact-head CI, and PR replies/resolutions remain pending.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -477,54 +454,54 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-12
-* Accomplished: reviewed and repaired the PR #31 findings covering bounded
-  child output, protected-path symlinks, complete verification inputs,
-  comment-separated imports, Docker trust-boundary documentation,
-  initialization checks, timer limits, and goal/checklist consistency. F004
-  regression tests cover regex literals, ambiguous slash context after a
-  closing brace, numeric division, and async `for await` control headers.
-  Both F003 and F004 have fresh independent PASS evaluations.
-* Scope: F001 timer validation, F003 process-output limits, and F004
-  verification-input protection, plus related harness docs and initialization.
-  Feature statuses remain `pass`; feature evidence summaries reflect the
-  latest verification and evaluator results.
-* Files modified: `init.sh`, `scripts/goal-contract.mjs`,
-  `scripts/goal-contract.schema.json`, `scripts/goal-contract.test.mjs`,
-  `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
-  `scripts/maker-checker-safety.mjs`, `scripts/maker-checker-safety.test.mjs`,
-  `docs/decisions.md`, `docs/harness-agent.md`, `docs/progress.md`, the
-  issue #30 `agent-progress.md`, and `features_list.json`. The evaluator
-  rubric is ignored and retained locally.
-* Verification on base `9152b1a0d6ec26781ae6058c3b90dd883b465bd9` plus the
-  uncommitted working tree:
-  * Exact F003 passed 35/35, exit 0, run
-    `2026-10-11T20-09-31-286Z-f3327a69-90f4-4447-8e65-0c236128042f`.
-  * Exact F004 passed 33/33, exit 0, run
-    `2026-10-11T20-09-31-152Z-6da5e4e3-c3a2-4aa9-a116-90d1f0844faa`.
-  * Combined maker-checker suites passed 72/72, exit 0, run
-    `2026-10-11T19-57-40-114Z-7bf3224c-1679-41aa-a5f5-74bb2b907484`.
+* Accomplished: fixed the CI-dependent F004 test fixture; rejected reflective
+  dynamic-code loading through `.constructor` and bracketed `constructor`
+  access; retained prior dynamic-loader and sandbox-toolchain restrictions;
+  counted a first-turn no-op toward the progress limit; and updated the
+  harness guidance.
+* Scope: PR #31 F003/F004 verification and controller behavior. Fresh
+  evaluation passed F003 (4.8/5) and F004 (4.6/5), including the follow-up
+  fix for the reflective loader bypass. Both feature statuses remain pass;
+  the ignored local feature list's evidence was refreshed.
+* Tracked changes include `scripts/maker-checker-safety.mjs`,
+  `scripts/maker-checker-safety.test.mjs`, `scripts/maker-checker-loop.mjs`,
+  `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
+  `docs/progress.md`, and the evaluator's additions to the slug's
+  `agent-progress.md`. The ignored `evaluator-rubric.md` records scores and
+  evidence locally. The ignored `features_list.json` was also refreshed with
+  the latest evaluator and verification evidence; it is not part of the
+  commit.
+* Verification on pushed HEAD `b7c7202515933b9991e662484f6bb7299080f090`
+  plus the current working tree:
+  * Exact F003 command passed 36/36, exit 0, run
+    `2026-10-11T20-48-04-613Z-7fcd2c7f-fc9d-421c-acae-8e38f541e095`.
+  * Exact F004 command passed 32/32, exit 0, run
+    `2026-10-11T20-48-04-584Z-86e81402-226d-457c-96ab-9853a0e23977`.
   * Architecture passed, exit 0, run
-    `2026-10-11T20-10-48-131Z-040df36b-048f-49cb-8faa-224d161abed1`;
-    `git diff --check` passed, exit 0, run
-    `2026-10-11T20-10-48-131Z-3959c1a4-06f0-43b4-b459-3863bc387ae0`.
-  * Fresh F003 evaluator PASS (average 4.8, minimum 4) reviewed the complete
-    12-file implementation diff. Fresh F004 evaluator PASS (average 4.8,
-    minimum 4) reviewed that diff including the final scanner fix; exact
-    verification passed 33/33 and architecture passed. See the feature
-    evidence log for both evaluator run IDs.
-  * An earlier F004 run failed 32/33 on the new `for await` regression (run
-    `2026-10-11T19-54-54-622Z-d61435c8-b9a2-4362-9dae-1b3e064dbae9`, exit 1).
-    Scanner context tracking was corrected and the regression now passes.
-* Boundaries and cleanup: service startup does not apply. No long-lived
-  process was started. Tests removed their temporary fixtures and containers.
-  Local verification evidence is retained under ignored
-  `.local/verification/`.
-* Publication and review: changes are not yet committed or pushed. PR #31 has
-  five open inline threads. Successful CI for the remote head predates this
-  working tree. PR body updates, replies, and thread resolutions remain.
-* Next: run final checks after evidence updates, commit with sign-off, push,
-  verify CI on the exact pushed head, update the PR body using its template,
-  and reply to and resolve each addressed review thread.
+    `2026-10-11T20-48-04-844Z-94244d8d-1a96-4e2f-b5e4-674d7b33f914`.
+  * Fresh F003 evaluation passed (4.8/5), exact command 36/36, run
+    `2026-10-11T20-52-50-858Z-f9e4cff7-95c0-45d4-8d29-0cbd468a0fa6`;
+    architecture passed, run
+    `2026-10-11T20-52-13-702Z-e8fc5dc1-5537-46a6-8600-76b05948d019`.
+  * Fresh F004 evaluation passed (4.6/5), exact command 32/32, run
+    `2026-10-11T20-52-50-779Z-8aaebefb-adfa-472f-86ea-5bedd43eef10`;
+    architecture passed in the same run above. Both evaluator reports
+    included the complete seven-file dirty diff and zero skipped tests.
+  * An earlier fresh F004 evaluation found the reflective constructor
+    bypass. The subsequent scanner and regression-test change was included
+    in the passing evaluation above.
+  * `git diff --check` passed, exit 0, run
+    `2026-10-11T21-00-56-081Z-4e8c5e64-f41c-4ec8-81f4-482f60860d35`.
+* CI and review: Build failed on `b7c7202` because a test opened ignored
+  `features_list.json`; Docs check and DCO passed. Five inline review threads
+  remain open. The follow-up is not yet committed or pushed; exact-head CI,
+  PR replies, and thread resolutions remain pending.
+* Boundaries and cleanup: runtime startup is not applicable. No long-lived
+  service was started. Tests removed their temporary fixtures and containers.
+  Local verification evidence remains under ignored `.local/verification/`.
+* Next: commit with sign-off, push, record exact-head CI in the PR, update the
+  PR description, reply to and resolve addressed threads, and verify the
+  final PR state.
 
 ## Built
 

@@ -186,16 +186,18 @@ those transitions even when agent dispatch fails or times out.
 
 Verification contracts use explicit, supported command forms. Node tests must
 name `.test.mjs` or `.spec.mjs` files; implicit `node --test` discovery,
-dynamic imports/requires, and imports from non-built-in packages are rejected.
+dynamic imports/requires, dynamic code execution with `eval` or `Function`,
+reflective `constructor` access, `node:vm`, and imports from non-built-in
+packages are rejected. Subprocess, cluster, and worker-thread loaders are
+rejected outside the protected `scripts/` tree.
 The complete `scripts/` or conventional test-project tree is protected, as are
 statically imported local test helpers outside that tree. Files under `src/`
 remain mutable as implementation under test. Bash verification invokes one
-`scripts/*.sh` file directly. `dotnet test` must name a `.sln` solution or test
-project, and the controller protects its test-project trees and shared build
-configuration. Docker Compose
-verification uses `docker compose run --build --rm <service>` and protects the
-root Compose and environment configuration. Unsupported command forms fail
-closed rather than running with untracked verification inputs.
+`scripts/*.sh` file directly. The sandbox image provides Node.js, Bash, and
+Git only, so direct `dotnet test` and Docker Compose verification commands are
+rejected before dispatch. Shell scripts must use the tools available in that
+image. Unsupported command forms fail closed rather than running with
+untracked verification inputs.
 
 Because agents have no shell, the controller runs the goal's
 `verificationCommand` itself through the

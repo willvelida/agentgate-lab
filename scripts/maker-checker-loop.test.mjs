@@ -726,6 +726,24 @@ test('stops after repeated maker rounds make no progress', async (t) => {
   assert.equal(result.state.rounds.at(-1).humanIntervention.required, true);
 });
 
+test('counts an unchanged first maker round toward the no-progress limit', async (t) => {
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'no files changed' },
+  ]);
+  const same = revision('unchanged');
+  const result = await runLoop({
+    goal: goal({ noProgressLimit: 1 }),
+    statePath: fixture(t),
+    dispatcher,
+    getRevision: revisions(same, same),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'stalled');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['maker']);
+  assert.equal(result.state.rounds.at(-1).outcome, 'stalled');
+});
+
 test('stops when round or elapsed-time limits are exhausted', async (t) => {
   const roundLimited = await runLoop({
     goal: goal({ maxRounds: 1 }),

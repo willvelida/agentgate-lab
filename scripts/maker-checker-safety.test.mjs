@@ -91,16 +91,15 @@ function checklist() {
   };
 }
 
-test('repository boundary captures its actual F004 verification target', () => {
-  const boundary = new RepositorySafetyBoundary();
+test('repository boundary captures its configured F004 verification target', (t) => {
+  const state = fixture(t);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: state.root,
+    commandRunner: commandRunner(),
+  });
   const snapshot = boundary.capture(goal(), { requireActive: false });
-  const verificationPath = resolve(
-    process.cwd(),
-    'scripts',
-    'maker-checker-safety.test.mjs',
-  );
 
-  assert.ok(Object.hasOwn(snapshot.protectedFiles, verificationPath));
+  assert.ok(Object.hasOwn(snapshot.protectedFiles, state.verificationPath));
 });
 
 function fixture(t) {
@@ -747,6 +746,8 @@ test('verification contracts reject implicit discovery, package scripts, and uns
     'npm test',
     'npm run test:unit',
     'pytest tests/test_feature.py',
+    'dotnet test AgentGateLab.sln',
+    'docker compose run --build --rm checks',
     'dotnet test AgentGateLab.slnx',
   ];
   for (const verificationCommand of commands) {
@@ -759,13 +760,9 @@ test('verification contracts reject implicit discovery, package scripts, and uns
       repositoryRoot: files.root,
       commandRunner: commandRunner(),
     });
-    const expectedError = verificationCommand.endsWith('.slnx')
-      ? /dotnet test verification must name an explicit solution or project/
-      : /Node verification must use|Verification command form is not supported/;
-
     assert.throws(
       () => boundary.capture(contract),
-      expectedError,
+      /Node verification must use|Verification command form is not supported/,
       verificationCommand,
     );
   }
@@ -781,6 +778,14 @@ test('verification contracts reject dynamic and external test imports', (t) => {
     "import { createRequire as loadHelper } from 'node:module';\nloadHelper(import.meta.url)('../test-helper.mjs');\n",
     "import { createRequire as loadHelper } from 'module';\nloadHelper(import.meta.url)('../test-helper.mjs');\n",
     "process.getBuiltinModule('module').createRequire(import.meta.url)('../test-helper.mjs');\n",
+    "eval(\"import('../test-helper.mjs')\");\n",
+    "(0, eval)(\"import('../test-helper.mjs')\");\n",
+    "globalThis['eval'](\"import('../test-helper.mjs')\");\n",
+    "new Function(\"return import('../test-helper.mjs')\")();\n",
+    "({}).constructor.constructor(\"return import('../test-helper.mjs')\")();\n",
+    "({})['constructor']['constructor'](\"return import('../test-helper.mjs')\")();\n",
+    "import vm from 'node:vm';\n",
+    "const vm = require('vm');\n",
     'const slashPattern = /\\/\\//; import("../test-helper.mjs");\n',
     "if (true) {} /\\/\\//.test('x'); import('../test-helper.mjs');\n",
     "{} /'/; import('../test-helper.mjs');\n",
@@ -799,82 +804,40 @@ test('verification contracts reject dynamic and external test imports', (t) => {
 
     assert.throws(
       () => boundary.capture(goal()),
-      /ambiguous slash after a closing brace|indirect module loader that cannot be protected|imports unsupported module loader|imports unsupported package input/,
+      /ambiguous slash after a closing brace|indirect module loader that cannot be protected|reflective dynamic code execution|dynamic code execution|imports unsupported module loader|imports unsupported package input/,
       source,
     );
   }
 });
 
-test('dotnet solution verification protects test helpers and shared build configuration', (t) => {
+test('verification contracts reject subprocess and worker loaders outside scripts', (t) => {
   const files = fixture(t);
-  const projectDirectory = join(files.root, 'tests', 'Sample.Tests');
-  const projectPath = join(projectDirectory, 'Sample.Tests.csproj');
-  const solutionPath = join(files.root, 'AgentGateLab.sln');
-  const buildConfigPath = join(files.root, 'Directory.Build.props');
-  mkdirSync(projectDirectory, { recursive: true });
-  writeFileSync(projectPath, '<Project />\n');
-  writeFileSync(join(projectDirectory, 'TestHelper.cs'), 'trusted helper\n');
-  writeFileSync(
-    solutionPath,
-    'Project("{GUID}") = "Sample.Tests", "tests\\Sample.Tests\\Sample.Tests.csproj", "{GUID}"\n',
-  );
-  writeFileSync(buildConfigPath, '<Project />\n');
-  const verificationCommand = 'dotnet test AgentGateLab.sln --no-restore';
-  const contract = { ...goal(), verificationCommand };
-  const changed = checklist();
-  changed.features[1].verification = verificationCommand;
-  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
-  const boundary = new RepositorySafetyBoundary({
-    repositoryRoot: files.root,
-    commandRunner: commandRunner(),
-  });
+  const verificationPath = join(files.root, 'tests', 'verification.test.mjs');
+  mkdirSync(dirname(verificationPath), { recursive: true });
+  const commands = [
+    ["import { spawn } from 'node:child_process';\n", 'child_process'],
+    ["import { Worker } from 'node:worker_threads';\n", 'worker_threads'],
+    ["const { fork } = require('node:child_process');\n", 'child_process'],
+  ];
 
-  const beforeConfigChange = boundary.capture(contract);
-  writeFileSync(buildConfigPath, '<Project><PropertyGroup /></Project>\n');
-  assert.throws(
-    () => boundary.assertTransition(
-      beforeConfigChange,
-      boundary.capture(contract),
-      contract,
-      'maker',
-    ),
-    /Protected file Directory\.Build\.props changed/,
-  );
+  for (const [source, moduleName] of commands) {
+    writeFileSync(verificationPath, source);
+    const verificationCommand = 'node --test tests/verification.test.mjs';
+    const contract = { ...goal(), verificationCommand };
+    const changed = checklist();
+    changed.features[1].verification = verificationCommand;
+    writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+    const boundary = new RepositorySafetyBoundary({
+      repositoryRoot: files.root,
+      commandRunner: commandRunner(),
+    });
 
-  const beforeHelperChange = boundary.capture(contract);
-  writeFileSync(join(projectDirectory, 'TestHelper.cs'), 'weakened helper\n');
-  assert.throws(
-    () => boundary.assertTransition(
-      beforeHelperChange,
-      boundary.capture(contract),
-      contract,
-      'maker',
-    ),
-    /Protected file tests[\\/]Sample\.Tests changed/,
-  );
-});
-
-test('docker compose verification protects the root compose configuration', (t) => {
-  const files = fixture(t);
-  const composePath = join(files.root, 'compose.yaml');
-  writeFileSync(composePath, 'services:\n  checks:\n    image: node:24\n');
-  const verificationCommand = 'docker compose run --build --rm checks';
-  const contract = { ...goal(), verificationCommand };
-  const changed = checklist();
-  changed.features[1].verification = verificationCommand;
-  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
-  const boundary = new RepositorySafetyBoundary({
-    repositoryRoot: files.root,
-    commandRunner: commandRunner(),
-  });
-
-  const before = boundary.capture(contract);
-  writeFileSync(composePath, 'services:\n  checks:\n    image: node:24\n    entrypoint: true\n');
-
-  assert.throws(
-    () => boundary.assertTransition(before, boundary.capture(contract), contract, 'maker'),
-    /Protected file compose\.yaml changed/,
-  );
+    assert.throws(
+      () => boundary.capture(contract),
+      new RegExp(`imports unsupported executable loader: (?:node:)?${moduleName}`),
+      source,
+    );
+  }
 });
 
 test('repository boundary protects checker instructions and agent definitions', (t) => {
