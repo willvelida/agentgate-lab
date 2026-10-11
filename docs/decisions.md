@@ -287,3 +287,99 @@ Each entry records:
 * Constraints: no existing check is weakened; locked build-time downloads and
   default native dispatch remain unchanged. F007 stays active until independent
   evaluation. No production authorization or arbitrary-policy guarantee is made.
+
+## D018: Issue 30 uses a Node.js JSON controller
+
+* Date: 2026-10-10
+* Decision: implement the first local maker-checker loop beside the existing
+  Node.js verification harness, using versioned JSON contracts and persisted
+  JSON state.
+* Why: the repository already has Node-based tests and a cross-platform
+  verification runner, so this avoids introducing a new runtime or project
+  format for a local harness controller.
+* Alternatives rejected: PowerShell, because it would make the controller
+  harder to exercise from the existing Node test suite; a .NET console app,
+  because it would add a project and restore surface for a local orchestration
+  tool.
+* Constraints: the controller remains local and serial. It must not commit,
+  push, publish, merge, weaken verification, alter acceptance criteria, or
+  start another feature without explicit human approval.
+
+## D019: F003 dispatches fresh Copilot CLI sessions
+
+* Date: 2026-10-10
+* Decision: invoke the installed GitHub Copilot CLI directly. Maker processes
+  select the existing Harness Implementer custom agent. Checker processes are
+  new sessions that invoke the Feature Evaluator skill. A scripted dispatcher
+  supplies deterministic dry-run and test outcomes.
+* Why: separate CLI processes provide the required fresh checker context while
+  reusing the repository's existing implementer and evaluator instructions.
+  Dependency injection tests orchestration without launching live agents.
+* Alternatives rejected: simulating every session in the controller, because
+  that would not dispatch the installed Copilot CLI; resuming checker sessions,
+  because that would weaken independent evaluation.
+* Constraints: F003 preserves the implementer and evaluator's explicit
+  boundaries but does not add F004 publication-safety enforcement. Evaluator
+  progress and rubric writes do not make reviewed implementation content stale.
+
+## D020: F004 combines command denial with repository transition checks
+
+* Date: 2026-10-10
+* Decision: enforce the serial loop boundary in two places. Copilot CLI
+  sessions disable built-in GitHub MCP tools and receive explicit denials for
+  commit, push, merge, rebase, cherry-pick, and pull-request commands. A
+  default-deny launcher accepts only the controller's fixed Copilot invocation.
+  Before and after each round, the controller compares the branch, HEAD,
+  feature checklist, goal contract, and verification files.
+* Why: prompts describe expected behavior but cannot enforce it. CLI
+  permissions prevent the named publication actions, while repository checks
+  stop the loop and request human approval if an agent changes protected
+  scope or state.
+* Alternatives rejected: prompt-only restrictions, because an agent could
+  ignore them; post-round Git checks alone, because a push has no required
+  local diff; a general sandbox, because F004 is a focused local harness
+  boundary rather than an operating-system security boundary.
+* Constraints: ordinary implementation files may change. The active feature
+  can move to `pass` only during a checker round. Any other feature change,
+  acceptance or verification change, protected-file change, commit, or branch
+  change stops as `approval-required`. Explicit approval and override
+  processing are not automated.
+
+## D021: F004 removes publication capabilities instead of matching commands
+
+* Date: 2026-10-10
+* Decision: replace D020's direct-command denial list with a fail-closed
+  capability boundary. Loop sessions exclude the shell, deny direct URL
+  access and Git metadata writes, disable built-in MCP servers, and enumerate
+  then disable every configured MCP server before launch.
+* Why: command spellings are not a security boundary. Git global options,
+  plumbing commands, `gh api`, HTTP clients, and configured MCP tools can
+  perform equivalent commits, pushes, pull-request mutations, or merges.
+* Alternatives rejected: expanding the blacklist, because executable aliases
+  and alternate clients would keep creating bypasses; post-round checks alone,
+  because remote mutations cannot be undone reliably.
+* Constraints: configured MCP discovery must succeed before a session starts.
+  Repository transition checks remain defense in depth. The boundary is local
+  controller enforcement, not an operating-system sandbox or authorization
+  implementation.
+
+## D022: the loop controller runs verification instead of the agents
+
+* Date: 2026-10-11
+* Decision: the controller runs the goal contract's `verificationCommand`
+  itself through the evidence runner after each completed maker round,
+  records the command, status, run ID, exit code, and report path in that
+  round, and dispatches the checker only when the run passes. A failed run
+  returns the work to the maker; a runner that cannot start stops the loop
+  for human intervention.
+* Why: D021 removes shell access from loop sessions, so an agent cannot run
+  the verification its own instructions require. Trusting a model-emitted
+  `completed` or `pass` would let unverified work reach the checker and the
+  persisted evidence.
+* Alternatives rejected: restoring a narrow shell for verification, because
+  a shell reintroduces the publication bypasses D021 removed; trusting agent
+  self-reports, because the report is unevidenced text.
+* Constraints: round `verification` is optional and nullable so existing
+  state files still load. Resuming with a goal contract that differs from the
+  recorded one is refused, because the recorded contract defines the
+  verification that was run.

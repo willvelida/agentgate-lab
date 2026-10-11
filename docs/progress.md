@@ -21,6 +21,14 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
+  All four Copilot review findings are fixed: the controller now runs the
+  goal's verification command between rounds and records the structured
+  result, both prompts carry the goal contract, and resuming with a mismatched
+  goal contract is refused. Harness tests pass 34/34 and architecture passes.
+  CI must be reconfirmed on the pushed head.
+* Issue #30 F001-F005 are evaluator-PASS and committed. F006 passed fresh
+  reevaluation after repair; every issue #30 feature now passes.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -137,6 +145,11 @@ final link and whitespace checks were repeated before commit.
 
 ## Known Issues
 
+* Issue #30 F004 is a local controller capability boundary, not an
+  operating-system sandbox or authorization implementation. It removes shell,
+  direct URL, Git metadata write, and MCP capabilities from loop sessions and
+  detects protected repository transitions. It does not constrain processes
+  started outside the controller.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
@@ -430,36 +443,57 @@ where you left off.
 
 ## Last session
 
-* Date: 2026-10-10
-* Accomplished: resolved the valid PR review comment about stale issue #2
-  completion statements. All nine features passed independent evaluation;
-  the final PR update corrects the contradictory milestone summary.
-* Reviewed revision: `4fe0124c8648492330a6134599dedadc20d1f493` plus the
-  focused progress-document correction. Runtime, images and locks unchanged.
-* Exact verification: `dotnet test AgentGateLab.sln --no-restore
-  --property:SkipClientBuild=true` passed 43/43, zero skipped, exit 0 (run
-  `2026-10-10T07-20-24-793Z-7e0478a4-e98a-4a27-a901-3a68a70a318d`).
-  `bash scripts/check-architecture.sh` passed, exit 0 (run
-  `2026-10-10T07-20-18-211Z-865218c0-9492-4cfb-8ab2-85e8bd7f5e0d`).
-  Implementation build passed with zero warnings/errors; final handoff
-  validation run `2026-10-10T07-16-07-859Z-7f4347a9-5eaf-4192-8ba8-97fad01d578d`
-  passed before evaluator and status notes.
-* Cleanup: native/offline startup passed in tests; separate service startup
-  not applicable. No owned containers remain, no long-lived service or
-  temporary source artifact created. Local reports/caches retained.
-* Blockers: none for the milestone. NuGet TLS remains restricted on this
-  network; explicit approved mirror verification succeeded with locks intact.
-* Publication: PR #29 targets `main`. After the initial docs-link fix, the
-  Docs check passed; the Build workflow was still running when last checked.
-  The PR reviewer identified this stale-status issue; checks must be refreshed
-  after the correction is pushed.
-* Validation: corrected milestone state, historical handoff labeling, relative
-  links and anchors passed (run
-  `2026-10-10T07-47-56-921Z-b0c651e7-1b22-43af-a426-6b12de471e01`, exit 0);
-  `git diff --check` passed. Documentation-only change; no service startup
-  applies, and no process or temporary source artifact was created.
-* Next action: verify PR #29 checks on the updated head and address any
-  remaining review feedback. No new architectural decision was required.
+* Date: 2026-10-11
+* Accomplished: published issue #30's bounded maker-checker loop as pull
+  request #31, then addressed all four unresolved Copilot review findings on
+  that pull request.
+* Review finding 1 and 4 (shell-free agents could not run verification, and
+  rounds recorded no verification outcome): the loop controller now runs the
+  goal's verification command itself between rounds through the evidence
+  runner. Agents stay shell-free. Each completed maker round records
+  `command`, `status`, `runId`, `exitCode` and `reportPath`, and the checker
+  only runs after verification passes. Failed verification returns the work to
+  the maker; a runner that cannot start stops for human intervention.
+* Review finding 2 (prompts omitted the goal contract): both maker and checker
+  prompts now carry the goal, numbered constraints and verification command,
+  state that shell access is disabled, and forbid claiming to have run
+  verification.
+* Review finding 3 (resume accepted a mismatched contract): resuming with a
+  goal contract that differs from the recorded one is now refused. Key
+  ordering differences are still accepted.
+* Scope: only the four review findings and their documentation. No feature
+  status changed and no new feature was started.
+* Files modified: `scripts/maker-checker-loop.mjs`,
+  `scripts/maker-checker-loop.test.mjs`, `scripts/loop-state.mjs`,
+  `scripts/loop-state.test.mjs`, `docs/harness-agent.md`, `docs/decisions.md`,
+  `.github/agents/harness-implementer.agent.md`,
+  `.github/skills/feature-evaluator/SKILL.md`, and this progress log.
+* Decision: D022 records that the controller runs verification instead of the
+  agents, and that round verification evidence is optional so existing state
+  files still load.
+* Defect found and fixed during the work: the loop test helper did not inject
+  a verification runner, so the new default spawned the real evidence runner
+  against this repository and recursively re-ran the test file. The helper now
+  injects a stub runner. Suite duration dropped from about 22 seconds to about
+  5 seconds, confirming no real verification is spawned by tests.
+* Verification: all four harness test files passed 34/34, exit 0, run
+  `2026-10-11T00-42-51-065Z-93af87ea-e02f-48ce-be80-2a12bddf119e`.
+  Architecture passed, exit 0, run
+  `2026-10-11T00-43-11-658Z-ab2aebdc-8a88-41ef-b831-69fbb962b810`.
+  `git diff --check` passed.
+* Reviewed revision and tree: commit
+  `57893340aa13de530098d90aeb6c2ddf4e778da8` plus the eight modified files
+  listed above. No unrelated pre-existing changes were present.
+* Startup: not applicable. The change affects finite local harness scripts and
+  documentation, not a service startup path.
+* Cleanup: no long-lived process was started. Node fixtures removed their
+  temporary repositories. Ignored verification reports were intentionally
+  retained, including the stray reports written by the recursive test runs
+  before the stub runner was added.
+* Blockers: none. Pull request #31 was green on its previous head; CI must be
+  confirmed again on the new head after this push.
+* Next steps: commit and push these review fixes, confirm CI on the new head,
+  then reply to and resolve the four review threads.
 
 ## Built
 

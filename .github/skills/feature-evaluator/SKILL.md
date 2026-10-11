@@ -28,6 +28,10 @@ Ask for either value if it is missing.
   Verification commands may produce ignored build output and local evidence.
 * Run the feature's `verification` command exactly as written through the
   evidence runner described in `docs/verification.md`. Keep raw output local.
+  When dispatched by the bounded maker-checker loop, shell access is disabled
+  and the loop controller records the verification result in the round
+  evidence. In that case, judge the recorded controller evidence and never
+  claim to have run the command yourself.
 * Cite evidence (a file path, command output, or line) for every score.
 * Do not commit. Leave committing to the user or the implementer.
 
@@ -69,6 +73,9 @@ average is at least 4. Otherwise the verdict is FAIL.
    reviewed commit, and dirty state in the rubric. Sanitize output summaries.
    If the change affects how a service runs, also follow the runtime evidence
    table in `AGENTS.md`, then stop only the service process this session owns.
+   When dispatched by the bounded maker-checker loop, shell access is
+   disabled; record the controller's verification evidence from the round
+   instead of rerunning the commands.
 5. Score each dimension with evidence.
 6. Append the result to `docs/features/<slug>/evaluator-rubric.md`:
 
