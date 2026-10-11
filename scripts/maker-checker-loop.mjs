@@ -32,11 +32,16 @@ const checkerOutcomes = new Set([
 ]);
 
 function sameRevision(left, right) {
-  if (left.fingerprint && right.fingerprint) {
-    return left.commit === right.commit
-      && left.fingerprint === right.fingerprint;
+  if (left.commit !== right.commit) {
+    return false;
   }
-  return left.commit === right.commit && left.dirty === right.dirty;
+  if (left.fingerprint && right.fingerprint) {
+    return left.fingerprint === right.fingerprint;
+  }
+  if (left.dirty || right.dirty) {
+    return false;
+  }
+  return true;
 }
 
 function humanStop(reason) {
@@ -613,12 +618,36 @@ export async function runMakerCheckerLoop({
       });
     } catch (error) {
       const finishedAt = now();
+      const after = getRevision();
+      try {
+        safetyBoundary.assertTransition(
+          safetyBefore,
+          safetyBoundary.capture(activeGoal, { requireActive: false }),
+          activeGoal,
+          actor,
+        );
+      } catch (transitionError) {
+        state = persistRound(
+          statePath,
+          state,
+          terminalRound(
+            actor,
+            after,
+            finishedAt,
+            'blocked',
+            transitionError.message,
+            'Review and explicitly approve or revert the prohibited change before resuming.',
+          ),
+          finishedAt,
+        );
+        return { status: 'approval-required', state };
+      }
       state = persistRound(
         statePath,
         state,
         terminalRound(
           actor,
-          getRevision(),
+          after,
           finishedAt,
           'blocked',
           error.message,
@@ -791,7 +820,10 @@ async function main() {
     verificationRunner: new VerificationRunner({ repositoryRoot: process.cwd() }),
     safetyBoundary: new RepositorySafetyBoundary({
       repositoryRoot: process.cwd(),
-      protectedPaths: [resolve(args.goal)],
+      protectedPaths: [
+        resolve(args.goal),
+        resolve('scripts/check-architecture.sh'),
+      ],
     }),
     getRevision: () => getGitRevision(
       process.cwd(),

@@ -428,3 +428,42 @@ Each entry records:
 * Constraints: migration applies only while loading schema version 1 state.
   Newly written state remains list-shaped and strict validation still rejects
   malformed verification entries.
+
+## D025: fail closed on unverifiable or failed-dispatch transitions
+
+* Date: 2026-10-11
+* Decision: dirty revisions without fingerprints never compare as unchanged;
+  only clean fingerprint-less revisions at the same commit do. The controller
+  validates the repository transition after a dispatch exception and returns
+  `approval-required` when protected state changed. The production safety
+  boundary protects `scripts/check-architecture.sh` alongside the goal file.
+* Why: the same commit and dirty flag cannot identify the contents of two
+  dirty working trees. A failed dispatcher may have changed the repository
+  before throwing, and the architecture script is trusted verification code
+  whose weakening must not be treated as an ordinary implementation change.
+* Alternatives rejected: treating two dirty fingerprint-less revisions as
+  equal, because that bypasses stale-work detection; returning immediately on
+  dispatch failure, because it skips transition enforcement; trusting the
+  architecture script without protecting it, because the controller would
+  record weakened evidence as passing.
+* Constraints: persisted schema version 1 revisions remain readable. A dirty
+  legacy maker round stops as stale and requires human review rather than
+  being silently accepted.
+
+## D026: protect all verification inputs and Git metadata descendants
+
+* Date: 2026-10-11
+* Decision: verification commands protect every existing repository-local path
+  they reference, including absolute paths. Copilot dispatch denies writes to
+  both the `.git` directory and every descendant below it using the CLI's
+  recursive path pattern.
+* Why: skipping absolute command paths allowed a verification file inside the
+  repository to be changed without detection. Denying only the `.git`
+  directory itself did not cover writes to nested refs and other metadata.
+* Alternatives rejected: relying on relative command spelling, because
+  absolute paths are valid runner inputs; relying on post-round repository
+  checks alone, because Git metadata mutations can affect publication before
+  the controller observes the transition.
+* Constraints: ordinary implementation files remain writable for the maker;
+  changes to verification inputs and Git metadata still require explicit
+  human approval.

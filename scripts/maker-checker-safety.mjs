@@ -19,7 +19,7 @@ function verificationPaths(repositoryRoot, verificationCommand) {
   const paths = [];
   for (const token of verificationCommand.match(/"[^"]+"|'[^']+'|\S+/g) ?? []) {
     const unquoted = token.replace(/^(['"])(.*)\1$/, '$2');
-    if (unquoted.startsWith('-') || isAbsolute(unquoted)) continue;
+    if (unquoted.startsWith('-')) continue;
     const path = resolve(repositoryRoot, unquoted);
     const repositoryRelative = relative(repositoryRoot, path);
     if (repositoryRelative.startsWith('..') || isAbsolute(repositoryRelative)) continue;
@@ -68,8 +68,12 @@ function isGitMetadataPath(repositoryRoot, path) {
     || (!repositoryRelative.startsWith('..') && !isAbsolute(repositoryRelative));
 }
 
-function gitMetadataWriteDenial(repositoryRoot) {
-  return `--deny-tool=write(${resolve(repositoryRoot, '.git')})`;
+function gitMetadataWriteDenials(repositoryRoot) {
+  const gitDirectory = resolve(repositoryRoot, '.git').replaceAll('\\', '/');
+  return [
+    `--deny-tool=write(${gitDirectory})`,
+    `--deny-tool=write(${gitDirectory}/**)`,
+  ];
 }
 
 function mcpServerDisableArgument(serverName) {
@@ -86,7 +90,7 @@ function hasOnlyApprovedCopilotArguments(args, repositoryRoot) {
     '--disable-builtin-mcps',
     shellExclusion,
     urlDenial,
-    gitMetadataWriteDenial(repositoryRoot),
+    ...gitMetadataWriteDenials(repositoryRoot),
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -156,7 +160,7 @@ export function copilotCapabilityArguments(repositoryRoot, mcpServerNames = []) 
     '--allow-all-tools',
     shellExclusion,
     urlDenial,
-    gitMetadataWriteDenial(repositoryRoot),
+    ...gitMetadataWriteDenials(repositoryRoot),
     '--disable-builtin-mcps',
     ...mcpServerNames.map(mcpServerDisableArgument),
   ];

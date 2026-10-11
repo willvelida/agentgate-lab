@@ -221,6 +221,86 @@ test('resumes an interrupted loop at the checker without repeating the maker', a
   );
 });
 
+test('treats dirty fingerprint-less legacy revisions as stale', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const legacyRevision = {
+    commit: '09b84c9ef03319536ba5a08c77d7252450be5ff6',
+    dirty: true,
+  };
+  saveLoopState(statePath, recordRound(
+    createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:01.000Z',
+      reviewedRevision: legacyRevision,
+      outcome: 'completed',
+      feedback: 'Legacy maker round.',
+      nextAction: 'checker',
+      verification: null,
+      humanIntervention: { required: false, reason: null },
+    },
+  ));
+
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'pass', feedback: 'must not run' },
+  ]);
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    getRevision: () => ({ ...legacyRevision }),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'stale');
+  assert.equal(dispatcher.calls.length, 0);
+});
+
+test('compares clean fingerprint-less legacy revisions by commit', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  const legacyRevision = {
+    commit: '09b84c9ef03319536ba5a08c77d7252450be5ff6',
+    dirty: false,
+  };
+  saveLoopState(statePath, recordRound(
+    createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')),
+    {
+      actor: 'maker',
+      startedAt: '2026-10-10T10:00:00.000Z',
+      finishedAt: '2026-10-10T10:00:01.000Z',
+      reviewedRevision: legacyRevision,
+      outcome: 'completed',
+      feedback: 'Legacy clean maker round.',
+      nextAction: 'checker',
+      verification: [{
+        command: contract.verificationCommand,
+        status: 'passed',
+        runId: 'legacy-run',
+        exitCode: 0,
+        reportPath: '.local/verification/legacy-run/report.json',
+      }],
+      humanIntervention: { required: false, reason: null },
+    },
+  ));
+
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+  const result = await runLoop({
+    goal: contract,
+    statePath,
+    dispatcher,
+    getRevision: () => ({ ...legacyRevision }),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['checker']);
+});
+
 test('returns checker fail feedback to a new maker while limits permit', async (t) => {
   const dispatcher = new ScriptedDispatcher([
     { outcome: 'completed', feedback: 'first maker' },
@@ -269,6 +349,34 @@ test('stops for blocked or ambiguous work', async (t) => {
     assert.equal(result.status, outcome);
     assert.equal(result.state.rounds[0].humanIntervention.required, true);
   }
+});
+
+test('checks protected transitions when dispatch throws', async (t) => {
+  const snapshots = [{ id: 'before' }, { id: 'after' }];
+  const safetyBoundary = {
+    capture: () => snapshots.shift(),
+    assertTransition: () => {
+      throw new Error('Protected checklist changed during failed dispatch.');
+    },
+  };
+  const dispatcher = {
+    async dispatch() {
+      throw new Error('Dispatcher timed out.');
+    },
+  };
+  const result = await runMakerCheckerLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    verificationRunner: verificationRunner(),
+    safetyBoundary,
+    getRevision: revisions(revision('before'), revision('after')),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'approval-required');
+  assert.match(result.state.rounds[0].feedback, /Protected checklist changed/);
+  assert.equal(result.state.rounds[0].humanIntervention.required, true);
 });
 
 test('stops when checker work is stale', async (t) => {

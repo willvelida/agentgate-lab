@@ -269,6 +269,19 @@ modified files. No feature status changed.
 * 2026-10-11: Corrected fresh-session-style rerun: F003 evaluator verdict PASS (avg 5.0, min 5) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6`; exact verification passed 16/16 in run `2026-10-11T01-13-20-751Z-51b81de0-2f5b-4072-97cb-26016b72779a`, architecture passed in run `2026-10-11T01-12-49-284Z-7c473dfe-c4f2-4509-838a-de55587d30d4`. See evaluator-rubric.md.
 * 2026-10-11: Corrected fresh-session-style rerun: F004 evaluator verdict PASS (avg 5.0, min 5) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6`; exact verification passed 12/12 in run `2026-10-11T01-13-15-849Z-07af04c7-25c0-4099-8fea-34ca9eb63197`, architecture passed in run `2026-10-11T01-12-49-284Z-7c473dfe-c4f2-4509-838a-de55587d30d4`. See evaluator-rubric.md.
 
+## 2026-10-11 pull request 31 review findings, round 4
+
+Addressed two further Copilot review findings:
+
+* absolute verification paths inside the repository are included in the
+  protected-file snapshot;
+* Copilot dispatch denies writes to the `.git` directory and all descendants,
+  preventing nested ref and metadata writes from bypassing the capability
+  boundary.
+
+Verification and fresh evaluator evidence are pending for this working-tree
+revision.
+
 ## 2026-10-11 selected review feedback
 
 Addressed four selected review findings without changing feature status:
@@ -295,3 +308,24 @@ modified files recorded in `docs/progress.md`. F003 and F004 require a new
 fresh-session evaluation for these fixes before publication.
 * 2026-10-11: F003 evaluator verdict PASS (avg 4.8, min 4) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the current uncommitted fixes. See evaluator-rubric.md.
 * 2026-10-11: F004 evaluator verdict PASS (avg 4.8, min 4) for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the current uncommitted fixes. See evaluator-rubric.md.
+
+## 2026-10-11 third review feedback batch
+
+Addressed four additional review findings without changing feature status:
+
+* dirty fingerprint-less legacy revisions no longer compare as unchanged;
+* protected repository transitions are validated when dispatch throws;
+* the production controller protects `scripts/check-architecture.sh`;
+* the progress handoff no longer lists completed evaluation or publication
+  steps as pending.
+
+Verification:
+
+* all four harness test files passed 43/43, exit 0, run
+  `2026-10-11T02-21-17-627Z-a33d8ff1-c5a8-4330-82de-f2b21004f329`;
+* `bash scripts/check-architecture.sh` passed, exit 0, run
+  `2026-10-11T02-21-17-627Z-3584f9e8-32c3-42c4-bb14-47a03845e124`.
+
+Reviewed revision: `61118fa52d5f2996df7c0e8a9a788ed391d354ab` plus the seven
+modified files recorded in `docs/progress.md`. F003 and F004 require fresh
+evaluation for these changes before publication.

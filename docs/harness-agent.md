@@ -146,9 +146,13 @@ node scripts/maker-checker-loop.mjs \
 
 A live run requires the GitHub Copilot CLI and the repository custom agents.
 The dispatcher removes shell access, denies direct URL and `.git` metadata
-writes, disables built-in MCP servers, and discovers then disables every
+writes (including every descendant below `.git`), disables built-in MCP servers,
+and discovers then disables every
 configured local, remote, or HTTP MCP server. Dispatch fails closed if MCP
 inventory cannot be read or contains an unknown format.
+The controller protects the goal contract, the feature verification files,
+and `scripts/check-architecture.sh` from changes during a round. It validates
+those transitions even when agent dispatch fails or times out.
 
 Because agents have no shell, the controller runs the goal's
 `verificationCommand` itself through the
@@ -194,7 +198,9 @@ controller reads the persisted state and selects the next actor. For example,
 a completed maker round resumes at the checker; a recorded checker PASS remains
 stopped instead of dispatching another round. Resuming with a goal contract
 that differs from the one recorded in the state file is refused; start a new
-state file instead.
+state file instead. Legacy dirty revisions without a working-tree fingerprint
+are treated as stale because the controller cannot prove their files are
+unchanged. Clean legacy revisions remain comparable by commit.
 
 ### Stop safely
 

@@ -88,11 +88,18 @@ function fixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const checklistPath = join(root, 'docs', 'features', slug, 'features_list.json');
   const verificationPath = join(root, 'scripts', 'maker-checker-safety.test.mjs');
+  const architecturePath = join(root, 'scripts', 'check-architecture.sh');
   mkdirSync(dirname(checklistPath), { recursive: true });
   mkdirSync(dirname(verificationPath), { recursive: true });
   writeFileSync(checklistPath, `${JSON.stringify(checklist(), null, 2)}\n`);
   writeFileSync(verificationPath, 'verification fixture\n');
-  return { root, checklistPath, verificationPath };
+  writeFileSync(architecturePath, 'architecture fixture\n');
+  return {
+    root,
+    checklistPath,
+    verificationPath,
+    architecturePath,
+  };
 }
 
 function commandRunner(branch = 'feature', commit = 'abc123') {
@@ -135,6 +142,9 @@ test('Copilot dispatch applies non-prompt safety controls', async () => {
   assert.equal(calls.length, 1);
   assert.ok(calls[0].args.includes('--disable-builtin-mcps'));
   assert.ok(!calls[0].args.some((argument) => argument.startsWith('--deny-tool=shell(')));
+  assert.ok(calls[0].args.some(
+    (argument) => argument.startsWith('--deny-tool=write(') && argument.endsWith('/.git/**)'),
+  ));
   for (const argument of copilotCapabilityArguments(
     'C:\\repo',
     ['publisher', 'workiq'],
@@ -369,6 +379,7 @@ test('repository boundary protects acceptance criteria and verification files', 
     repositoryRoot: files.root,
     commandRunner: commandRunner(),
   });
+
   const before = boundary.capture(goal());
   const changed = JSON.parse(readFileSync(files.checklistPath, 'utf8'));
   changed.features[1].verification = 'node --test weakened.test.mjs';
@@ -387,6 +398,47 @@ test('repository boundary protects acceptance criteria and verification files', 
   assert.throws(
     () => boundary.assertTransition(before, after, goal(), 'maker'),
     /verification changed[\s\S]*Protected file/,
+  );
+});
+
+test('repository boundary protects the architecture verification script', (t) => {
+  const files = fixture(t);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    protectedPaths: [files.architecturePath],
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  writeFileSync(files.architecturePath, 'weakened architecture check\n');
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file scripts[\\/]check-architecture\.sh changed/,
+  );
+});
+
+test('repository boundary protects absolute verification paths inside the repository', (t) => {
+  const files = fixture(t);
+  const contract = {
+    ...goal(),
+    verificationCommand: `node --test "${files.verificationPath}"`,
+  };
+  const changed = checklist();
+  changed.features[1].verification = contract.verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+  const before = boundary.capture(contract);
+  writeFileSync(files.verificationPath, 'weakened absolute verification\n');
+  const after = boundary.capture(contract);
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, contract, 'maker'),
+    /Protected file scripts[\\/]maker-checker-safety\.test\.mjs changed/,
   );
 });
 

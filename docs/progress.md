@@ -26,6 +26,8 @@ health before it changes anything.
   commit `07d8878`. Four additional selected findings were fixed, independently
   evaluated, and pushed as `c09f43102bab05a7ff0b64691d77bedffc8efabe`.
   All review threads are resolved and exact-head CI passed.
+  Four new review findings are addressed in the working tree and await
+  verification evidence, fresh F003/F004 evaluation, publication, and CI.
 * Every issue #30 feature remains recorded as pass. The current review fixes
   did not change feature status. The branch and pull request contain the
   verified and independently evaluated implementation.
@@ -444,50 +446,31 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-11
-* Accomplished: addressed four selected review findings on pull request #31.
-  Duplicate checklist feature IDs are rejected before ID-based comparison;
-  schema version 1 state migrates a single verification record to a one-entry
-  list on load; and verification commands plus dispatch now share one
-  recalculated elapsed-time deadline.
-* Progress evidence: recorded the fresh-session F003 and F004 evaluator PASS
-  verdicts for commit `07d887882f035ce6ad2f588264c6147daaa4bbe6`.
-  Those verdicts do not cover the new working-tree fixes, so another
-  independent evaluation is required before publication.
-* Scope: only the four selected findings, regression tests, and directly
-  affected documentation. No feature status changed and no feature started.
+* Accomplished: addressed two further Copilot review findings on pull request
+   #31. Absolute verification paths inside the repository are now protected,
+   and Copilot dispatch denies writes to `.git` and all descendants.
+* Scope: only these two findings, regression tests, and directly affected
+   documentation. No feature status changed and no feature started.
 * Files modified: `scripts/maker-checker-safety.mjs`,
-  `scripts/maker-checker-safety.test.mjs`, `scripts/loop-state.mjs`,
-  `scripts/loop-state.test.mjs`, `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
-  `docs/decisions.md`, the issue #30 `agent-progress.md`, and this progress
-  log.
-* Decision: D024 records schema v1 migration, the shared deadline, and
-  duplicate feature-ID rejection.
-* Evaluator: F003 and F004 were re-reviewed in fresh sessions against
-  `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the current fixes. Both
-  returned PASS, average 4.8, minimum 4. The verdicts are recorded in the
-  issue #30 agent-progress log and cover the current working-tree changes.
-* Verification: all four harness test files passed 39/39, exit 0, run
-  `2026-10-11T01-29-47-710Z-64924717-ef8d-4044-b0da-610dc6e8aa20`.
-  Architecture passed, exit 0, run
-  `2026-10-11T01-29-47-710Z-417b43f3-cfc7-44a1-aae4-30430e952482`.
-* Reviewed revision and tree:
-  `07d887882f035ce6ad2f588264c6147daaa4bbe6` plus the ten modified files
-  listed above. The evaluator additions to `agent-progress.md` were preserved
-  and included in the recorded dirty state.
+   `scripts/maker-checker-safety.test.mjs`, `docs/decisions.md`,
+   `docs/harness-agent.md`, the issue #30 `agent-progress.md`, and this
+   progress log.
+* Decision: D026 records protection of absolute verification inputs and
+   recursive Git metadata write denial.
+* Evaluator: fresh F003 and F004 evaluation for these working-tree changes is
+   pending.
+* Reviewed revision and tree: commit
+   `61118fa52d5f2996df7c0e8a9a788ed391d354ab` plus the modified files listed
+   above.
 * Startup: not applicable. The change affects finite local harness scripts and
   documentation, not a service startup path.
 * Cleanup: no long-lived process was started. Node fixtures removed their
-  temporary repositories. Ignored verification reports were intentionally
-  retained.
-* Publication: signed commit
-  `c09f43102bab05a7ff0b64691d77bedffc8efabe` was pushed to
-  `origin/feat/harness-extension`. Pull request #31 reports zero open review
-  threads. DCO, build, links, and progress-reminder passed for that exact head.
-* Final state before this handoff update: local `HEAD` matched the remote and
-  the working tree was clean.
-* Blockers: none.
-* Next steps: continue monitoring pull request #31 for new review comments.
+   temporary repositories. Ignored verification reports were intentionally
+   retained.
+* Blockers: publication requires verification evidence and fresh-session F003
+   and F004 evaluator PASS verdicts for these changes.
+* Next steps: run the focused verification, obtain fresh evaluator evidence,
+   commit and push, then reply to and resolve the addressed PR threads.
 
 ## Built
 
