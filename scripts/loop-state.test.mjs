@@ -130,3 +130,46 @@ test('persists human intervention and rejects corrupt state', (t) => {
     /Invalid goal contract|\$\.goal/,
   );
 });
+
+test('validates optional controller verification evidence on a round', (t) => {
+  const statePath = fixture(t);
+  const verification = {
+    command: 'node --test scripts/loop-state.test.mjs',
+    status: 'passed',
+    runId: '2026-10-10T09-20-23-268Z-ba4e7aa7',
+    exitCode: 0,
+    reportPath: '.local/verification/2026-10-10T09-20-23-268Z-ba4e7aa7/report.json',
+  };
+  const state = recordRound(createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')), round({
+    verification,
+  }));
+  saveLoopState(statePath, state);
+
+  assert.deepEqual(loadLoopState(statePath).rounds[0].verification, verification);
+  assert.doesNotThrow(() => recordRound(
+    createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
+    round({ verification: null }),
+  ));
+
+  assert.throws(
+    () => recordRound(
+      createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
+      round({ verification: { ...verification, status: 'probably-fine' } }),
+    ),
+    /rounds\[0\]\.verification\.status/,
+  );
+  assert.throws(
+    () => recordRound(
+      createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
+      round({ verification: { ...verification, runId: null } }),
+    ),
+    /rounds\[0\]\.verification\.runId is required when verification passed/,
+  );
+  assert.throws(
+    () => recordRound(
+      createLoopState(goal, new Date('2026-10-10T08:59:00.000Z')),
+      round({ verification: { ...verification, exitCode: '0' } }),
+    ),
+    /rounds\[0\]\.verification\.exitCode/,
+  );
+});

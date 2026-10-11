@@ -65,8 +65,33 @@ function revision(fingerprint, dirty = true) {
   };
 }
 
+function verificationRunner(results = []) {
+  const queue = [...results];
+  const runner = {
+    calls: [],
+    async run(command, options) {
+      runner.calls.push({ command, options });
+      const next = queue.length > 0
+        ? queue.shift()
+        : { status: 'passed', runId: 'run-ok', exitCode: 0 };
+      if (next instanceof Error) {
+        throw next;
+      }
+      return {
+        command,
+        status: next.status,
+        runId: next.runId ?? null,
+        exitCode: next.exitCode ?? null,
+        reportPath: next.reportPath ?? `.local/verification/${next.runId ?? 'unknown'}/report.json`,
+      };
+    },
+  };
+  return runner;
+}
+
 function runLoop(options) {
   return runMakerCheckerLoop({
+    verificationRunner: verificationRunner(),
     ...options,
     safetyBoundary: {
       capture: () => ({}),
@@ -110,8 +135,21 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
   assert.equal(calls.length, 2);
   assert.equal(calls[0].executable, 'copilot');
   assert.ok(calls[0].args.includes('Harness Implementer'));
-  assert.match(calls[0].args.at(-1), /Checker feedback to address/);
+  assert.match(calls[0].args.at(-1), /Feedback to address/);
+  assert.match(calls[0].args.at(-1), /Goal: Coordinate bounded maker-checker rounds\./);
+  assert.match(calls[0].args.at(-1), /\(1\) Do not implement F004 publication safety\./);
+  assert.match(
+    calls[0].args.at(-1),
+    /Verification command: node --test scripts\/maker-checker-loop\.test\.mjs/,
+  );
+  assert.match(calls[0].args.at(-1), /Shell access is disabled/);
   assert.match(calls[1].args.at(-1), /\/feature-evaluator Evaluate F003/);
+  assert.match(calls[1].args.at(-1), /Goal: Coordinate bounded maker-checker rounds\./);
+  assert.match(
+    calls[1].args.at(-1),
+    /Verification command: node --test scripts\/maker-checker-loop\.test\.mjs/,
+  );
+  assert.match(calls[1].args.at(-1), /recorded controller verification evidence/);
   assert.ok(!calls[1].args.includes('--agent'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--resume'));
   assert.ok(!calls.flatMap((call) => call.args).includes('--continue'));
@@ -320,4 +358,164 @@ test('dry-run dispatcher leaves deterministic persisted evidence', async (t) => 
   const persisted = JSON.parse(readFileSync(statePath, 'utf8'));
   assert.equal(persisted.rounds.length, 2);
   assert.equal(persisted.rounds[1].outcome, 'pass');
+});
+
+test('records controller verification evidence on each gated maker round', async (t) => {
+  const statePath = fixture(t);
+  const runner = verificationRunner([
+    { status: 'passed', runId: 'run-maker-1', exitCode: 0 },
+  ]);
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'maker finished' },
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath,
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: revisions(
+      revision('initial'),
+      revision('maker'),
+      revision('maker'),
+      revision('maker', false),
+    ),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.deepEqual(
+    runner.calls.map((call) => call.command),
+    ['node --test scripts/maker-checker-loop.test.mjs'],
+  );
+  assert.deepEqual(result.state.rounds[0].verification, {
+    command: 'node --test scripts/maker-checker-loop.test.mjs',
+    status: 'passed',
+    runId: 'run-maker-1',
+    exitCode: 0,
+    reportPath: '.local/verification/run-maker-1/report.json',
+  });
+  assert.equal(result.state.rounds[1].verification, null);
+
+  const persisted = JSON.parse(readFileSync(statePath, 'utf8'));
+  assert.equal(persisted.rounds[0].verification.runId, 'run-maker-1');
+});
+
+test('failed controller verification returns work to the maker instead of the checker', async (t) => {
+  const runner = verificationRunner([
+    { status: 'failed', runId: 'run-maker-1', exitCode: 1 },
+    { status: 'passed', runId: 'run-maker-2', exitCode: 0 },
+  ]);
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'first maker' },
+    { outcome: 'completed', feedback: 'second maker' },
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: revisions(
+      revision('initial'),
+      revision('maker-1'),
+      revision('maker-1'),
+      revision('maker-2'),
+      revision('maker-2'),
+      revision('maker-2', false),
+    ),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.deepEqual(dispatcher.calls.map((call) => call.actor), ['maker', 'maker', 'checker']);
+  assert.deepEqual(
+    result.state.rounds.map((round) => `${round.actor}:${round.outcome}`),
+    ['maker:fail', 'maker:completed', 'checker:pass'],
+  );
+  assert.equal(result.state.rounds[0].verification.status, 'failed');
+  assert.match(result.state.rounds[0].feedback, /Controller verification failed/);
+  assert.equal(dispatcher.calls[1].feedback, result.state.rounds[0].feedback);
+});
+
+test('stops for human intervention when controller verification cannot run', async (t) => {
+  const runner = verificationRunner([
+    new Error('Verification runner did not report an evidence path.'),
+  ]);
+  const dispatcher = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'maker finished' },
+  ]);
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    verificationRunner: runner,
+    getRevision: revisions(revision('initial'), revision('maker'), revision('maker')),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.state.rounds.at(-1).verification, null);
+  assert.equal(result.state.rounds.at(-1).humanIntervention.required, true);
+  assert.match(
+    result.state.rounds.at(-1).feedback,
+    /Controller verification could not run: Verification runner did not report an evidence path\./,
+  );
+});
+
+test('refuses to resume a loop with a different goal contract', async (t) => {
+  const statePath = fixture(t);
+  saveLoopState(statePath, createLoopState(goal(), new Date('2026-10-10T09:59:00.000Z')));
+
+  await assert.rejects(
+    runLoop({
+      goal: { ...goal(), goal: 'Coordinate something else entirely.' },
+      statePath,
+      dispatcher: new ScriptedDispatcher([]),
+      getRevision: () => revision('initial'),
+      now: clock(),
+    }),
+    /does not match the contract recorded in the loop state/,
+  );
+});
+
+test('resumes when the supplied goal contract matches apart from key ordering', async (t) => {
+  const statePath = fixture(t);
+  const contract = goal();
+  saveLoopState(statePath, createLoopState(contract, new Date('2026-10-10T09:59:00.000Z')));
+  const reordered = {
+    limits: {
+      noProgressLimit: contract.limits.noProgressLimit,
+      maxElapsedTimeMs: contract.limits.maxElapsedTimeMs,
+      maxRounds: contract.limits.maxRounds,
+    },
+    constraints: contract.constraints,
+    verificationCommand: contract.verificationCommand,
+    goal: contract.goal,
+    featureId: contract.featureId,
+    featureSlug: contract.featureSlug,
+    issue: contract.issue,
+    schemaVersion: contract.schemaVersion,
+  };
+
+  const result = await runLoop({
+    goal: reordered,
+    statePath,
+    dispatcher: new ScriptedDispatcher([
+      { outcome: 'completed', feedback: 'maker finished' },
+      { outcome: 'pass', feedback: 'checker passed' },
+    ]),
+    getRevision: revisions(
+      revision('initial'),
+      revision('maker'),
+      revision('maker'),
+      revision('maker', false),
+    ),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
 });

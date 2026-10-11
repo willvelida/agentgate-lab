@@ -148,6 +148,17 @@ writes, disables built-in MCP servers, and discovers then disables every
 configured local, remote, or HTTP MCP server. Dispatch fails closed if MCP
 inventory cannot be read or contains an unknown format.
 
+Because agents have no shell, the controller runs the goal's
+`verificationCommand` itself through the
+[evidence runner](./verification.md) after each completed maker round, and
+records the command, status, run ID, exit code, and report path in that
+round. The checker is dispatched only when that verification passes; a
+failed run sends the work back to the maker with the failure in its
+feedback, and a runner that cannot start stops the loop for human
+intervention. Each agent prompt carries the goal, numbered constraints, and
+verification command, and states that the agent must not claim to have run
+verification.
+
 Use a scripted dry run to exercise controller behavior without starting
 Copilot sessions. The fixture is a JSON array of actor results:
 
@@ -175,7 +186,9 @@ diff separately because persisted state is evidence, not approval.
 To resume, run the same start command with the same goal and state paths. The
 controller reads the persisted state and selects the next actor. For example,
 a completed maker round resumes at the checker; a recorded checker PASS remains
-stopped instead of dispatching another round.
+stopped instead of dispatching another round. Resuming with a goal contract
+that differs from the one recorded in the state file is refused; start a new
+state file instead.
 
 ### Stop safely
 

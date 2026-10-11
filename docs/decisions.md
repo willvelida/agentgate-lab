@@ -362,3 +362,24 @@ Each entry records:
   Repository transition checks remain defense in depth. The boundary is local
   controller enforcement, not an operating-system sandbox or authorization
   implementation.
+
+## D022: the loop controller runs verification instead of the agents
+
+* Date: 2026-10-11
+* Decision: the controller runs the goal contract's `verificationCommand`
+  itself through the evidence runner after each completed maker round,
+  records the command, status, run ID, exit code, and report path in that
+  round, and dispatches the checker only when the run passes. A failed run
+  returns the work to the maker; a runner that cannot start stops the loop
+  for human intervention.
+* Why: D021 removes shell access from loop sessions, so an agent cannot run
+  the verification its own instructions require. Trusting a model-emitted
+  `completed` or `pass` would let unverified work reach the checker and the
+  persisted evidence.
+* Alternatives rejected: restoring a narrow shell for verification, because
+  a shell reintroduces the publication bypasses D021 removed; trusting agent
+  self-reports, because the report is unevidenced text.
+* Constraints: round `verification` is optional and nullable so existing
+  state files still load. Resuming with a goal contract that differs from the
+  recorded one is refused, because the recorded contract defines the
+  verification that was run.

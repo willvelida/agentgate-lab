@@ -21,6 +21,12 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
+* Issue #30 is published as pull request #31 on branch `feat/harness-extension`.
+  All four Copilot review findings are fixed: the controller now runs the
+  goal's verification command between rounds and records the structured
+  result, both prompts carry the goal contract, and resuming with a mismatched
+  goal contract is refused. Harness tests pass 34/34 and architecture passes.
+  CI must be reconfirmed on the pushed head.
 * Issue #30 F001-F005 are evaluator-PASS and committed. F006 passed fresh
   reevaluation after repair; every issue #30 feature now passes.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
@@ -437,122 +443,57 @@ where you left off.
 
 ## Last session
 
-* Date: 2026-10-10
-* Accomplished: repaired the fresh evaluator FAIL for F004. The controller now
-  removes shell access, denies direct URL access and Git metadata writes,
-  enumerates and disables configured MCP servers, disables built-in MCP
-  servers, and fails closed if MCP discovery fails.
-* Scope: only F004 changed. F005's full scenario matrix was not started.
+* Date: 2026-10-11
+* Accomplished: published issue #30's bounded maker-checker loop as pull
+  request #31, then addressed all four unresolved Copilot review findings on
+  that pull request.
+* Review finding 1 and 4 (shell-free agents could not run verification, and
+  rounds recorded no verification outcome): the loop controller now runs the
+  goal's verification command itself between rounds through the evidence
+  runner. Agents stay shell-free. Each completed maker round records
+  `command`, `status`, `runId`, `exitCode` and `reportPath`, and the checker
+  only runs after verification passes. Failed verification returns the work to
+  the maker; a runner that cannot start stops for human intervention.
+* Review finding 2 (prompts omitted the goal contract): both maker and checker
+  prompts now carry the goal, numbered constraints and verification command,
+  state that shell access is disabled, and forbid claiming to have run
+  verification.
+* Review finding 3 (resume accepted a mismatched contract): resuming with a
+  goal contract that differs from the recorded one is now refused. Key
+  ordering differences are still accepted.
+* Scope: only the four review findings and their documentation. No feature
+  status changed and no new feature was started.
 * Files modified: `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`,
-  `scripts/maker-checker-safety.mjs`,
-  `scripts/maker-checker-safety.test.mjs`, `docs/decisions.md`, this progress
-  log, issue #30's retained progress log, and its ignored feature checklist.
-* Failed evaluation: fresh evaluation scored average 3.4, minimum 2. It found
-  the direct-command blacklist bypassable through alternate Git forms,
-  `gh api`, HTTP clients, and configured non-built-in MCP servers.
-* Baseline: exact safety tests passed 8/8, exit 0, run
-  `2026-10-10T18-27-42-550Z-237b5f01-377a-4ab3-9bcf-7d629b8c9b83`.
-  Controller regressions passed 12/12, exit 0, run
-  `2026-10-10T18-27-42-550Z-57945e47-cf7b-4fd7-a9fa-bd882daa9d06`.
+  `scripts/maker-checker-loop.test.mjs`, `scripts/loop-state.mjs`,
+  `scripts/loop-state.test.mjs`, `docs/harness-agent.md`, `docs/decisions.md`,
+  `.github/agents/harness-implementer.agent.md`,
+  `.github/skills/feature-evaluator/SKILL.md`, and this progress log.
+* Decision: D022 records that the controller runs verification instead of the
+  agents, and that round verification evidence is optional so existing state
+  files still load.
+* Defect found and fixed during the work: the loop test helper did not inject
+  a verification runner, so the new default spawned the real evidence runner
+  against this repository and recursively re-ran the test file. The helper now
+  injects a stub runner. Suite duration dropped from about 22 seconds to about
+  5 seconds, confirming no real verification is spawned by tests.
+* Verification: all four harness test files passed 34/34, exit 0, run
+  `2026-10-11T00-42-51-065Z-93af87ea-e02f-48ce-be80-2a12bddf119e`.
   Architecture passed, exit 0, run
-  `2026-10-10T18-27-42-542Z-1acbc1d7-78ed-4621-8b01-03228eafd694`.
-* Verification: final exact F004 safety tests passed 11/11, exit 0, run
-  `2026-10-10T18-35-35-333Z-bbf0aa8c-edfc-4428-8d5a-acab02351a2e`.
-  Controller and loop-state regressions passed 12/12, exit 0, run
-  `2026-10-10T18-30-53-013Z-f81428dc-dca0-4ba1-a093-d753381bd27a`.
-  Final architecture passed after the handoff updates, exit 0, run
-  `2026-10-10T18-34-04-404Z-6a565960-0590-49fe-a6ae-8f91375ff66c`.
-  Negative tests confirmed no local HEAD or ref change, remote ref change,
-  merge state, or simulated pull-request mutation. Only the final architecture
-  evidence reference changed afterward.
-* Second failed evaluation: average 4.0, minimum 2. The evaluator found that
-  MCP inventory parsing omitted the CLI's `(http)` protocol and did not reject
-  unknown listing formats.
-* Final parser repair: exact safety tests passed 12/12, exit 0, run
-  `2026-10-10T18-52-31-585Z-014e8190-abda-4d24-96b7-633f77fb8a6d`.
-  Architecture passed, exit 0, run
-  `2026-10-10T18-52-30-189Z-886ef0a0-4b7a-4478-810b-8db383964148`.
-  The parser now recognizes `(http)` and rejects unrecognized inventory lines.
+  `2026-10-11T00-43-11-658Z-ab2aebdc-8a88-41ef-b831-69fbb962b810`.
+  `git diff --check` passed.
 * Reviewed revision and tree: commit
-  `0fdcdcadf9994ed3cba03f703ecffe0cde7e345e` plus the uncommitted F004 files
+  `57893340aa13de530098d90aeb6c2ddf4e778da8` plus the eight modified files
   listed above. No unrelated pre-existing changes were present.
-* Startup: not applicable. F004 changes finite local scripts and does not
-  affect a service startup path.
-* Cleanup: no live Copilot session or long-lived process was started. Node
-  fixtures removed their temporary repositories and bare remotes. Named help,
-  search, and diff captures in the system temporary directory were removed.
-  Ignored verification reports were intentionally retained.
-* Final evaluation: F004 passed with average and minimum 5.0 and no required
-  fixes. Evaluator safety tests passed 12/12, exit 0, run
-  `2026-10-10T18-56-03-418Z-b560b66b-db3c-458d-a3b6-d5d0ba62df50`;
-  evaluator architecture passed, exit 0, run
-  `2026-10-10T18-56-03-413Z-e486b866-4164-4562-8e6c-8ac5e1809d5c`.
-* Final post-verdict checks: safety tests passed 12/12, exit 0, run
-  `2026-10-10T19-36-43-923Z-9a659e65-9327-4880-b599-64829a21ee77`;
-  architecture passed, exit 0, run
-  `2026-10-10T19-36-43-921Z-74ba3c44-81c3-4b4d-9810-77d5c76c6bb6`.
-* F004 was committed with sign-off as
-  `e36bde0ad1ce16a4a20e038fa5270208a01081c3`. No push was performed.
-* F005 started with user agreement to add only missing outcome-matrix tests.
-  Existing tests already cover PASS, FAIL and retry, blocked work, exhausted
-  limits, no progress, and stale checker results. The focused addition covers
-  interruption and resume without repeating the completed maker round.
-* F005 passed fresh evaluation with average and minimum 5.0 and no required
-  fixes. Final outcome-matrix tests passed 13/13, exit 0, run
-  `2026-10-10T22-21-47-831Z-b101da44-5b4d-4475-b264-137691629dc8`;
-  architecture passed, exit 0, run
-  `2026-10-10T22-21-50-614Z-389b6966-c3de-4ced-bfb3-9380a7dfaab3`.
-* F005 was committed with sign-off as
-  `11dd6bb5ccf65ff8a26d62807b7c8148eb41d6cf`. No push was performed.
-* F006 started with user agreement to extend the existing harness guide and
-  link it from the README. The guide documents verified CLI inputs, persisted
-  state, resume and stop behavior, finite limits, terminal outcomes, and the
-  local capability boundary without presenting it as an application security
-  boundary.
-* F006 architecture passed, exit 0, run
-  `2026-10-10T22-32-01-606Z-b7611891-bf6a-4277-a586-752bdf4617a7`.
-  `git diff --check` passed. The CI-only `lychee` executable was unavailable
-  locally, so the offline Markdown-link workflow was not reproduced.
-* The first F006 evaluator returned FAIL (average 3.6, minimum 2): the guide
-  named an unsupported `dispatch-failed` result and Current State was stale.
-  The repair documents dispatch exceptions as persisted `blocked` outcomes and
-  updates Current State to F006 active.
-* Repaired F006 architecture passed, exit 0, run
-  `2026-10-10T22-48-49-234Z-f4fdcca8-1193-4c5d-9740-31b231b3c7d2`;
-  `git diff --check` passed.
-* F006 passed fresh reevaluation (average 4.8, minimum 4) with no required
-  fixes. Evaluator verification passed, exit 0, run
-  `2026-10-10T23-04-43-992Z-b7220c27-8cb0-49d2-a607-10216d55dc64`;
-  evaluator architecture passed, exit 0, run
-  `2026-10-10T23-04-44-009Z-e2ad2dca-210f-4513-a5fa-4108c27281a5`.
-* Final F006 post-verdict architecture passed, exit 0, run
-  `2026-10-10T23-17-15-560Z-bb8839bb-2b41-4ef4-84f8-f492284d772a`;
-  `git diff --check` passed.
-* F006 was committed with sign-off as
-  `954c853308d84a68024a088db9a6130366e1380e`. No push was performed.
-* Final issue #30 checks passed: all 28 maker-checker tests, exit 0, run
-  `2026-10-10T23-19-08-169Z-66659d89-4f2e-4d9c-ae27-20481144f19e`;
-  verification-runner tests 9/9, exit 0, run
-  `2026-10-10T23-19-08-102Z-925c5edd-9279-4802-a6ca-57366f887fa7`;
-  architecture, exit 0, run
-  `2026-10-10T23-19-06-902Z-2af141a4-b0ab-4f76-9520-2fd532ec790f`.
-* The first final dry run stopped `approval-required` because F006 was already
-  pass. A temporary ignored active-feature fixture then exposed and corrected
-  a verification-command mismatch before the final dry run ended `pass`
-  without tracked changes, exit 0, run
-  `2026-10-10T23-20-39-156Z-4f54cae8-e374-4fb2-ba12-fb90bc1eb8bc`.
-* Startup checks were not applicable because issue #30 changes finite local
-  harness scripts and documentation. No long-lived process was started. The
-  named final dry-run goal, fixture, state, and temporary ignored checklist
-  were removed; local verification reports were intentionally retained.
-* Reviewed revision and tree: commit
-  `954c853308d84a68024a088db9a6130366e1380e` plus this final progress-only
-  handoff. No unrelated pre-existing changes remain.
-* Blockers and next action: none for issue #30. Commit this final handoff and
-  inspect the clean tree. No push or pull-request operation is approved.
-* Result: no commit, push, pull-request operation, branch change, or merge was
-  performed in the working repository.
+* Startup: not applicable. The change affects finite local harness scripts and
+  documentation, not a service startup path.
+* Cleanup: no long-lived process was started. Node fixtures removed their
+  temporary repositories. Ignored verification reports were intentionally
+  retained, including the stray reports written by the recursive test runs
+  before the stub runner was added.
+* Blockers: none. Pull request #31 was green on its previous head; CI must be
+  confirmed again on the new head after this push.
+* Next steps: commit and push these review fixes, confirm CI on the new head,
+  then reply to and resolve the four review threads.
 
 ## Built
 

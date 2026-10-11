@@ -22,6 +22,13 @@ const outcomes = new Set([
   'limit-exhausted',
 ]);
 const nextActions = new Set(['maker', 'checker', 'stop']);
+const verificationStatuses = new Set([
+  'passed',
+  'failed',
+  'interrupted',
+  'error',
+  'skipped',
+]);
 
 function assertNonemptyString(value, path) {
   if (typeof value !== 'string' || value.length === 0) {
@@ -48,6 +55,28 @@ function assertHumanIntervention(value, path) {
   }
   if (value.required && value.reason === null) {
     throw new Error(`${path}.reason is required when human intervention is required.`);
+  }
+}
+
+function assertVerification(value, path) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${path} must be an object.`);
+  }
+  assertNonemptyString(value.command, `${path}.command`);
+  if (!verificationStatuses.has(value.status)) {
+    throw new Error(`${path}.status is not supported.`);
+  }
+  if (value.runId !== null) {
+    assertNonemptyString(value.runId, `${path}.runId`);
+  }
+  if (value.reportPath !== null) {
+    assertNonemptyString(value.reportPath, `${path}.reportPath`);
+  }
+  if (value.exitCode !== null && !Number.isInteger(value.exitCode)) {
+    throw new Error(`${path}.exitCode must be an integer or null.`);
+  }
+  if (value.status === 'passed' && value.runId === null) {
+    throw new Error(`${path}.runId is required when verification passed.`);
   }
 }
 
@@ -88,6 +117,9 @@ function assertRound(round, index) {
   }
   if (!nextActions.has(round.nextAction)) {
     throw new Error(`${path}.nextAction is not supported.`);
+  }
+  if (round.verification !== undefined && round.verification !== null) {
+    assertVerification(round.verification, `${path}.verification`);
   }
   assertHumanIntervention(round.humanIntervention, `${path}.humanIntervention`);
 }

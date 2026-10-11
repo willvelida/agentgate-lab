@@ -216,3 +216,27 @@ ms.date: 2026-10-10
   harness scripts and documentation. No long-lived process was started. The
   named final dry-run goal, fixture, state, and temporary ignored checklist
   were removed; local verification reports were intentionally retained.
+
+* 2026-10-11: issue #30 was published as pull request #31. Four Copilot review
+  findings were addressed without changing any feature status.
+  * The controller now runs the goal's verification command between rounds
+    through the evidence runner and records `command`, `status`, `runId`,
+    `exitCode` and `reportPath` on each gated maker round. The checker only
+    runs after verification passes; failed verification returns the work to
+    the maker; a runner that cannot start stops for human intervention.
+  * Both prompts now carry the goal, numbered constraints and verification
+    command, state that shell access is disabled, and forbid claiming to have
+    run verification.
+  * Resuming with a goal contract that differs from the recorded one is
+    refused. Key ordering differences are still accepted.
+  * Decision D022 records the controller-run verification design.
+* Review-fix verification: all four harness test files passed 34/34, exit 0,
+  run `2026-10-11T00-38-21-959Z-965515bd-8686-4742-8796-cc0b0a236520`;
+  architecture passed, exit 0, run
+  `2026-10-11T00-38-43-072Z-81bb7759-0cc7-4c4f-af6d-3d5dd580f1fa`.
+  Reviewed revision `57893340aa13de530098d90aeb6c2ddf4e778da8` plus the eight
+  modified files.
+* A test-harness defect was found and fixed: the loop test helper did not
+  inject a verification runner, so the new default spawned the real evidence
+  runner against this repository and recursively re-ran the test file. The
+  helper now injects a stub runner.

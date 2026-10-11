@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createLoopState,
@@ -103,13 +103,13 @@ function runProcess(executable, args, options) {
       clearTimeout(timer);
       if (timedOut) {
         reject(new Error(`Copilot session exceeded its ${options.timeoutMs} ms dispatch limit.`));
-      } else if (code !== 0) {
+      } else if (code !== 0 && !options.allowNonZeroExit) {
         reject(new Error(
           `Copilot session failed with exit code ${code}`
             + `${signal ? ` and signal ${signal}` : ''}: ${stderr.trim()}`,
         ));
       } else {
-        resolveProcess({ stdout, stderr });
+        resolveProcess({ stdout, stderr, exitCode: code, signal });
       }
     });
   });
@@ -137,12 +137,21 @@ export class CopilotCliDispatcher {
   }
 
   async dispatch({ actor, goal, feedback, timeoutMs }) {
+    const contract = [
+      `Goal: ${goal.goal}`,
+      `Constraints: ${goal.constraints.map((entry, index) => `(${index + 1}) ${entry}`).join(' ')}`,
+      `Verification command: ${goal.verificationCommand}`,
+      'Shell access is disabled for this session, so you cannot run that command yourself.',
+      'The loop controller runs it from outside the session after your turn and records',
+      'the structured result. Never claim to have run verification or architecture checks.',
+    ].join(' ');
     const prompt = actor === 'maker'
       ? [
           `Work on issue #${goal.issue}, existing slug ${goal.featureSlug},`,
           `${goal.featureId} only. The feature design is already approved.`,
           'Follow the Harness Implementer workflow and do not commit or publish.',
-          feedback ? `Checker feedback to address: ${feedback}` : '',
+          contract,
+          feedback ? `Feedback to address: ${feedback}` : '',
           `End your response with exactly one line starting ${resultMarker}`,
           'followed by JSON with outcome completed, blocked, ambiguous, or no-progress',
           'and a non-empty feedback string.',
@@ -150,6 +159,8 @@ export class CopilotCliDispatcher {
       : [
           `/feature-evaluator Evaluate ${goal.featureId} in slug ${goal.featureSlug}.`,
           'Run this as a fresh independent evaluation session.',
+          contract,
+          'Judge the recorded controller verification evidence instead of rerunning it.',
           `End your response with exactly one line starting ${resultMarker}`,
           'followed by JSON with outcome pass, fail, blocked, ambiguous, or stale',
           'and a non-empty feedback string.',
@@ -179,6 +190,49 @@ export class CopilotCliDispatcher {
       timeoutMs,
     });
     return parseDispatchResult(actor, stdout);
+  }
+}
+
+export class VerificationRunner {
+  constructor({
+    repositoryRoot = process.cwd(),
+    processRunner = runProcess,
+    nodeExecutable = process.execPath,
+    readReport = (path) => JSON.parse(readFileSync(path, 'utf8')),
+  } = {}) {
+    this.repositoryRoot = resolve(repositoryRoot);
+    this.processRunner = processRunner;
+    this.nodeExecutable = nodeExecutable;
+    this.readReport = readReport;
+  }
+
+  async run(command, { timeoutMs }) {
+    const tokens = command.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) {
+      throw new Error('Verification command must not be empty.');
+    }
+    const runner = resolve(this.repositoryRoot, 'scripts', 'run-verification.mjs');
+    const { stderr } = await this.processRunner(
+      this.nodeExecutable,
+      [runner, '--', ...tokens],
+      {
+        cwd: this.repositoryRoot,
+        timeoutMs,
+        allowNonZeroExit: true,
+      },
+    );
+    const reportPath = /^Verification report: (.+)$/m.exec(stderr)?.[1]?.trim();
+    if (!reportPath) {
+      throw new Error('Verification runner did not report an evidence path.');
+    }
+    const report = this.readReport(reportPath);
+    return {
+      command,
+      status: report.status,
+      runId: report.runId ?? null,
+      exitCode: Number.isInteger(report.exitCode) ? report.exitCode : null,
+      reportPath: relative(this.repositoryRoot, reportPath).split('\\').join('/'),
+    };
   }
 }
 
@@ -248,9 +302,9 @@ function latestMakerRevision(state) {
     ?.reviewedRevision;
 }
 
-function latestCheckerFeedback(state) {
-  const checker = [...state.rounds].reverse().find((round) => round.actor === 'checker');
-  return checker?.outcome === 'fail' ? checker.feedback : null;
+function pendingMakerFeedback(state) {
+  const pending = [...state.rounds].reverse().find((round) => round.nextAction === 'maker');
+  return pending?.feedback ?? null;
 }
 
 function remainingTime(state, now) {
@@ -274,8 +328,21 @@ function terminalRound(actor, revision, now, outcome, feedback, reason) {
     outcome,
     feedback,
     nextAction: 'stop',
+    verification: null,
     humanIntervention: humanStop(reason),
   };
+}
+
+function canonicalGoal(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalGoal(entry)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalGoal(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
 }
 
 export async function runMakerCheckerLoop({
@@ -284,6 +351,7 @@ export async function runMakerCheckerLoop({
   dispatcher = new CopilotCliDispatcher(),
   getRevision,
   safetyBoundary = new RepositorySafetyBoundary(),
+  verificationRunner = new VerificationRunner(),
   now = () => new Date(),
 }) {
   if (typeof getRevision !== 'function') {
@@ -293,6 +361,13 @@ export async function runMakerCheckerLoop({
   let state = existsSync(statePath)
     ? loadLoopState(statePath)
     : createLoopState(goal, now());
+  if (canonicalGoal(state.goal) !== canonicalGoal(goal)) {
+    throw new Error(
+      'The supplied goal contract does not match the contract recorded in the loop state.'
+        + ' Resume with the original contract or start a new state file.',
+    );
+  }
+  const activeGoal = state.goal;
   saveLoopState(statePath, state);
 
   while (true) {
@@ -305,7 +380,7 @@ export async function runMakerCheckerLoop({
     const before = getRevision();
     const startedAt = now();
     const timeLeft = remainingTime(state, startedAt);
-    if (state.rounds.length >= goal.limits.maxRounds || timeLeft <= 0) {
+    if (state.rounds.length >= activeGoal.limits.maxRounds || timeLeft <= 0) {
       state = persistRound(
         statePath,
         state,
@@ -344,7 +419,7 @@ export async function runMakerCheckerLoop({
 
     let safetyBefore;
     try {
-      safetyBefore = safetyBoundary.capture(goal);
+      safetyBefore = safetyBoundary.capture(activeGoal);
     } catch (error) {
       state = persistRound(
         statePath,
@@ -366,8 +441,8 @@ export async function runMakerCheckerLoop({
     try {
       result = await dispatcher.dispatch({
         actor,
-        goal,
-        feedback: latestCheckerFeedback(state),
+        goal: activeGoal,
+        feedback: pendingMakerFeedback(state),
         timeoutMs: timeLeft,
       });
     } catch (error) {
@@ -388,13 +463,13 @@ export async function runMakerCheckerLoop({
       return { status: 'blocked', state };
     }
 
-    const finishedAt = now();
+    let finishedAt = now();
     const after = getRevision();
     try {
       safetyBoundary.assertTransition(
         safetyBefore,
-        safetyBoundary.capture(goal, { requireActive: false }),
-        goal,
+        safetyBoundary.capture(activeGoal, { requireActive: false }),
+        activeGoal,
         actor,
       );
     } catch (error) {
@@ -452,7 +527,7 @@ export async function runMakerCheckerLoop({
         outcome = 'no-progress';
       }
       if (outcome === 'no-progress'
-          && countNoProgressMakerRounds(state) + 1 >= goal.limits.noProgressLimit) {
+          && countNoProgressMakerRounds(state) + 1 >= activeGoal.limits.noProgressLimit) {
         outcome = 'stalled';
         nextAction = 'stop';
         feedback = `${feedback} The configured no-progress limit was reached.`;
@@ -462,9 +537,30 @@ export async function runMakerCheckerLoop({
       nextAction = 'stop';
     }
 
+    let verification = null;
+    if (actor === 'maker' && outcome === 'completed' && nextAction === 'checker') {
+      try {
+        verification = await verificationRunner.run(activeGoal.verificationCommand, {
+          timeoutMs: Math.max(1, remainingTime(state, now())),
+        });
+      } catch (error) {
+        outcome = 'blocked';
+        nextAction = 'stop';
+        feedback = `${feedback} Controller verification could not run: ${error.message}`;
+        intervention = humanStop('Repair the verification runner before resuming.');
+      }
+      finishedAt = now();
+      if (verification && verification.status !== 'passed') {
+        outcome = 'fail';
+        nextAction = 'maker';
+        feedback = `${feedback} Controller verification ${verification.status} for`
+          + ` \`${verification.command}\` (run ${verification.runId ?? 'unknown'}).`;
+      }
+    }
+
     const wouldContinue = nextAction !== 'stop';
     const elapsedExhausted = remainingTime(state, finishedAt) <= 0;
-    const roundsExhausted = state.rounds.length + 1 >= goal.limits.maxRounds;
+    const roundsExhausted = state.rounds.length + 1 >= activeGoal.limits.maxRounds;
     if (wouldContinue && (elapsedExhausted || roundsExhausted)) {
       outcome = 'limit-exhausted';
       nextAction = 'stop';
@@ -480,6 +576,7 @@ export async function runMakerCheckerLoop({
       outcome,
       feedback,
       nextAction,
+      verification,
       humanIntervention: intervention,
     }, finishedAt);
 
@@ -515,6 +612,7 @@ async function main() {
     goal,
     statePath: resolve(args.state),
     dispatcher,
+    verificationRunner: new VerificationRunner({ repositoryRoot: process.cwd() }),
     safetyBoundary: new RepositorySafetyBoundary({
       repositoryRoot: process.cwd(),
       protectedPaths: [resolve(args.goal)],

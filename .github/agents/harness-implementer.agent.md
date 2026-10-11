@@ -65,6 +65,10 @@ phase-by-phase approval prompts.
 3. Run the exact feature verification and architecture check through the
    runner. Perform applicable startup checks as required by AGENTS.md;
    long-lived services do not run through the finite-command runner.
+   When dispatched by the bounded maker-checker loop, shell access is
+   disabled and the loop controller runs the verification command from
+   outside the session after the turn ends. In that case, report the work
+   completed and never claim to have run verification yourself.
 4. Record sanitized results, run IDs, exit codes, reviewed commit, dirty
    state, and tested date in the feature evidence and progress log. Keep raw
    output local. Report failed or incomplete checks as such, repair
