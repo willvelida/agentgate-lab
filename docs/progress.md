@@ -21,16 +21,18 @@ This file only summarizes them.
 Update this section at clock-out so the next session knows the repository's
 health before it changes anything.
 
-* PR #31 implementation follow-up is pushed as
+* PR #31's F003/F004 implementation follow-up is pushed as
   `db7c95944f37bc32c2be2e23b2987f11a56cb707` on `feat/harness-extension`.
   Exact-head Build, Docs check (links and progress reminder), and DCO all
-  passed. The earlier Build failure on `b7c7202` came from an F004 test that
-  depended on an ignored local feature list; the test now uses an isolated
-  fixture. Review follow-ups also reject reflective and dynamic loaders,
-  reject sandbox-unsupported toolchains, count first-turn no-progress, and
-  refresh progress evidence. Fresh evaluators pass F003 (4.8/5) and F004
-  (4.6/5), including the reflective-loader fix. PR description is updated;
-  five inline review threads still need replies and resolution.
+  passed; a later progress-only commit also passed exact-head checks. The
+  earlier Build failure on `b7c7202` came from an F004 test that depended on
+  an ignored local feature list; the test now uses an isolated fixture.
+  Review follow-ups also reject reflective and dynamic loaders, reject
+  sandbox-unsupported toolchains, count first-turn no-progress, and refresh
+  progress evidence. Fresh evaluators pass F003 (4.8/5) and F004 (4.6/5),
+  including the reflective-loader fix. All five inline review threads have
+  received replies and are resolved. The PR description records the latest
+  pushed SHA and its check results.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -462,7 +464,9 @@ where you left off.
   evaluation passed F003 (4.8/5) and F004 (4.6/5), including the follow-up
   fix for the reflective loader bypass. Both feature statuses remain pass;
   the ignored local feature list's evidence was refreshed. Commit
-  `db7c95944f37bc32c2be2e23b2987f11a56cb707` was signed off and pushed.
+  `db7c95944f37bc32c2be2e23b2987f11a56cb707` was signed off and pushed,
+  followed by a progress-only publication update. All five review threads
+  were answered and resolved.
 * Tracked changes include `scripts/maker-checker-safety.mjs`,
   `scripts/maker-checker-safety.test.mjs`, `scripts/maker-checker-loop.mjs`,
   `scripts/maker-checker-loop.test.mjs`, `docs/harness-agent.md`,
@@ -494,14 +498,16 @@ where you left off.
     `2026-10-11T21-00-56-081Z-4e8c5e64-f41c-4ec8-81f4-482f60860d35`.
 * CI and review: Build run `38174696363` and Docs check run `38174696332`
   passed on exact head `db7c95944f37bc32c2be2e23b2987f11a56cb707`; DCO passed.
-  The PR description now records this head and its evidence. Five inline
-  review threads remain open; replies and resolutions are the remaining PR
-  work.
+  Build run `38175046143` and Docs check run `38175046158` also passed on
+  exact head `385c0857fcceca803233be5b6f363051163f6e6f`; DCO passed. The PR
+  description is the source of truth for the latest pushed SHA and check
+  results. All five inline review threads received replies and are resolved.
 * Boundaries and cleanup: runtime startup is not applicable. No long-lived
   service was started. Tests removed their temporary fixtures and containers.
   Local verification evidence remains under ignored `.local/verification/`.
-* Next: reply to and resolve the five addressed review threads, update this
-  handoff, publish that progress update, and verify the final PR state.
+* Next: confirm the PR description reflects the latest progress-only commit
+  and its exact-head CI results. No implementation or review-response work
+  remains.
 
 ## Built
 
