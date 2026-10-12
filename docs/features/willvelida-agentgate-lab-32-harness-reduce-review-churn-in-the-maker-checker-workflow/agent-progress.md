@@ -60,3 +60,5 @@ commit.
 
 F001 stays `active`. It must not be marked `pass` until a fresh-session
 `feature-evaluator` run records a PASS verdict here.
+
+* 2026-10-12: F001 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
