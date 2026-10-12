@@ -494,14 +494,17 @@ where you left off.
   `2026-10-12T02-30-01-582Z-5053d61e-11e5-476f-a65b-6179319d2e05`).
   Reviewed revision was `fefd62beb1da1bbfb8cc66e65d73645c7db83837`
   plus the F002 working-tree diff.
+* Commit: the unchanged F002 implementation and evidence are committed as
+  `5179163326de98bab87feef463dbb9240d596077`. The branch is not pushed, so
+  exact-head CI is not available.
 * Startup and cleanup: runtime startup is not applicable because no service
   startup path changed. No long-lived process was started. Test fixtures
   cleaned themselves, and raw reports remain under ignored
   `.local/verification/`. Unrelated processes and files were left untouched.
 * Blockers: none. F002 awaits a committed, clean revision and fresh-session
   evaluator verdict.
-* Next: commit the unchanged F002 diff, record its SHA, and run the
-  `feature-evaluator` in a fresh session.
+* Next: run the `feature-evaluator` in a fresh session against the committed,
+  clean F002 revision.
 
 ## Built
 

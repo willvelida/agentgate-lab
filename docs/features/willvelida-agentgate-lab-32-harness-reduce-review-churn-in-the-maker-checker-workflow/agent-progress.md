@@ -94,6 +94,7 @@ Verification and regression results, captured through
 | `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-12T02-30-01-582Z-5053d61e-11e5-476f-a65b-6179319d2e05` |
 
 Verified at revision `fefd62beb1da1bbfb8cc66e65d73645c7db83837` with the
-F002 change applied to the working tree. F002 stays `active` until this
-unchanged implementation is committed and a fresh-session evaluator records
-PASS.
+F002 change applied to the working tree. The unchanged implementation is
+committed as `5179163326de98bab87feef463dbb9240d596077` on
+`feat/harness-reduce-review-churn`. F002 stays `active` until a fresh-session
+evaluator records PASS.
