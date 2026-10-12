@@ -48,7 +48,10 @@ health before it changes anything.
   passed 33/33, loop regressions passed 31/31, and architecture passed. The
   PR-comment workflow now checks both inline threads and submitted review
   summary bodies; implementation and evaluator loop suites passed 32/32.
-  F003-F004 have not started.
+  F003 is implemented and awaiting independent evaluation. Evaluators now
+  require one named clean commit and recheck the same clean revision before
+  recording a verdict. Its exact loop suite passed 33/33 and architecture
+  passed. F004 has not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -476,41 +479,37 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-12
-* Accomplished: implemented issue #32 F002 on
-  `feat/harness-reduce-review-churn`. The hard rules and harness guide now
-  require live inspection of unresolved inline review threads and the latest
-  submitted review summary bodies, including raw collapsed sections. The
-  workflow combines both sources into one checklist, batches fixes, re-fetches
-  both sources, and fails closed when either source is unavailable.
-* Selection: no response was available for the next-feature choice, so the
-  recommended issue-order option, F002, was selected. F001 remains `pass`;
-  F002 is `active`; F003-F004 remain `not-started`.
-* Files: `AGENTS.md`, `docs/harness-agent.md`,
+* Accomplished: implemented issue #32 F003 on
+  `feat/harness-reduce-review-churn`. The evaluator skill now refuses
+  uncommitted or dirty input, records the full named commit before checks, and
+  confirms the same commit and clean tracked tree before recording a verdict.
+  Revision changes make the result stale without recording PASS or FAIL.
+  Implementer and user guidance now require an authorized commit before the
+  fresh evaluation session.
+* Status: F001-F002 remain `pass`; F003 is `active` and ready for evaluation;
+  F004 remains `not-started`.
+* Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
+  `.github/agents/harness-implementer.agent.md`, `docs/harness-agent.md`,
   `scripts/maker-checker-loop.test.mjs`, `docs/progress.md`, and the issue #32
   `agent-progress.md`. The ignored `features_list.json` records local state.
   No dependency manifest or lockfile changed.
-* Verification: the exact F002 command passed 32/32, exit 0 (run
-  `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`);
+* Verification: the exact F003 command passed 33/33, exit 0 (run
+  `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9`);
   architecture passed, exit 0 (run
-  `2026-10-12T02-30-01-582Z-5053d61e-11e5-476f-a65b-6179319d2e05`).
-  Reviewed revision was `fefd62beb1da1bbfb8cc66e65d73645c7db83837`
-  plus the F002 working-tree diff.
-* Commit: the unchanged F002 implementation and evidence are committed as
-  `5179163dce37353482c7317b2f968a97e3e9408b`. The branch is not pushed, so
-  exact-head CI is not available.
+  `2026-10-12T02-53-50-129Z-b2c23210-53b8-4e4d-b493-1e2f6ac1c987`).
+  Reviewed revision was `d23dba1169967d53b9b71b5d3257f22756c6c4dd`
+  plus the F003 working-tree diff.
+* Commit: pending creation of the clean F003 commit required by the new
+  evaluator workflow. The branch is not pushed, so exact-head CI is not
+  available.
 * Startup and cleanup: runtime startup is not applicable because no service
   startup path changed. No long-lived process was started. Test fixtures
   cleaned themselves, and raw reports remain under ignored
   `.local/verification/`. Unrelated processes and files were left untouched.
-* Evaluation: clean commit `f129f861e823fc29e1f2841e0e494636bf2970ab`
-  passed all five rubric dimensions with 5/5. Exact verification passed 32/32,
-  exit 0 (run
-  `2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`);
-  architecture passed, exit 0 (run
-  `2026-10-12T02-42-45-290Z-80b792b2-57d0-4243-bfe9-b245007dd348`).
-* Blockers: none. F002 is `pass`.
-* Next: implement F003, requiring evaluation of a committed, unchanged
-  revision.
+* Evaluation: pending a fresh evaluator review of the clean F003 commit.
+* Blockers: none.
+* Next: commit F003, obtain evaluator PASS for that exact clean commit, then
+  implement F004.
 
 ## Built
 

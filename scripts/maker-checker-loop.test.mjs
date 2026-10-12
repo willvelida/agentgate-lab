@@ -119,6 +119,28 @@ test('documents inline threads and review summaries as required PR feedback sour
   assert.match(guide, /If either source cannot be read, record the review check as unavailable/);
 });
 
+test('requires evaluators to review one unchanged clean commit', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+  const implementer = readFileSync(
+    resolve('.github/agents/harness-implementer.agent.md'),
+    'utf8',
+  );
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+
+  assert.match(instructions, /named, clean commit/i);
+  assert.match(instructions, /same commit.*clean tree/is);
+  assert.match(evaluator, /Do not evaluate an\s+uncommitted diff/i);
+  assert.match(evaluator, /starting commit is still\s+checked out/i);
+  assert.match(evaluator, /report `STALE`/);
+  assert.match(implementer, /authorized parent or user\s+must commit/i);
+  assert.match(guide, /record the full commit SHA/i);
+  assert.match(guide, /records neither PASS nor FAIL/i);
+});
+
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
   const calls = [];
   const statePath = resolve(tmpdir(), 'agentgate-dispatch-state', 'state.json');

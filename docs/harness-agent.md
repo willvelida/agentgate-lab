@@ -68,15 +68,20 @@ cleanup, blockers, and the next action. Check the sanitized progress log and
 the local reports described in [verification guidance](./verification.md).
 
 After successful verification, the feature remains `active`. Open a fresh
-session in the same checkout and invoke:
+session only after an authorized parent or user commits the verified work.
+Confirm the working tree is clean and record the full commit SHA, then invoke:
 
 ```text
 /feature-evaluator Evaluate F001 in slug <generated-slug>.
 ```
 
 The [evaluator skill](../.github/skills/feature-evaluator/SKILL.md) reruns checks
-and records a verdict without changing implementation or feature status.
-Switching agents in the implementation chat is not a fresh-session review.
+and records a verdict without changing implementation or feature status. It
+refuses an uncommitted or dirty working tree, records the full starting commit
+SHA, and confirms the same commit is still checked out with a clean tree before
+recording a verdict. If HEAD or tracked files change during evaluation, the
+result is stale and the evaluator records neither PASS nor FAIL. Switching
+agents in the implementation chat is not a fresh-session review.
 
 This first implementer version stops before evaluation. In a separate
 follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or

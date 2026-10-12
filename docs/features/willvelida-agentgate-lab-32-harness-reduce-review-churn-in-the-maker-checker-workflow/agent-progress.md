@@ -14,7 +14,7 @@ ms.date: 2026-10-12
 | --- | --- | --- | --- | --- | --- |
 | F001 | The verification boundary no longer depends on parsing JavaScript imports. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Implementation run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33; evaluator run `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`, pass, 33/33 | 2026-10-12, evaluator PASS |
 | F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`, pass, 32/32; evaluator run `2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`, pass, 32/32 | 2026-10-12, evaluator PASS |
-| F003 | The evaluator workflow requires a committed, unchanged revision. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
+| F003 | The evaluator workflow requires a committed, unchanged revision. | active | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9`, pass, 33/33 | 2026-10-12, awaiting evaluator |
 | F004 | A decision records the loop's accepted limits. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
 
 ## Updates
@@ -107,3 +107,26 @@ architecture passed (run
 `2026-10-12T02-42-45-290Z-80b792b2-57d0-4243-bfe9-b245007dd348`).
 All five rubric dimensions scored 5/5. The evaluator changed no implementation
 or test file. F002 is `pass`.
+
+F003 is active. The evaluator workflow now refuses uncommitted or dirty input,
+records the full named commit SHA before checks, and confirms that the same
+commit is still checked out with a clean tracked tree before recording a
+verdict. A changed HEAD or dirty tracked tree makes the evaluation stale, with
+neither PASS nor FAIL recorded. The implementer and harness handoffs now
+require an authorized parent or user to commit verified work before opening
+the fresh evaluator session. A focused contract test preserves these entry,
+exit, and stale-result requirements.
+
+Verification results, captured through
+[Invoke-Verification.ps1](../../../scripts/Invoke-Verification.ps1):
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass, 33/33, exit 0 | `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-12T02-53-50-129Z-b2c23210-53b8-4e4d-b493-1e2f6ac1c987` |
+
+Both runs reviewed revision
+`d23dba1169967d53b9b71b5d3257f22756c6c4dd` plus the F003 working-tree
+changes. Runtime startup is not applicable because F003 changes only the
+harness workflow and its contract test. No long-lived process was started.
+Raw reports remain under ignored `.local/verification/`.

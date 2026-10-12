@@ -33,10 +33,11 @@ ms.date: 2026-10-09
     progress log.
 13. Never weaken, skip, or quietly change a verification command or test to
     make it pass. If one is wrong, mark the feature `blocked` and ask the user.
-14. Mark a feature `pass` only after the `feature-evaluator` skill gives it a
-    PASS in a fresh session and records the verdict in the slug's
-    `agent-progress.md`. The verdict must cover the changes being marked
-    `pass`; request a new evaluation if those changes are modified.
+14. Mark a feature `pass` only after the `feature-evaluator` skill reviews a
+    named, clean commit in a fresh session, gives it a PASS, and records the
+    verdict in the slug's `agent-progress.md`. The evaluator must confirm the
+    same commit is still checked out with a clean tree before recording PASS.
+    Treat a changed or dirty revision as stale and request a new evaluation.
 15. Capture verification commands through the runner in
     [verification guidance](./docs/verification.md). Keep raw reports local
     and commit only sanitized summaries with run IDs, results, and the
