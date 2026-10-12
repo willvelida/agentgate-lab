@@ -546,9 +546,10 @@ where you left off.
 * Publication: PR #33 is open against `main`. Its first documentation link
   check found that tracked `agent-progress.md` linked to ignored
   `features_list.json`; the link was replaced with a plain local-checklist
-  reference. Exact-head CI then passed for `7a18119`, and the review-response
-  commit needs its own exact-head CI confirmation.
-* Next: confirm CI passes for the review-response head and await human review.
+  reference. Exact-head CI then passed for `7a18119`, and passed again for the
+  review-response head `8355c01` (build, links, progress-reminder, and DCO all
+  succeeded). All four Copilot review threads were answered and resolved.
+* Next: await human review and merge authorisation.
 
 ## Built
 
