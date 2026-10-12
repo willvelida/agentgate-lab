@@ -55,7 +55,8 @@ health before it changes anything.
   passed independent evaluation (average 5.0, minimum 5) on clean commit
   `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. D036 records the trusted
   boundary, sandbox limitations, productive limits, clean-commit gate, and
-  fail-closed cleanup behavior.
+  fail-closed cleanup behavior. The completed work is published in
+  [PR #33](https://github.com/willvelida/agentgate-lab/pull/33).
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -506,8 +507,8 @@ where you left off.
   `2026-10-12T03-33-29-564Z-0f591fb9-0bd6-4a5a-b558-5b640d4d8f6d`).
 * Reviewed commits: F003 evaluator reviewed clean
   `ae5b78aab789429cfacc41700e8741558acba0ab`; F004 evaluator reviewed clean
-  `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. The branch is not pushed; exact
-  head CI is unavailable.
+  `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. The branch is published in
+  PR #33. Exact-head CI is pending.
 * Startup and cleanup: runtime startup is not applicable because the issue
   changes harness documentation and tests only. No long-lived process was
   started. Test fixtures cleaned themselves, raw reports remain under ignored
@@ -515,7 +516,11 @@ where you left off.
 * Evaluations: F003 and F004 both passed fresh evaluation with average 5.0 and
   minimum 5. No required fixes remain.
 * Blockers: none.
-* Next: review the final diff and publish only with explicit authorization.
+* Publication: PR #33 is open against `main`. Its first documentation link
+  check found that tracked `agent-progress.md` linked to ignored
+  `features_list.json`; the link was replaced with a plain local-checklist
+  reference. Exact-head CI is pending.
+* Next: confirm CI passes for the exact PR head and address review feedback.
 
 ## Built
 

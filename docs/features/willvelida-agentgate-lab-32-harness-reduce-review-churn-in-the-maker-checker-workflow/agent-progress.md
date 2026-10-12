@@ -8,7 +8,7 @@ ms.date: 2026-10-12
 
 * Repository: `willvelida/agentgate-lab`
 * Issue: [#32](https://github.com/willvelida/agentgate-lab/issues/32)
-* Feature list: [features_list.json](./features_list.json)
+* Feature list: local ignored `features_list.json`
 
 | Feature | Description | Status | Verification | Evidence | Tested |
 | --- | --- | --- | --- | --- | --- |
