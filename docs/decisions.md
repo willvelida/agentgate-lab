@@ -629,3 +629,28 @@ Each entry records:
   failure is deterministic and the fix is small.
 * Constraints: Windows (`C:\...`, `C:/...`) and POSIX (`/...`) absolute forms
   are both rejected on every platform.
+
+## D035: hash stable verification roots instead of discovered imports
+
+* Date: 2026-10-12
+* Decision: the Node.js verification boundary hashes `scripts/` and `tests/`
+  recursively, plus repository-root files individually. Directory hashing
+  skips `bin/` and `obj/`. JavaScript import traversal remains only as an
+  adversarial screen for prohibited dynamic, reflective, subprocess, and
+  worker loaders; it no longer determines the protected path set. This
+  resolves the import-scanning limit recorded in D033.
+* Why: whole-root content hashing protects verification inputs without trying
+  to recognize every JavaScript import form. Repository-root files cover
+  helpers beside the solution file without recursing into directories that
+  change during a normal round.
+* Alternatives rejected: hashing the entire repository except `src/`, because
+  `.git/`, `.local/`, and progress documents mutate during normal harness
+  operation and would always violate the boundary; parsing imports into paths,
+  because new loader forms repeatedly caused review churn; removing the
+  adversarial screens, because verification code could then execute outside
+  the hashed set through a subprocess or reflective loader.
+* Constraints: `.git/`, `.local/`, `docs/`, `src/`, and other root
+  directories are not recursive verification roots. Generated `bin/` and
+  `obj/` directories do not contribute names or contents to directory hashes.
+  Expanding the protected set must avoid paths that the harness legitimately
+  mutates during a round.

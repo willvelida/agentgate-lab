@@ -12,7 +12,7 @@ ms.date: 2026-10-12
 
 | Feature | Description | Status | Verification | Evidence | Tested |
 | --- | --- | --- | --- | --- | --- |
-| F001 | The verification boundary no longer depends on parsing JavaScript imports. | active | `node --test scripts/maker-checker-safety.test.mjs` | Run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33 | Tested, awaiting evaluator |
+| F001 | The verification boundary no longer depends on parsing JavaScript imports. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Implementation run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33; evaluator run `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`, pass, 33/33 | 2026-10-12, evaluator PASS |
 | F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
 | F003 | The evaluator workflow requires a committed, unchanged revision. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
 | F004 | A decision records the loop's accepted limits. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
@@ -58,7 +58,17 @@ change applied to the working tree. The change is now committed as
 `feat/harness-reduce-review-churn`, with a clean working tree. Evaluate that
 commit.
 
-F001 stays `active`. It must not be marked `pass` until a fresh-session
-`feature-evaluator` run records a PASS verdict here.
+Fresh-session evaluation reviewed
+`f6dacbeb5c936a234ae53bcdfa7510a800242cfa` with a clean working tree.
+The exact verification passed 33/33 (run
+`2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`), and the
+architecture check passed (run
+`2026-10-12T00-47-01-741Z-14d138f4-efa9-4db8-b1ba-16f0233d7259`).
+All five rubric dimensions scored 5/5. The evaluator changed no source or test
+file and recorded PASS in signed commit
+`12363e3ae10c52946cf3539ab8a8c54e3b2694a8`. F001 is `pass`.
 
-* 2026-10-12: F001 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+Clock-out checks also passed through the verification runner: architecture
+(run `2026-10-12T02-24-06-818Z-797311d7-c7b3-49b6-8200-90fc54082b92`)
+and whitespace validation (run
+`2026-10-12T02-24-08-342Z-59c2c336-6f5e-4d84-8ed1-6157dce87fe6`).

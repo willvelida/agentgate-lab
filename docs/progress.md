@@ -41,9 +41,12 @@ health before it changes anything.
   `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`). These
   fixes are batched into one review-response commit. The PR description is
   the source of truth for the pushed SHA and its exact-head CI.
-* Harness improvements that would reduce review churn, including replacing
-  regex import scanning, are tracked in issue #32 and are out of scope for
-  PR #31 (D033).
+* Issue #32 F001 passed independent evaluation on
+  `feat/harness-reduce-review-churn` (average 5.0, minimum 5). The verification
+  boundary now hashes stable roots and repository-root files instead of
+  deriving protected paths from JavaScript imports (D035). Exact safety tests
+  passed 33/33, loop regressions passed 31/31, and architecture passed.
+  F002-F004 have not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -174,9 +177,11 @@ final link and whitespace checks were repeated before commit.
   containment; it is not implemented by the current Node.js launcher.
 * No gateway security, identity, storage, or agent logic exists yet. Do not
   treat any endpoint as protected.
-* The verification import scanner is regex-based. It fails closed for known
-  dynamic and reflective loader forms, but loader forms it does not recognize
-  are an accepted limit until issue #32 replaces it (D033).
+* The verification boundary hashes `scripts/`, `tests/`, and repository-root
+  files. It deliberately excludes mutable root directories such as `.git/`,
+  `.local/`, `docs/`, and `src/`, and skips generated `bin/` and `obj/`
+  directories (D035). The retained JavaScript scanner rejects known
+  adversarial loader forms but does not define the protected path set.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
   is isolated synthetic evidence, not a Gateway authorization boundary; it
   does not implement production authorization, identity, or ticket operations.
@@ -469,86 +474,46 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-12
-* Accomplished: addressed every open PR #31 finding in one batch. That covers
-  six inline threads and two findings in the latest Copilot review summary's
-  "Previously missed" section. Changes: capture the safety boundary before
-  resumed-checker verification; deny agent writes to the state file, its
-  save sidecars, and its lock directory; traverse imports under protected
-  roots; treat comments as trivia in static `require`; reject reflective and
-  `module`/`node:module` loaders; allowlist only sandbox-compatible shell
-  scripts; pass structured verification records to the checker; and keep
-  interrupted resumed-checker verification resumable.
-* Decisions: D031 (state and lease write denials), D032 (shell allowlist),
-  and D033 (keep the regex scanner for this PR, defer a parser or hashing
-  boundary to issue #32).
-* Out of scope: replacing regex import scanning, moving loop state outside
-  the repository, and the other harness process improvements. These are
-  tracked in issue #32.
-* Files: `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
-  `scripts/maker-checker-safety.mjs`, `scripts/maker-checker-safety.test.mjs`,
-  `docs/harness-agent.md`, `docs/decisions.md`, `docs/progress.md`, and the
-  slug's `agent-progress.md`. Ignored `features_list.json` and
-  `evaluator-rubric.md` were updated locally.
-* Verification, reviewed on HEAD `8ab121a440e49ed86baa8684289b07e822fc8f6a`
-  plus the eight-file dirty diff now committed:
-  * F003 exact command passed 38/38, exit 0, run
-    `2026-10-11T21-56-46-054Z-104ac39c-ab6e-448c-ae3f-f0c685e7d3c3`.
-  * F004 exact command passed 33/33, exit 0, run
-    `2026-10-11T21-56-46-109Z-5dd6fe40-2b86-4cc1-9621-37ca5d7b3ed6`.
-  * Architecture passed, exit 0, run
-    `2026-10-11T21-56-46-747Z-28d134b1-f42d-40dc-963d-e834087e7df2`.
-  * Fresh-session evaluator PASS: F003 avg 4.8, min 4 (run
-    `2026-10-11T22-12-23-106Z-d6829766-5ae4-4d85-b7a9-4ea5cbed6b5e`); F004
-    avg 4.8, min 4 (run
-    `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`).
-* Follow-up: Build failed on `8923ede` (run `38180374482`). Two new dispatch
-  test assertions used hard-coded Windows paths that resolve differently on
-  Linux. A second commit fixes those tests and also fixes the maker-path
-  verification interrupt (`scripts/maker-checker-loop.mjs` near line 993),
-  which still stopped as `blocked`. It now records an `interrupted` maker round
-  that resumes at the checker gate. Fresh-session evaluator PASS on that diff:
-  F003 avg 4.8, min 4, 39/39 (run
-  `2026-10-11T22-35-11-296Z-7bb40904-5462-4515-9016-84b0c231f5bd`); F004 avg
-  4.8, min 4, 33/33 (run
-  `2026-10-11T22-35-11-367Z-7f3bb9bc-e03e-4dee-950d-88654476014d`);
-  architecture passed (run
-  `2026-10-11T22-35-11-459Z-39c7c292-c36b-460f-9190-50ad18d6e89a`).
-* Published head `f8e478beb6baa823d21c67e1e3712d3fbe3ebb45`: Build run
-  `38181357738` passed, Docs check run `38181357767` passed (links and
-  progress-reminder), and DCO passed.
-* Copilot's review of `f8e478b` found one High in-scope issue. A resumed maker
-  round counted as verified when every recorded entry passed, even if the
-  architecture check was missing (for example, after schema v1 migration).
-  The checker gate now requires a passed record for every required command,
-  with regression `reruns verification when a migrated round lacks the
-  architecture check`. Fresh-session evaluator PASS: F003 avg 4.8, min 4,
-  40/40 (run `2026-10-11T22-51-13-387Z-50b1360a-c977-4ff0-9301-cb95533ba412`);
-  F004 avg 4.6, min 4, 33/33 (run
-  `2026-10-11T22-51-13-360Z-0c36d383-6489-4f3e-88c7-d9d23e2496e2`);
-  architecture passed (run
-  `2026-10-11T22-51-13-347Z-d93ca6ab-b79e-4d38-bd60-c4150e6c23bc`). The
-  exact-head CI for this commit is recorded in the PR description, because a
-  commit cannot contain its own CI results. Each addressed thread has a reply
-  and is resolved.
-* Published head `a884cc40dd6961d9fd7fdfe774efd9ec67522be5`: Build run
-  `38182284745`, Docs check run `38182284773`, and DCO passed. Copilot's
-  review of that head found one High issue: host-absolute verification paths
-  passed validation but do not exist inside the `/workspace` sandbox mount. The
-  maintainer chose to reject them (D034, partly superseding D026). The old
-  absolute-path protection test was replaced, with approval, by `repository
-  boundary rejects absolute verification paths`. Fresh-session evaluator PASS:
-  F004 avg 5.0, min 5, 33/33 (run
-  `2026-10-11T23-09-55-718Z-9bf31b7b-451f-4613-8269-6b75efe62b48`); F003 avg
-  5.0, min 5, 40/40 (run
-  `2026-10-11T23-10-23-296Z-448aab3e-564f-4a4b-b095-5dc85b4ff2a7`);
-  architecture passed (run
-  `2026-10-11T23-10-38-008Z-051e7d8f-030a-437d-a7cf-804aa33e0158`). A stray
-  end-of-file marker was removed from the slug's progress log.
-* Cleanup: runtime startup is not applicable. No long-lived service was
-  started. Tests removed their own fixtures. Local evidence remains under
-  ignored `.local/verification/`.
-* Next: wait for the next Copilot review on the new head. Fix only
-  high-severity, in-scope findings, and route the rest to issue #32.
+* Accomplished: implemented and independently evaluated issue #32 F001 on
+  `feat/harness-reduce-review-churn`. Node verification now hashes `scripts/`
+  and `tests/` recursively, plus repository-root files individually, while
+  skipping generated `bin/` and `obj/` directories. Import traversal remains
+  an adversarial screen but no longer discovers protected paths. F001 is
+  `pass`; F002-F004 remain `not-started`.
+* Decisions: D035 records the stable protected set, its deliberate exclusions,
+  and why the adversarial loader screens remain.
+* Files: `scripts/maker-checker-safety.mjs`, `docs/decisions.md`,
+  `docs/progress.md`, and the issue #32 `agent-progress.md`. The ignored issue
+  #32 `features_list.json` and evaluator rubric hold local workflow state.
+  No test file, dependency manifest, or lockfile changed.
+* Verification: implementation safety tests passed 33/33, exit 0 (run
+  `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`);
+  loop regressions passed 31/31, exit 0 (run
+  `2026-10-12T00-15-11-978Z-33054bd1-f5af-4a3d-92a1-96d49277eeb0`);
+  architecture passed, exit 0 (run
+  `2026-10-12T00-16-58-022Z-095b34a8-727d-44e9-9f03-06c24b56f5b8`).
+  Final clock-out architecture passed, exit 0 (run
+  `2026-10-12T02-24-06-818Z-797311d7-c7b3-49b6-8200-90fc54082b92`);
+  whitespace validation passed, exit 0 (run
+  `2026-10-12T02-24-08-342Z-59c2c336-6f5e-4d84-8ed1-6157dce87fe6`).
+* Evaluation: revision `f6dacbeb5c936a234ae53bcdfa7510a800242cfa`
+  was reviewed with a clean tree. Safety tests passed 33/33, exit 0 (run
+  `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`);
+  architecture passed, exit 0 (run
+  `2026-10-12T00-47-01-741Z-14d138f4-efa9-4db8-b1ba-16f0233d7259`).
+  The fresh-session verdict was PASS, average 5.0 and minimum 5, recorded in
+  signed commit `12363e3ae10c52946cf3539ab8a8c54e3b2694a8`.
+* Commits: implementation `14d811f46b108171c54db1bc79c3b67675b2a0cc`,
+  reviewed-revision record `f6dacbeb5c936a234ae53bcdfa7510a800242cfa`,
+  and evaluator verdict `12363e3ae10c52946cf3539ab8a8c54e3b2694a8`.
+  The branch is not pushed, so exact-head CI is not available.
+* Startup and cleanup: runtime startup was not applicable because no service
+  startup path changed. No long-lived process was started. Named temporary
+  commit-message files were removed. Test fixtures cleaned themselves; raw
+  verification reports and the evaluator rubric remain under ignored local
+  paths. Unrelated processes and files were left untouched.
+* Blockers: none for F001.
+* Next: choose one of F002, F003, or F004 before beginning more issue #32 work.
 
 ## Built
 
