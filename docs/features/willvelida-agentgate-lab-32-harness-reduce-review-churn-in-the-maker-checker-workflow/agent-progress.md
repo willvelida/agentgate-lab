@@ -13,7 +13,7 @@ ms.date: 2026-10-12
 | Feature | Description | Status | Verification | Evidence | Tested |
 | --- | --- | --- | --- | --- | --- |
 | F001 | The verification boundary no longer depends on parsing JavaScript imports. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Implementation run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33; evaluator run `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`, pass, 33/33 | 2026-10-12, evaluator PASS |
-| F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
+| F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | active | `node --test scripts/maker-checker-loop.test.mjs` | Run `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`, pass, 32/32 | Tested, awaiting evaluator |
 | F003 | The evaluator workflow requires a committed, unchanged revision. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
 | F004 | A decision records the loop's accepted limits. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
 
@@ -72,3 +72,28 @@ Clock-out checks also passed through the verification runner: architecture
 (run `2026-10-12T02-24-06-818Z-797311d7-c7b3-49b6-8200-90fc54082b92`)
 and whitespace validation (run
 `2026-10-12T02-24-08-342Z-59c2c336-6f5e-4d84-8ed1-6157dce87fe6`).
+
+F002 started after no response was available for the next-feature choice. The
+recommended issue-order option was selected. The harness now requires every
+pull request feedback round to inspect live unresolved inline review threads
+and the latest submitted review summary bodies, including raw text inside
+collapsed sections. The detailed workflow explains the GitHub GraphQL and REST
+sources, requires one deduplicated checklist, and requires both sources to be
+re-fetched before completion is reported.
+
+A contract test in `scripts/maker-checker-loop.test.mjs` checks that the hard
+rule and detailed workflow continue to name both sources, their GitHub data
+paths, collapsed content, and the fail-closed unavailable state.
+
+Verification and regression results, captured through
+[Invoke-Verification.ps1](../../../scripts/Invoke-Verification.ps1):
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass, 32/32, exit 0 | `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-12T02-30-01-582Z-5053d61e-11e5-476f-a65b-6179319d2e05` |
+
+Verified at revision `fefd62beb1da1bbfb8cc66e65d73645c7db83837` with the
+F002 change applied to the working tree. F002 stays `active` until this
+unchanged implementation is committed and a fresh-session evaluator records
+PASS.

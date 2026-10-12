@@ -83,6 +83,32 @@ follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or
 mark `pass` only after PASS covers the unchanged reviewed implementation.
 Commit and publish only when explicitly approved, and confirm exact-head CI.
 
+## Review pull request feedback
+
+Use live GitHub data as the source of truth for every pull request review
+round. Do not infer review status from `docs/progress.md` or from inline
+comments alone.
+
+1. Refresh the pull request before making changes.
+2. Read every unresolved inline review thread, including replies and outdated
+   threads that remain unresolved.
+3. Read the latest submitted review summary body. Inspect the raw body so
+   findings inside collapsed `<details>` sections, such as "Previously
+   missed", are included.
+4. Combine both sources into one deduplicated checklist. Record which findings
+   are in scope, which are deferred, and why.
+5. Batch the approved fixes into one review round. After publishing the round,
+   re-fetch both inline threads and review summary bodies before reporting that
+   feedback is resolved.
+
+Use the host's pull request tool when it returns review threads and submitted
+review bodies. With GitHub CLI, query `reviewThreads` through `gh api graphql`
+for inline thread resolution state, and query
+`repos/{owner}/{repo}/pulls/{number}/reviews` for submitted review bodies.
+Rendered or collapsed presentation must not hide text from the raw review
+body. If either source cannot be read, record the review check as unavailable,
+not complete.
+
 ## Run the bounded loop
 
 The local controller can coordinate one agreed feature through alternating

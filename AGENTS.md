@@ -41,6 +41,11 @@ ms.date: 2026-10-09
     [verification guidance](./docs/verification.md). Keep raw reports local
     and commit only sanitized summaries with run IDs, results, and the
     reviewed revision. An incomplete run is not a successful check.
+16. When addressing pull request feedback, inspect live GitHub data for both
+    unresolved inline review threads and the latest submitted review summary
+    bodies, including collapsed sections. Re-check both sources before
+    reporting the review round complete. See
+    [Harness Implementer usage](./docs/harness-agent.md).
 
 ## Repository context
 

@@ -106,6 +106,19 @@ function runLoop(options) {
   });
 }
 
+test('documents inline threads and review summaries as required PR feedback sources', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+
+  assert.match(instructions, /unresolved inline review threads/);
+  assert.match(instructions, /latest submitted review summary\s+bodies/);
+  assert.match(instructions, /including collapsed sections/);
+  assert.match(guide, /query `reviewThreads` through `gh api graphql`/);
+  assert.match(guide, /pulls\/\{number\}\/reviews` for submitted review bodies/);
+  assert.match(guide, /re-fetch both inline threads and review summary bodies/);
+  assert.match(guide, /If either source cannot be read, record the review check as unavailable/);
+});
+
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
   const calls = [];
   const statePath = resolve(tmpdir(), 'agentgate-dispatch-state', 'state.json');

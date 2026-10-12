@@ -45,8 +45,9 @@ health before it changes anything.
   `feat/harness-reduce-review-churn` (average 5.0, minimum 5). The verification
   boundary now hashes stable roots and repository-root files instead of
   deriving protected paths from JavaScript imports (D035). Exact safety tests
-  passed 33/33, loop regressions passed 31/31, and architecture passed.
-  F002-F004 have not started.
+  passed 33/33, loop regressions passed 31/31, and architecture passed. F002 is
+  implemented and verified 32/32, with architecture passing, and awaits
+  independent evaluation. F003-F004 have not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -474,46 +475,33 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-12
-* Accomplished: implemented and independently evaluated issue #32 F001 on
-  `feat/harness-reduce-review-churn`. Node verification now hashes `scripts/`
-  and `tests/` recursively, plus repository-root files individually, while
-  skipping generated `bin/` and `obj/` directories. Import traversal remains
-  an adversarial screen but no longer discovers protected paths. F001 is
-  `pass`; F002-F004 remain `not-started`.
-* Decisions: D035 records the stable protected set, its deliberate exclusions,
-  and why the adversarial loader screens remain.
-* Files: `scripts/maker-checker-safety.mjs`, `docs/decisions.md`,
-  `docs/progress.md`, and the issue #32 `agent-progress.md`. The ignored issue
-  #32 `features_list.json` and evaluator rubric hold local workflow state.
-  No test file, dependency manifest, or lockfile changed.
-* Verification: implementation safety tests passed 33/33, exit 0 (run
-  `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`);
-  loop regressions passed 31/31, exit 0 (run
-  `2026-10-12T00-15-11-978Z-33054bd1-f5af-4a3d-92a1-96d49277eeb0`);
+* Accomplished: implemented issue #32 F002 on
+  `feat/harness-reduce-review-churn`. The hard rules and harness guide now
+  require live inspection of unresolved inline review threads and the latest
+  submitted review summary bodies, including raw collapsed sections. The
+  workflow combines both sources into one checklist, batches fixes, re-fetches
+  both sources, and fails closed when either source is unavailable.
+* Selection: no response was available for the next-feature choice, so the
+  recommended issue-order option, F002, was selected. F001 remains `pass`;
+  F002 is `active`; F003-F004 remain `not-started`.
+* Files: `AGENTS.md`, `docs/harness-agent.md`,
+  `scripts/maker-checker-loop.test.mjs`, `docs/progress.md`, and the issue #32
+  `agent-progress.md`. The ignored `features_list.json` records local state.
+  No dependency manifest or lockfile changed.
+* Verification: the exact F002 command passed 32/32, exit 0 (run
+  `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`);
   architecture passed, exit 0 (run
-  `2026-10-12T00-16-58-022Z-095b34a8-727d-44e9-9f03-06c24b56f5b8`).
-  Final clock-out architecture passed, exit 0 (run
-  `2026-10-12T02-24-06-818Z-797311d7-c7b3-49b6-8200-90fc54082b92`);
-  whitespace validation passed, exit 0 (run
-  `2026-10-12T02-24-08-342Z-59c2c336-6f5e-4d84-8ed1-6157dce87fe6`).
-* Evaluation: revision `f6dacbeb5c936a234ae53bcdfa7510a800242cfa`
-  was reviewed with a clean tree. Safety tests passed 33/33, exit 0 (run
-  `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`);
-  architecture passed, exit 0 (run
-  `2026-10-12T00-47-01-741Z-14d138f4-efa9-4db8-b1ba-16f0233d7259`).
-  The fresh-session verdict was PASS, average 5.0 and minimum 5, recorded in
-  signed commit `12363e3ae10c52946cf3539ab8a8c54e3b2694a8`.
-* Commits: implementation `14d811f46b108171c54db1bc79c3b67675b2a0cc`,
-  reviewed-revision record `f6dacbeb5c936a234ae53bcdfa7510a800242cfa`,
-  and evaluator verdict `12363e3ae10c52946cf3539ab8a8c54e3b2694a8`.
-  The branch is not pushed, so exact-head CI is not available.
-* Startup and cleanup: runtime startup was not applicable because no service
-  startup path changed. No long-lived process was started. Named temporary
-  commit-message files were removed. Test fixtures cleaned themselves; raw
-  verification reports and the evaluator rubric remain under ignored local
-  paths. Unrelated processes and files were left untouched.
-* Blockers: none for F001.
-* Next: choose one of F002, F003, or F004 before beginning more issue #32 work.
+  `2026-10-12T02-30-01-582Z-5053d61e-11e5-476f-a65b-6179319d2e05`).
+  Reviewed revision was `fefd62beb1da1bbfb8cc66e65d73645c7db83837`
+  plus the F002 working-tree diff.
+* Startup and cleanup: runtime startup is not applicable because no service
+  startup path changed. No long-lived process was started. Test fixtures
+  cleaned themselves, and raw reports remain under ignored
+  `.local/verification/`. Unrelated processes and files were left untouched.
+* Blockers: none. F002 awaits a committed, clean revision and fresh-session
+  evaluator verdict.
+* Next: commit the unchanged F002 diff, record its SHA, and run the
+  `feature-evaluator` in a fresh session.
 
 ## Built
 
