@@ -52,9 +52,11 @@ Verification and regression results, all captured through
 | `node --test scripts/maker-checker-loop.test.mjs` | pass, 31/31, exit 0 | `2026-10-12T00-15-11-978Z-33054bd1-f5af-4a3d-92a1-96d49277eeb0` |
 | `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-12T00-16-58-022Z-095b34a8-727d-44e9-9f03-06c24b56f5b8` |
 
-Reviewed revision: `93c5e1ffaddafb3ce2b9827d239a01dc7d57a8a9`, working tree
-dirty with ` M scripts/maker-checker-safety.mjs` and the untracked feature slug
-directory.
+Verified at revision `93c5e1ffaddafb3ce2b9827d239a01dc7d57a8a9` with the F001
+change applied to the working tree. The change is now committed as
+`14d811f46b108171c54db1bc79c3b67675b2a0cc` on branch
+`feat/harness-reduce-review-churn`, with a clean working tree. Evaluate that
+commit.
 
 F001 stays `active`. It must not be marked `pass` until a fresh-session
 `feature-evaluator` run records a PASS verdict here.
