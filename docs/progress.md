@@ -51,8 +51,11 @@ health before it changes anything.
   F003 passed independent evaluation (average 5.0, minimum 5) on clean commit
   `ae5b78aab789429cfacc41700e8741558acba0ab`. Evaluators now require one
   named clean commit and recheck the same clean revision before recording a
-  verdict. Its exact loop suite passed 33/33 and architecture passed. F004 has
-  not started.
+  verdict. Its exact loop suite passed 33/33 and architecture passed. F004
+  passed independent evaluation (average 5.0, minimum 5) on clean commit
+  `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. D036 records the trusted
+  boundary, sandbox limitations, productive limits, clean-commit gate, and
+  fail-closed cleanup behavior.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -480,42 +483,39 @@ where you left off.
 ## Last session
 
 * Date: 2026-10-12
-* Accomplished: implemented issue #32 F003 on
-  `feat/harness-reduce-review-churn`. The evaluator skill now refuses
-  uncommitted or dirty input, records the full named commit before checks, and
-  confirms the same commit and clean tracked tree before recording a verdict.
-  Revision changes make the result stale without recording PASS or FAIL.
-  Implementer and user guidance now require an authorized commit before the
-  fresh evaluation session.
-* Status: F001-F003 are `pass`; F004 is `active`.
+* Accomplished: completed issue #32 on `feat/harness-reduce-review-churn`.
+  F003 requires evaluation of a named clean commit and rechecks the same
+  revision before recording PASS. F004 records the maker-checker loop's
+  accepted limits in D036.
+* Status: F001-F004 are `pass`; issue #32 is complete.
 * Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
   `.github/agents/harness-implementer.agent.md`, `docs/harness-agent.md`,
-  `scripts/maker-checker-loop.test.mjs`, `docs/progress.md`, and the issue #32
-  `agent-progress.md`. The ignored `features_list.json` records local state.
-  No dependency manifest or lockfile changed.
-* Verification: the exact F003 command passed 33/33, exit 0 (run
-  `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9`);
-  architecture passed, exit 0 (run
-  `2026-10-12T02-53-50-129Z-b2c23210-53b8-4e4d-b493-1e2f6ac1c987`).
-  Reviewed revision was `d23dba1169967d53b9b71b5d3257f22756c6c4dd`
-  plus the F003 working-tree diff.
-* Commit: pending creation of the clean F003 commit required by the new
-  evaluator workflow. The branch is not pushed, so exact-head CI is not
-  available.
-* Startup and cleanup: runtime startup is not applicable because no service
-  startup path changed. No long-lived process was started. Test fixtures
-  cleaned themselves, and raw reports remain under ignored
-  `.local/verification/`. Unrelated processes and files were left untouched.
-* Evaluation: F003 passed fresh evaluation with average 5.0, minimum 5.
-  Exact evaluator verification passed 33/33, exit 0 (run
+  `scripts/maker-checker-loop.test.mjs`, `docs/decisions.md`,
+  `docs/progress.md`, and the issue #32 `agent-progress.md`. The ignored
+  `features_list.json` records all four features as `pass`. No dependency
+  manifest or lockfile changed.
+* Verification: F003 exact loop tests passed 33/33, exit 0 (run
   `2026-10-12T03-07-18-984Z-70b71ec6-f4cf-4933-946e-91a982600961`);
-  architecture passed, exit 0 (run
-  `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`).
-  F004's architecture check passed, exit 0 (run
-  `2026-10-12T03-17-12-148Z-be826fb4-16d2-4cf5-91a6-be894c14547f`).
+  F003 architecture passed (run
+  `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`);
+  F004 implementation architecture passed (run
+  `2026-10-12T03-17-12-148Z-be826fb4-16d2-4cf5-91a6-be894c14547f`); F004
+  evaluator exact verification passed (run
+  `2026-10-12T03-33-29-444Z-e7ec9fba-e06b-437f-9c52-0525824fcbbb`) and
+  independent architecture passed (run
+  `2026-10-12T03-33-29-564Z-0f591fb9-0bd6-4a5a-b558-5b640d4d8f6d`).
+* Reviewed commits: F003 evaluator reviewed clean
+  `ae5b78aab789429cfacc41700e8741558acba0ab`; F004 evaluator reviewed clean
+  `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. The branch is not pushed; exact
+  head CI is unavailable.
+* Startup and cleanup: runtime startup is not applicable because the issue
+  changes harness documentation and tests only. No long-lived process was
+  started. Test fixtures cleaned themselves, raw reports remain under ignored
+  `.local/verification/`, and unrelated processes/files were left untouched.
+* Evaluations: F003 and F004 both passed fresh evaluation with average 5.0 and
+  minimum 5. No required fixes remain.
 * Blockers: none.
-* Next: commit F004, obtain evaluator PASS for that exact clean commit, then
-  complete the issue #32 clock-out.
+* Next: review the final diff and publish only with explicit authorization.
 
 ## Built
 

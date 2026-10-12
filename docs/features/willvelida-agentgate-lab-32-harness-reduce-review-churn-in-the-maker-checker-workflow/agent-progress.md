@@ -14,8 +14,8 @@ ms.date: 2026-10-12
 | --- | --- | --- | --- | --- | --- |
 | F001 | The verification boundary no longer depends on parsing JavaScript imports. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Implementation run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33; evaluator run `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`, pass, 33/33 | 2026-10-12, evaluator PASS |
 | F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`, pass, 32/32; evaluator run `2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`, pass, 32/32 | 2026-10-12, evaluator PASS |
-| F003 | The evaluator workflow requires a committed, unchanged revision. | active | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9`, pass, 33/33 | 2026-10-12, awaiting evaluator |
-| F004 | A decision records the loop's accepted limits. | active | `bash scripts/check-architecture.sh` | Implementation in progress | Not tested |
+| F003 | The evaluator workflow requires a committed, unchanged revision. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9`, pass, 33/33; evaluator run `2026-10-12T03-07-18-984Z-70b71ec6-f4cf-4933-946e-91a982600961`, pass, 33/33; architecture evaluator run `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`, pass; fresh-session verdict PASS at clean commit `ae5b78aab789429cfacc41700e8741558acba0ab` | 2026-10-12, evaluator PASS |
+| F004 | A decision records the loop's accepted limits. | pass | `bash scripts/check-architecture.sh` | Implementation architecture run `2026-10-12T03-17-12-148Z-be826fb4-16d2-4cf5-91a6-be894c14547f`, pass; evaluator exact verification run `2026-10-12T03-33-29-444Z-e7ec9fba-e06b-437f-9c52-0525824fcbbb`, pass; independent architecture run `2026-10-12T03-33-29-564Z-0f591fb9-0bd6-4a5a-b558-5b640d4d8f6d`, pass; fresh-session verdict PASS at clean commit `06b2d99bf6e15bb60bb1e5f562c003286e35847a` | 2026-10-12, evaluator PASS |
 
 ## Updates
 
@@ -140,7 +140,7 @@ architecture passed (run
 exit HEAD and tracked status were unchanged and clean. All five rubric
 dimensions scored 5/5. F003 is `pass`.
 
-F004 is active. The accepted-limits decision is recorded as D036 in
+F004 is pass. The accepted-limits decision is recorded as D036 in
 `docs/decisions.md`. It covers the trusted host and Docker boundary, the
 Node.js/Bash/Git-only sandbox, bounded productive loop limits, the
 clean-commit evaluator gate, and fail-closed unbounded cleanup retries while
@@ -157,3 +157,10 @@ The architecture check reviewed the F004 working-tree change. Runtime startup
 is not applicable because F004 changes documentation only. No long-lived
 process was started, and raw reports remain under ignored
 `.local/verification/`.
+
+* 2026-10-12: F004 evaluator verdict PASS (avg 5.0, min 5). See evaluator-rubric.md.
+
+F004 passed fresh evaluation with average 5.0 and minimum 5. The evaluator
+reviewed clean commit `06b2d99bf6e15bb60bb1e5f562c003286e35847a`, confirmed
+clean entry and exit state, and verified the exact architecture command and an
+independent architecture check. Issue #32 is complete.
