@@ -164,3 +164,32 @@ F004 passed fresh evaluation with average 5.0 and minimum 5. The evaluator
 reviewed clean commit `06b2d99bf6e15bb60bb1e5f562c003286e35847a`, confirmed
 clean entry and exit state, and verified the exact architecture command and an
 independent architecture check. Issue #32 is complete.
+
+## Review round: PR #33 Copilot feedback
+
+2026-10-12: the Copilot reviewer raised four findings on PR #33. All four were
+judged valid and in scope; none were invalid or out of scope.
+
+| Finding | Severity | Resolution |
+| --- | --- | --- |
+| Digest-skipped `bin`/`obj` subtrees could hide verification inputs | high | Verification imports and test-file tokens that resolve under a skipped segment are now rejected; the digest exemption is retained |
+| Repository-root symbolic links never reached the digest symlink guard | high | Root enumeration now includes symbolic links so `fileDigest()` fails closed |
+| Evaluator stop condition ignored untracked files | medium | `SKILL.md` steps now stop on any `git status --short` entry |
+| Harness guide summary weakened the guarantee to tracked files | low | `docs/harness-agent.md` matches the any-entry wording |
+
+Three regression tests were added to `scripts/maker-checker-safety.test.mjs`
+and the F003 contract test was extended to assert the new wording. No
+verification command or existing assertion was weakened.
+
+Verification results, captured through
+[Invoke-Verification.ps1](../../../scripts/Invoke-Verification.ps1):
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass 33/33, exit 0 | `2026-10-12T04-03-51-405Z-fd730cd2-d747-43b3-8643-7c33d4ca2c68` |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass 36/36, exit 0 | `2026-10-12T04-04-11-878Z-2d5e6b30-de46-4885-aa2a-0831c84c205d` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-12T04-04-47-081Z-97ebbe89-4501-4566-9700-b88f33a9e10b` |
+
+Runtime startup is not applicable because the review round changes harness
+scripts, tests, and documentation only. No long-lived process was started, and
+raw reports remain under ignored `.local/verification/`.

@@ -36,8 +36,9 @@ Ask for either value if it is missing.
   controller evidence and never claim to have run the command yourself.
 * Cite evidence (a file path, command output, or line) for every score.
 * Before recording a verdict, confirm that the starting commit is still
-  checked out and the working tree is clean. If HEAD changed or tracked files
-  became dirty, report `STALE` and do not record PASS or FAIL.
+  checked out and the working tree is clean. If HEAD changed or
+  `git status --short` reports any entry, report `STALE` and do not record
+  PASS or FAIL.
 * Do not commit. Leave committing to the user or the implementer.
 
 ## Rubric
@@ -71,9 +72,11 @@ average is at least 4. Otherwise the verdict is FAIL.
    the slug's `features_list.json` and `agent-progress.md`.
 2. Find the feature by ID. Stop and report if it is missing or its
    `verification` is `TBD`.
-3. Run `git status --short` and stop without evaluating if tracked files are
-   dirty. Resolve the full commit SHA named for evaluation, confirm it is the
-   current `HEAD`, and record it as the starting revision.
+3. Run `git status --short` and stop without evaluating if it reports any
+   entry. Untracked files change module resolution and verification inputs, so
+   treat them as a dirty tree. Resolve the full commit SHA named for
+   evaluation, confirm it is the current `HEAD`, and record it as the starting
+   revision.
 4. Collect the committed diff for the named revision and report the range you
    reviewed. Do not fall back to an uncommitted working-tree diff.
 5. Run the `verification` command and `bash scripts/check-architecture.sh`
@@ -88,7 +91,7 @@ average is at least 4. Otherwise the verdict is FAIL.
    recorded evidence instead of rerunning the commands.
 6. Score each dimension with evidence.
 7. Re-run `git status --short`, resolve `HEAD`, and compare it with the
-   starting revision. If tracked files are dirty or HEAD differs, report
+   starting revision. If the command reports any entry or HEAD differs, report
    `STALE`, do not write a verdict, and require a fresh evaluation of the new
    clean commit.
 8. Append the result to `docs/features/<slug>/evaluator-rubric.md`:

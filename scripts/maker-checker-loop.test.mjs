@@ -136,8 +136,12 @@ test('requires evaluators to review one unchanged clean commit', () => {
   assert.match(evaluator, /Do not evaluate an\s+uncommitted diff/i);
   assert.match(evaluator, /starting commit is still\s+checked out/i);
   assert.match(evaluator, /report `STALE`/);
+  assert.match(evaluator, /stop without evaluating if it reports any\s+entry/i);
+  assert.match(evaluator, /Untracked files change module resolution/i);
+  assert.match(evaluator, /`git status --short` reports any entry/);
   assert.match(implementer, /authorized parent or user\s+must commit/i);
   assert.match(guide, /record the full commit SHA/i);
+  assert.match(guide, /`git status --short`\s+reports any entry/);
   assert.match(guide, /records neither PASS nor FAIL/i);
 });
 

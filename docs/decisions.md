@@ -651,7 +651,10 @@ Each entry records:
   the hashed set through a subprocess or reflective loader.
 * Constraints: `.git/`, `.local/`, `docs/`, `src/`, and other root
   directories are not recursive verification roots. Generated `bin/` and
-  `obj/` directories do not contribute names or contents to directory hashes.
+  `obj/` directories do not contribute names or contents to directory hashes,
+  so verification inputs that resolve inside such a subtree are rejected
+  rather than silently left unhashed. Repository-root symbolic links are
+  enumerated so the digest's symlink guard fails closed on them.
   Expanding the protected set must avoid paths that the harness legitimately
   mutates during a round.
 

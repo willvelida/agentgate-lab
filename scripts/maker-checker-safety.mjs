@@ -359,11 +359,24 @@ function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
   if (repositoryRelative.startsWith('..') || isAbsolute(repositoryRelative)) {
     throw new Error(`Node verification import is outside the repository: ${specifier}`);
   }
+  assertOutsideDigestSkippedDirectory(
+    repositoryRelative,
+    `Node verification import resolves into an unhashed build output directory: ${specifier}`,
+  );
   const importedStat = lstatSync(importedPath);
   if (!importedStat.isFile() && !importedStat.isSymbolicLink()) {
     throw new Error(`Node verification import is not a file: ${specifier}`);
   }
   return importedPath;
+}
+
+// Build output directories are exempt from hashing, so any verification input
+// resolving inside one would be invisible to the protection snapshot.
+function assertOutsideDigestSkippedDirectory(repositoryRelative, message) {
+  const segments = repositoryRelative.split(/[\\/]/);
+  if (segments.slice(0, -1).some((segment) => digestSkippedDirectories.has(segment))) {
+    throw new Error(message);
+  }
 }
 
 function isPathWithin(root, candidate) {
@@ -525,6 +538,10 @@ function verificationPaths(repositoryRoot, verificationCommand) {
           || !lstatSync(path).isFile()) {
         throw new Error(`Node verification test file is not a repository file: ${token}`);
       }
+      assertOutsideDigestSkippedDirectory(
+        repositoryRelative,
+        `Node verification test file is inside an unhashed build output directory: ${token}`,
+      );
       const segments = repositoryRelative.split(/[\\/]/);
       const testDirectoryIndex = segments.slice(0, -1).findIndex((segment) => (
         /^(?:__tests__|tests?)$/i.test(segment) || /\.tests?$/i.test(segment)
@@ -547,7 +564,11 @@ function verificationPaths(repositoryRoot, verificationCommand) {
       paths.push(resolve(repositoryRoot, root));
     }
     for (const entry of readdirSync(repositoryRoot, { withFileTypes: true })) {
-      if (entry.isFile()) paths.push(resolve(repositoryRoot, entry.name));
+      // Symbolic links are included so that fileDigest rejects them instead of
+      // leaving a linked verification input outside the protection snapshot.
+      if (entry.isFile() || entry.isSymbolicLink()) {
+        paths.push(resolve(repositoryRoot, entry.name));
+      }
     }
   } else {
     throw new Error(

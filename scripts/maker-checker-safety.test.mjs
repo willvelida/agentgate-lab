@@ -768,6 +768,64 @@ test('repository boundary rejects symbolic links in protected paths', (t) => {
   );
 });
 
+test('repository boundary rejects verification inputs inside unhashed build output', (t) => {
+  const files = fixture(t);
+  const buildOutputTest = join(files.root, 'scripts', 'bin', 'feature.test.mjs');
+  mkdirSync(dirname(buildOutputTest), { recursive: true });
+  writeFileSync(buildOutputTest, 'build output fixture\n');
+  const verificationCommand = 'node --test scripts/bin/feature.test.mjs';
+  const changed = checklist();
+  changed.features[1].verification = verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture({ ...goal(), verificationCommand }),
+    /test file is inside an unhashed build output directory/,
+  );
+});
+
+test('repository boundary rejects verification imports inside unhashed build output', (t) => {
+  const files = fixture(t);
+  const buildOutputHelper = join(files.root, 'scripts', 'obj', 'helper.mjs');
+  mkdirSync(dirname(buildOutputHelper), { recursive: true });
+  writeFileSync(buildOutputHelper, 'export const helper = 1;\n');
+  writeFileSync(files.verificationPath, "import { helper } from './obj/helper.mjs';\n");
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /import resolves into an unhashed build output directory/,
+  );
+});
+
+test('repository boundary rejects symbolic links at the repository root', (t) => {
+  const files = fixture(t);
+  const targetDirectory = join(files.root, 'link-target');
+  mkdirSync(targetDirectory);
+  writeFileSync(join(targetDirectory, 'helper.mjs'), 'helper\n');
+  symlinkSync(
+    targetDirectory,
+    join(files.root, 'linked-root-entry'),
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /Protected path contains a symbolic link/,
+  );
+});
+
 test('verification contracts reject implicit discovery, package scripts, and unsupported tools', (t) => {
   const commands = [
     'node --test',

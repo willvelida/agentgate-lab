@@ -77,11 +77,12 @@ Confirm the working tree is clean and record the full commit SHA, then invoke:
 
 The [evaluator skill](../.github/skills/feature-evaluator/SKILL.md) reruns checks
 and records a verdict without changing implementation or feature status. It
-refuses an uncommitted or dirty working tree, records the full starting commit
-SHA, and confirms the same commit is still checked out with a clean tree before
-recording a verdict. If HEAD or tracked files change during evaluation, the
-result is stale and the evaluator records neither PASS nor FAIL. Switching
-agents in the implementation chat is not a fresh-session review.
+refuses an uncommitted or otherwise unclean working tree, records the full
+starting commit SHA, and confirms the same commit is still checked out with a
+clean tree before recording a verdict. If HEAD changes or `git status --short`
+reports any entry during evaluation, the result is stale and the evaluator
+records neither PASS nor FAIL. Switching agents in the implementation chat is
+not a fresh-session review.
 
 This first implementer version stops before evaluation. In a separate
 follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or
