@@ -95,6 +95,6 @@ Verification and regression results, captured through
 
 Verified at revision `fefd62beb1da1bbfb8cc66e65d73645c7db83837` with the
 F002 change applied to the working tree. The unchanged implementation is
-committed as `5179163326de98bab87feef463dbb9240d596077` on
+committed as `5179163dce37353482c7317b2f968a97e3e9408b` on
 `feat/harness-reduce-review-churn`. F002 stays `active` until a fresh-session
 evaluator records PASS.

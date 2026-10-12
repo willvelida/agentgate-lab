@@ -495,7 +495,7 @@ where you left off.
   Reviewed revision was `fefd62beb1da1bbfb8cc66e65d73645c7db83837`
   plus the F002 working-tree diff.
 * Commit: the unchanged F002 implementation and evidence are committed as
-  `5179163326de98bab87feef463dbb9240d596077`. The branch is not pushed, so
+  `5179163dce37353482c7317b2f968a97e3e9408b`. The branch is not pushed, so
   exact-head CI is not available.
 * Startup and cleanup: runtime startup is not applicable because no service
   startup path changed. No long-lived process was started. Test fixtures
