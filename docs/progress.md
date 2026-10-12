@@ -48,10 +48,11 @@ health before it changes anything.
   passed 33/33, loop regressions passed 31/31, and architecture passed. The
   PR-comment workflow now checks both inline threads and submitted review
   summary bodies; implementation and evaluator loop suites passed 32/32.
-  F003 is implemented and awaiting independent evaluation. Evaluators now
-  require one named clean commit and recheck the same clean revision before
-  recording a verdict. Its exact loop suite passed 33/33 and architecture
-  passed. F004 has not started.
+  F003 passed independent evaluation (average 5.0, minimum 5) on clean commit
+  `ae5b78aab789429cfacc41700e8741558acba0ab`. Evaluators now require one
+  named clean commit and recheck the same clean revision before recording a
+  verdict. Its exact loop suite passed 33/33 and architecture passed. F004 has
+  not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -486,8 +487,7 @@ where you left off.
   Revision changes make the result stale without recording PASS or FAIL.
   Implementer and user guidance now require an authorized commit before the
   fresh evaluation session.
-* Status: F001-F002 remain `pass`; F003 is `active` and ready for evaluation;
-  F004 remains `not-started`.
+* Status: F001-F003 are `pass`; F004 remains `not-started`.
 * Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
   `.github/agents/harness-implementer.agent.md`, `docs/harness-agent.md`,
   `scripts/maker-checker-loop.test.mjs`, `docs/progress.md`, and the issue #32
@@ -506,10 +506,13 @@ where you left off.
   startup path changed. No long-lived process was started. Test fixtures
   cleaned themselves, and raw reports remain under ignored
   `.local/verification/`. Unrelated processes and files were left untouched.
-* Evaluation: pending a fresh evaluator review of the clean F003 commit.
+* Evaluation: F003 passed fresh evaluation with average 5.0, minimum 5.
+  Exact evaluator verification passed 33/33, exit 0 (run
+  `2026-10-12T03-07-18-984Z-70b71ec6-f4cf-4933-946e-91a982600961`);
+  architecture passed, exit 0 (run
+  `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`).
 * Blockers: none.
-* Next: commit F003, obtain evaluator PASS for that exact clean commit, then
-  implement F004.
+* Next: commit the F003 evaluator evidence, then implement F004.
 
 ## Built
 
