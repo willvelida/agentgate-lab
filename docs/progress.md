@@ -41,13 +41,14 @@ health before it changes anything.
   `2026-10-11T22-12-54-350Z-d502590d-df7d-4c3c-8f85-dcc0b0db2984`). These
   fixes are batched into one review-response commit. The PR description is
   the source of truth for the pushed SHA and its exact-head CI.
-* Issue #32 F001 passed independent evaluation on
+* Issue #32 F001 and F002 passed independent evaluation on
   `feat/harness-reduce-review-churn` (average 5.0, minimum 5). The verification
   boundary now hashes stable roots and repository-root files instead of
   deriving protected paths from JavaScript imports (D035). Exact safety tests
-  passed 33/33, loop regressions passed 31/31, and architecture passed. F002 is
-  implemented and verified 32/32, with architecture passing, and awaits
-  independent evaluation. F003-F004 have not started.
+  passed 33/33, loop regressions passed 31/31, and architecture passed. The
+  PR-comment workflow now checks both inline threads and submitted review
+  summary bodies; implementation and evaluator loop suites passed 32/32.
+  F003-F004 have not started.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -501,10 +502,15 @@ where you left off.
   startup path changed. No long-lived process was started. Test fixtures
   cleaned themselves, and raw reports remain under ignored
   `.local/verification/`. Unrelated processes and files were left untouched.
-* Blockers: none. F002 awaits a committed, clean revision and fresh-session
-  evaluator verdict.
-* Next: run the `feature-evaluator` in a fresh session against the committed,
-  clean F002 revision.
+* Evaluation: clean commit `f129f861e823fc29e1f2841e0e494636bf2970ab`
+  passed all five rubric dimensions with 5/5. Exact verification passed 32/32,
+  exit 0 (run
+  `2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`);
+  architecture passed, exit 0 (run
+  `2026-10-12T02-42-45-290Z-80b792b2-57d0-4243-bfe9-b245007dd348`).
+* Blockers: none. F002 is `pass`.
+* Next: implement F003, requiring evaluation of a committed, unchanged
+  revision.
 
 ## Built
 

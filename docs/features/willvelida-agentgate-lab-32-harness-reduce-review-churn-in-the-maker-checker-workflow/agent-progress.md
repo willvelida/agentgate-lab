@@ -13,7 +13,7 @@ ms.date: 2026-10-12
 | Feature | Description | Status | Verification | Evidence | Tested |
 | --- | --- | --- | --- | --- | --- |
 | F001 | The verification boundary no longer depends on parsing JavaScript imports. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Implementation run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33; evaluator run `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`, pass, 33/33 | 2026-10-12, evaluator PASS |
-| F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | active | `node --test scripts/maker-checker-loop.test.mjs` | Run `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`, pass, 32/32 | Tested, awaiting evaluator |
+| F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`, pass, 32/32; evaluator run `2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`, pass, 32/32 | 2026-10-12, evaluator PASS |
 | F003 | The evaluator workflow requires a committed, unchanged revision. | not-started | `node --test scripts/maker-checker-loop.test.mjs` | Not yet implemented or verified | Not tested |
 | F004 | A decision records the loop's accepted limits. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
 
@@ -98,3 +98,12 @@ F002 change applied to the working tree. The unchanged implementation is
 committed as `5179163dce37353482c7317b2f968a97e3e9408b` on
 `feat/harness-reduce-review-churn`. F002 stays `active` until a fresh-session
 evaluator records PASS.
+
+Fresh-session evaluation reviewed clean commit
+`f129f861e823fc29e1f2841e0e494636bf2970ab`. Exact verification passed
+32/32 (run
+`2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`) and
+architecture passed (run
+`2026-10-12T02-42-45-290Z-80b792b2-57d0-4243-bfe9-b245007dd348`).
+All five rubric dimensions scored 5/5. The evaluator changed no implementation
+or test file. F002 is `pass`.
