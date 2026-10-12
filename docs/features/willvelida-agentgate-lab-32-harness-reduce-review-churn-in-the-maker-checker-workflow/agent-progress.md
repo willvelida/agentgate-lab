@@ -15,7 +15,7 @@ ms.date: 2026-10-12
 | F001 | The verification boundary no longer depends on parsing JavaScript imports. | pass | `node --test scripts/maker-checker-safety.test.mjs` | Implementation run `2026-10-12T00-14-41-029Z-a6cc54dc-7da2-4f48-9695-efdafa062a5a`, pass, 33/33; evaluator run `2026-10-12T00-47-01-722Z-23042c86-f079-4afe-b274-3e546a889f96`, pass, 33/33 | 2026-10-12, evaluator PASS |
 | F002 | The PR-comment workflow documents and checks both inline threads and review summary bodies. | pass | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-30-01-141Z-2c06eb3d-27d8-4a03-b684-b2b340d9392c`, pass, 32/32; evaluator run `2026-10-12T02-42-45-062Z-0299532f-212b-46ff-ab4b-9e705ded694e`, pass, 32/32 | 2026-10-12, evaluator PASS |
 | F003 | The evaluator workflow requires a committed, unchanged revision. | active | `node --test scripts/maker-checker-loop.test.mjs` | Implementation run `2026-10-12T02-53-49-924Z-344036fa-b9e4-4d59-862d-928637ef5dc9`, pass, 33/33 | 2026-10-12, awaiting evaluator |
-| F004 | A decision records the loop's accepted limits. | not-started | `bash scripts/check-architecture.sh` | Not yet implemented or verified | Not tested |
+| F004 | A decision records the loop's accepted limits. | active | `bash scripts/check-architecture.sh` | Implementation in progress | Not tested |
 
 ## Updates
 
@@ -139,3 +139,21 @@ architecture passed (run
 `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`). Entry and
 exit HEAD and tracked status were unchanged and clean. All five rubric
 dimensions scored 5/5. F003 is `pass`.
+
+F004 is active. The accepted-limits decision is recorded as D036 in
+`docs/decisions.md`. It covers the trusted host and Docker boundary, the
+Node.js/Bash/Git-only sandbox, bounded productive loop limits, the
+clean-commit evaluator gate, and fail-closed unbounded cleanup retries while
+process-tree termination is pending.
+
+Verification result, captured through
+[Invoke-Verification.ps1](../../../scripts/Invoke-Verification.ps1):
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-12T03-17-12-148Z-be826fb4-16d2-4cf5-91a6-be894c14547f` |
+
+The architecture check reviewed the F004 working-tree change. Runtime startup
+is not applicable because F004 changes documentation only. No long-lived
+process was started, and raw reports remain under ignored
+`.local/verification/`.

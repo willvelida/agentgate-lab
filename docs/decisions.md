@@ -654,3 +654,33 @@ Each entry records:
   `obj/` directories do not contribute names or contents to directory hashes.
   Expanding the protected set must avoid paths that the harness legitimately
   mutates during a round.
+
+## D036: record the maker-checker loop's accepted limits
+
+* Date: 2026-10-12
+* Decision: treat the local maker-checker harness as a bounded review
+  coordinator, not an application security boundary. Its trusted components
+  are the host operating system, Docker daemon, kernel, and verification
+  image. The sandbox supports only Node.js 24, Bash, and Git, with no network,
+  host credentials, or Docker socket. Productive work is bounded by the
+  configured round, elapsed-time, dispatch, output, and cleanup-retry limits.
+  Evaluators must review one named clean commit and verify that the same clean
+  revision remains unchanged before recording a verdict. If the operating
+  system cannot terminate a child process tree, cleanup remains pending and
+  retries until termination is confirmed rather than claiming a bounded
+  completion.
+* Why: these limits make the harness's guarantees precise. The loop reduces
+  review churn and prevents an evaluator from accepting a moving target, but
+  it does not provide authentication, authorization, model access control,
+  task grants, human approval, or protection from a trusted host, kernel, or
+  container-runtime compromise.
+* Alternatives rejected: describing the sandbox as a complete security
+  boundary, because trusted host and container components remain outside its
+  control; allowing unsupported tools or network access, because reproducible
+  offline verification is the goal; forcing cleanup to exit after a fixed
+  number of failed termination attempts, because that could release
+  supervision while a child process is still active.
+* Constraints: do not claim application security features from this harness.
+  Keep productive dispatch and verification bounded, preserve the
+  clean-commit evaluator gate, and keep pending cleanup fail-closed until the
+  owned process tree is confirmed terminated.

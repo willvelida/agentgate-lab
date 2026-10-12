@@ -487,7 +487,7 @@ where you left off.
   Revision changes make the result stale without recording PASS or FAIL.
   Implementer and user guidance now require an authorized commit before the
   fresh evaluation session.
-* Status: F001-F003 are `pass`; F004 remains `not-started`.
+* Status: F001-F003 are `pass`; F004 is `active`.
 * Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
   `.github/agents/harness-implementer.agent.md`, `docs/harness-agent.md`,
   `scripts/maker-checker-loop.test.mjs`, `docs/progress.md`, and the issue #32
@@ -511,8 +511,11 @@ where you left off.
   `2026-10-12T03-07-18-984Z-70b71ec6-f4cf-4933-946e-91a982600961`);
   architecture passed, exit 0 (run
   `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`).
+  F004's architecture check passed, exit 0 (run
+  `2026-10-12T03-17-12-148Z-be826fb4-16d2-4cf5-91a6-be894c14547f`).
 * Blockers: none.
-* Next: commit the F003 evaluator evidence, then implement F004.
+* Next: commit F004, obtain evaluator PASS for that exact clean commit, then
+  complete the issue #32 clock-out.
 
 ## Built
 
