@@ -246,3 +246,5 @@ Verification results, captured through
 Runtime startup is not applicable because the review round changes harness
 scripts, tests, and documentation only. No long-lived process was started, and
 raw reports remain under ignored `.local/verification/`.
+
+* 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at b714ecf9602443c70d889101695621e3764d6890. See evaluator-rubric.md.
