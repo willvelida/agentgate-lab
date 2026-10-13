@@ -307,4 +307,20 @@ accepted. No verification command or existing assertion was weakened.
 | `node --test scripts/maker-checker-safety.test.mjs` | pass 38/38, 1 POSIX-only test skipped on Windows, exit 0 | `2026-10-13T02-59-47-226Z-d3f596d6-e864-4ac9-932a-d6d3258ca727` |
 | `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T03-01-55-153Z-567c97a4-e1df-4069-b3b1-759f286df07e` |
 
+Because the round changed F001 and F003 code again, both were re-evaluated in
+fresh independent sessions rather than left on stale verdicts.
+
+| Feature | Re-evaluated commit | Verdict | Verification run | Architecture run |
+| --- | --- | --- | --- | --- |
+| F001 | `7d16d81` | PASS, avg 4.8, min 4 | `2026-10-13T03-07-44-984Z-387e3c51-b029-4ed4-a25c-65e90a53c6b9` (38 pass, 1 POSIX-only skip, exit 0) | `2026-10-13T03-08-15-105Z-2eb92af5-f49b-471e-9b16-531f837363fe` |
+| F003 | `b7987a3` | PASS, avg 4.8, min 4 | `2026-10-13T03-11-34-847Z-9708a87e-41c3-41a0-bc52-5b2e2e597642` (36/36, exit 0) | `2026-10-13T03-11-54-677Z-f57c15d9-68b7-4ce4-bd89-2a852ae84b66` |
+
+Each evaluator confirmed HEAD matched the requested commit with an empty
+`git status --short` at entry and again before recording its verdict. Both
+scored scope discipline 4 because the reviewed range bundles the round's F001
+and F003 work; no required fixes were raised and no feature status moved
+backwards.
+
 * 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at clean commit 7d16d81a9021fe8d3a59d90dc24442182730815e. See evaluator-rubric.md.
+
+* 2026-10-13: F003 evaluator verdict PASS (avg 4.8, min 4) at clean commit b7987a3e1c1e5bbe7217538015596f70c94845c9. See evaluator-rubric.md.

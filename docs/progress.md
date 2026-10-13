@@ -594,7 +594,10 @@ where you left off.
 * Third-round verification: loop suite passed 36/36, exit 0 (run
   `2026-10-13T02-57-30-221Z-557f1a3b-0746-4ea4-ab03-93ff35c20598`); safety
   suite passed 38/38 with one POSIX-only permission test skipped on Windows,
-  exit 0 (run `2026-10-13T02-59-47-226Z-d3f596d6-e864-4ac9-932a-d6d3258ca727`).
+  exit 0 (run   `2026-10-13T02-59-47-226Z-d3f596d6-e864-4ac9-932a-d6d3258ca727`). F001 and
+  F003 were re-evaluated again in fresh sessions because the round changed
+  their code: F001 passed at clean `7d16d81` and F003 at clean `b7987a3`, both
+  with average 4.8 and minimum 4 and no required fixes.
 * Blockers: none.
 * Publication: PR #33 is open against `main`. Its first documentation link
   check found that tracked `agent-progress.md` linked to ignored
