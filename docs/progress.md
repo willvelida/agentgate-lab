@@ -561,9 +561,12 @@ where you left off.
   `2026-10-13T02-26-45-248Z-c5cbaf2b-76b5-48c9-bd71-096dca0ea70e`). Two earlier
   runs failed, one on a wrapped assertion regex and one because Docker Desktop
   was stopped, and are not counted as passes.
-* Startup and cleanup: runtime startup is not applicable because the issue
-  changes harness documentation and tests only. No long-lived process was
-  started. Test fixtures cleaned themselves, raw reports remain under ignored
+* Startup and cleanup: runtime startup is not applicable because no
+  application service startup path changed. The issue does change executable
+  harness behavior in `scripts/maker-checker-safety.mjs` and
+  `scripts/maker-checker-loop.mjs`, which the harness test suites cover
+  directly. No long-lived process was started. Test fixtures cleaned
+  themselves, raw reports remain under ignored
   `.local/verification/`, and unrelated processes/files were left untouched.
 * Evaluations: F003 and F004 both passed fresh evaluation with average 5.0 and
   minimum 5. After the second review round changed their code, F001 was
@@ -577,17 +580,32 @@ where you left off.
   with architecture pass
   (`2026-10-13T02-41-35-156Z-5021b1de-5d80-47d9-ad8a-7abecee04a8e`). No feature
   status moved backwards and no required fixes remain.
+* Third review round: a further review of the second-round head raised eight
+  findings across both live sources, all valid and in scope. The protected-root
+  digest now uses a length-prefixed, terminated encoding and includes POSIX
+  permission bits, closing a byte-stream collision and a permission-only
+  `chmod` bypass, each covered by a new regression test. The Harness
+  Implementer's generated evaluator prompt now carries the full commit SHA and
+  is asserted by the contract suite, D036 and the rubric template now describe
+  both the clean-commit and round-fingerprint evaluation paths, and the
+  startup-inapplicability reason was corrected to name the unchanged
+  application service startup paths rather than claiming only documentation
+  and tests changed.
+* Third-round verification: loop suite passed 36/36, exit 0 (run
+  `2026-10-13T02-57-30-221Z-557f1a3b-0746-4ea4-ab03-93ff35c20598`); safety
+  suite passed 38/38 with one POSIX-only permission test skipped on Windows,
+  exit 0 (run `2026-10-13T02-59-47-226Z-d3f596d6-e864-4ac9-932a-d6d3258ca727`).
 * Blockers: none.
 * Publication: PR #33 is open against `main`. Its first documentation link
   check found that tracked `agent-progress.md` linked to ignored
   `features_list.json`; the link was replaced with a plain local-checklist
-  reference. Exact-head CI then passed for `7a18119`, and passed again for the
-  review-response head `8355c01` (build, links, progress-reminder, and DCO all
-  succeeded). The PR description records the current head and its CI, and is
-  refreshed whenever the head moves. All review threads from both live sources
-  were answered and resolved.
-* Next: confirm exact-head CI for the current head `b11461c`, then await human
-  review and merge authorisation.
+  reference. Exact-head CI then passed for `7a18119`, for the review-response
+  head `8355c01`, and for `12e143b` (build, links, progress-reminder, and DCO
+  all succeeded). The PR description is the source of truth for the current
+  head and its CI, and is refreshed whenever the head moves. Review threads
+  from both live sources were answered and resolved as each round closed.
+* Next: confirm exact-head CI for the third review-response head, then await
+  human review and merge authorisation.
 
 ## Built
 

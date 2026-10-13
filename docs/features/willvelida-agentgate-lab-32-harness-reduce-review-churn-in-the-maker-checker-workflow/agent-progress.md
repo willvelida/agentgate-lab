@@ -279,3 +279,30 @@ Re-evaluation runs, captured through
 
 No feature status moved backwards; both features remain `pass` on the strength
 of the fresh verdicts.
+
+### Third PR review round
+
+A further review of the second-round head raised eight findings across both
+live sources. All were valid and in scope; none were invalid.
+
+| Finding | Severity | Resolution |
+| --- | --- | --- |
+| Directory digest encoding is ambiguous | high | Names and contents are length-prefixed and directories terminated, so deleting an entry and appending its encoding to a sibling no longer collides |
+| Protected-root digests ignore permission bits | high | POSIX permission bits are hashed, so a `chmod` on a protected path is a violation |
+| Generated handoff omits the required evaluator SHA | medium | `.github/agents/harness-implementer.agent.md` prompts with `at commit <full-sha>` and states the SHA is required |
+| Contract test ignores the generated handoff | medium | The contract suite asserts the agent template alongside the guide and skill |
+| Rubric template demands a clean commit under loop dispatch | medium | The evidence field accepts a clean commit SHA or the controller-recorded round fingerprint |
+| D036 contradicts the bounded-loop exception | medium | D036 describes both evaluation paths and both gates |
+| Stale live-state claims in the handoff | medium | Publication text now defers to the PR description for the current head and its CI |
+| Startup inapplicability reason was inaccurate | low | The reason now names unchanged application service startup paths rather than claiming only docs and tests changed |
+
+Two regression tests were added to `scripts/maker-checker-safety.test.mjs` and
+two contract tests to `scripts/maker-checker-loop.test.mjs`. The collision test
+was confirmed to reproduce under the previous encoding before the fix was
+accepted. No verification command or existing assertion was weakened.
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass 36/36, exit 0 | `2026-10-13T02-57-30-221Z-557f1a3b-0746-4ea4-ab03-93ff35c20598` |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass 38/38, 1 POSIX-only test skipped on Windows, exit 0 | `2026-10-13T02-59-47-226Z-d3f596d6-e864-4ac9-932a-d6d3258ca727` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T03-01-55-153Z-567c97a4-e1df-4069-b3b1-759f286df07e` |

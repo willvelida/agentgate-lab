@@ -661,7 +661,11 @@ Each entry records:
   that covers non-module reads rather than another import rule. Repository-root
   protected paths are compared by key set as well as by digest, so additions
   are rejected alongside edits and removals. Repository-root symbolic links are
-  enumerated so the digest's symlink guard fails closed on them.
+  enumerated so the digest's symlink guard fails closed on them. Directory
+  digests use a length-prefixed, terminated encoding and include POSIX
+  permission bits, so neither a coordinated edit that preserves the
+  concatenated byte stream nor a permission-only `chmod` can leave a protected
+  path's digest unchanged.
   Expanding the protected set must avoid paths that the harness legitimately
   mutates during a round.
 
@@ -674,8 +678,12 @@ Each entry records:
   image. The sandbox supports only Node.js 24, Bash, and Git, with no network,
   host credentials, or Docker socket. Productive work is bounded by the
   configured round, elapsed-time, dispatch, output, and cleanup-retry limits.
-  Evaluators must review one named clean commit and verify that the same clean
-  revision remains unchanged before recording a verdict. If the operating
+  Evaluators dispatched by a human in a fresh session must review one named
+  clean commit and verify that the same clean revision remains unchanged
+  before recording a verdict. Evaluators dispatched by the bounded loop review
+  the controller-recorded round fingerprint of uncommitted work instead,
+  because the maker is forbidden to commit; the same unchanged-revision rule
+  applies to that fingerprint. If the operating
   system cannot terminate a child process tree, cleanup remains pending and
   retries until termination is confirmed rather than claiming a bounded
   completion.
@@ -692,5 +700,6 @@ Each entry records:
   supervision while a child process is still active.
 * Constraints: do not claim application security features from this harness.
   Keep productive dispatch and verification bounded, preserve the
-  clean-commit evaluator gate, and keep pending cleanup fail-closed until the
+  clean-commit evaluator gate for human-dispatched evaluations and the
+  equivalent round-fingerprint gate for loop dispatch, and keep pending cleanup fail-closed until the
   owned process tree is confirmed terminated.

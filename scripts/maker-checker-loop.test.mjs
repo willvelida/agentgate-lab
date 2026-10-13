@@ -169,6 +169,31 @@ test('requires the evaluator prompt to name the reviewed commit', () => {
   assert.match(guide, /Evaluate F001 in slug <generated-slug> at commit <full-sha>/);
   assert.match(guide, /Always pass the full commit SHA/i);
   assert.match(evaluator, /The full commit SHA named for evaluation/i);
+
+  // The Harness Implementer hands this prompt to the user directly, so its
+  // template must carry the SHA the evaluator now requires.
+  const implementer = readFileSync(
+    resolve('.github/agents/harness-implementer.agent.md'),
+    'utf8',
+  );
+  assert.match(
+    implementer,
+    /Evaluate <feature-id> in slug <slug> at commit <full-sha>/,
+  );
+  assert.match(implementer, /The SHA is required/i);
+});
+
+test('keeps D036 and the rubric template consistent with both evaluation paths', () => {
+  const decisions = readFileSync(resolve('docs/decisions.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+
+  assert.match(decisions, /Evaluators dispatched by the bounded loop review\s+the controller-recorded round fingerprint/i);
+  assert.match(decisions, /clean-commit evaluator gate for human-dispatched evaluations/i);
+  assert.match(evaluator, /Reviewed revision and working tree/);
+  assert.match(evaluator, /or, under bounded-loop dispatch, the controller-recorded round\s+fingerprint/i);
 });
 
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {

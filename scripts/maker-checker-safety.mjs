@@ -52,22 +52,33 @@ function fileDigest(path) {
     throw error;
   }
   const hash = createHash('sha256');
+  // Every variable-length field is length-prefixed and directories are
+  // terminated, so two different trees can never produce the same byte stream.
+  const updateLengthPrefixed = (value) => {
+    const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8');
+    hash.update(`${buffer.length}\0`).update(buffer);
+  };
   const updatePath = (currentPath, pathStat = lstatSync(currentPath)) => {
     const stat = pathStat;
     if (stat.isSymbolicLink()) {
       throw new Error(`Protected path contains a symbolic link: ${currentPath}`);
     }
+    // Permission bits are hashed so a chmod that changes whether verification
+    // can read or execute a protected path is reported as a violation.
+    const mode = (stat.mode & 0o7777).toString(8);
     if (stat.isDirectory()) {
-      hash.update('directory\0');
+      hash.update(`directory\0${mode}\0`);
       for (const entry of readdirSync(currentPath, { withFileTypes: true })
         .sort((left, right) => left.name.localeCompare(right.name))) {
         if (entry.isDirectory() && digestSkippedDirectories.has(entry.name)) continue;
-        hash.update(entry.name).update('\0');
+        updateLengthPrefixed(entry.name);
         updatePath(resolve(currentPath, entry.name));
       }
+      hash.update('end-directory\0');
       return;
     }
-    hash.update('file\0').update(readFileSync(currentPath));
+    hash.update(`file\0${mode}\0`);
+    updateLengthPrefixed(readFileSync(currentPath));
   };
   updatePath(path, rootStat);
   return hash.digest('hex');

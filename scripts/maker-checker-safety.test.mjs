@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  chmodSync,
   cpSync,
   mkdtempSync,
   mkdirSync,
@@ -621,6 +622,58 @@ test('repository boundary rejects repository-root files added during a round', (
   assert.throws(
     () => boundary.assertTransition(before, after, goal(), 'maker'),
     /Protected file injected-root-helper\.mjs was added/,
+  );
+});
+
+test('repository boundary rejects coordinated edits that preserve digest input bytes', (t) => {
+  const files = fixture(t);
+  const scriptsDirectory = join(files.root, 'scripts');
+  const firstPath = join(scriptsDirectory, 'digest-a.mjs');
+  const secondPath = join(scriptsDirectory, 'digest-b.mjs');
+  writeFileSync(firstPath, 'alpha');
+  writeFileSync(secondPath, 'beta');
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    protectedPaths: [scriptsDirectory],
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  // Deleting an entry and appending its exact encoding to the preceding file's
+  // contents produces an identical byte stream under an un-delimited encoding,
+  // so the removal would go unreported.
+  writeFileSync(firstPath, 'alphadigest-b.mjs\0file\0beta');
+  rmSync(secondPath);
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file/,
+  );
+});
+
+test('repository boundary rejects permission-only changes to protected paths', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('POSIX permission bits are not modelled on Windows');
+    return;
+  }
+  const files = fixture(t);
+  const scriptsDirectory = join(files.root, 'scripts');
+  const scriptPath = join(scriptsDirectory, 'protected-tool.sh');
+  writeFileSync(scriptPath, '#!/bin/sh\nexit 0\n', { mode: 0o644 });
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    protectedPaths: [scriptsDirectory],
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  chmodSync(scriptPath, 0o755);
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file/,
   );
 });
 

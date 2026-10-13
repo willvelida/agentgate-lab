@@ -90,9 +90,12 @@ phase-by-phase approval prompts.
    must commit the verified work and confirm a clean working tree before
    evaluation. The evaluator reviews that exact commit, not the implementer's
    uncommitted diff.
-4. After the clean commit exists, provide this prompt with the actual slug and
-   ID:
-   `/feature-evaluator Evaluate <feature-id> in slug <slug>.`
+4. After the clean commit exists, provide this prompt with the actual slug,
+   ID, and the full SHA of that commit:
+   `/feature-evaluator Evaluate <feature-id> in slug <slug> at commit <full-sha>.`
+   The SHA is required: the evaluator rejects a prompt that does not name the
+   commit it must review, so never hand over a prompt with the placeholder or
+   a short SHA left in it.
    Tell the user to open a fresh session in the same checkout and use the
    [feature-evaluator skill](../skills/feature-evaluator/SKILL.md).
    A same-chat handoff is not independent evaluation. If verification did

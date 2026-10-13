@@ -116,7 +116,9 @@ average is at least 4. Otherwise the verdict is FAIL.
    Reviewed range: <commit range or diff base>
    Verification: <command, run ID, result, exit code>
    Architecture: <command, run ID, result, exit code>
-   Reviewed commit and working tree: <SHA, clean at entry and exit>
+   Reviewed revision and working tree: <clean commit SHA, clean at entry and
+   exit; or, under bounded-loop dispatch, the controller-recorded round
+   fingerprint and whether it still matched>
 
    | Dimension | Score | Evidence | Defects |
    |-----------|-------|----------|---------|
