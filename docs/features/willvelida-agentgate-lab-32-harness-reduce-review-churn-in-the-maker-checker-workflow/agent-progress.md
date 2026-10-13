@@ -441,3 +441,21 @@ F002 and F003 need fresh-session re-evaluation against the commit that
 records this round.
 
 * 2026-10-13: F002 evaluator verdict PASS (avg 4.8, min 4) at clean commit 0a59a6a7fab0db2deb469313962d93cc377b1daa. See evaluator-rubric.md.
+* 2026-10-13: F003 evaluator verdict PASS (avg 4.6, min 4) at clean commit 2a29c1e18fffed78b0dc2fad0a13dc57a2ace407. See evaluator-rubric.md.
+
+### F002 and F003 re-evaluation after the review-cap batches
+
+Each ran in a fresh independent session against a named clean commit. HEAD
+matched and `git status --short` was empty at entry and before the verdict.
+
+| Feature | Commit | Range | Verdict | Verification runs | Architecture run |
+| --- | --- | --- | --- | --- | --- |
+| F002 | `0a59a6a` | `f129f86..0a59a6a` | PASS, avg 4.8, min 4 | `2026-10-13T05-47-05-718Z-4f3bfb23-ea09-40ed-92f0-ab6275ec74e0` (Windows 40/41, symlink skip, exit 0); `2026-10-13T05-48-19-436Z-3398a114-c1d4-4b39-a9de-903c92aba4a8` (Linux 41/41, exit 0) | `2026-10-13T05-47-34-235Z-97c13209-5a6f-4d09-bd1b-da668f020320` |
+| F003 | `2a29c1e` | `3cb3798..2a29c1e` | PASS, avg 4.6, min 4 | `2026-10-13T05-52-24-614Z-748e0b60-0f24-474d-8640-d537933ffa37` (Windows 40/41, symlink skip, exit 0); `2026-10-13T05-52-50-518Z-4731db6d-5369-4680-8c78-534cb9659eac` (Linux 41/41, exit 0) | `2026-10-13T05-53-06-191Z-ff466198-cb79-46d5-840f-483363c7a1f5` |
+
+The F003 evaluator's first Windows run,
+`2026-10-13T05-51-52-755Z-74e41c1a-d9cd-4a8e-936a-0d5ba2b46920`, failed
+(exit 1) on the known process-tree timing flake only; it is not counted as
+a pass and lowered verification evidence to 4. Both evaluators scored scope
+discipline 4 because the reviewed ranges also carry other features' work.
+No required fixes were raised and no feature status moved backwards.

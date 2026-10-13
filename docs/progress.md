@@ -82,9 +82,10 @@ health before it changes anything.
   [issue #35](https://github.com/willvelida/agentgate-lab/issues/35).
   With explicit user approval, a third round made bounded-loop evaluator
   PASS verdicts provisional (D038): only a fresh-session PASS of a named
-  clean commit can move a feature to `pass`.
-  F002 and F003 keep their earlier PASS verdicts, but those verdicts
-  predate these changes, so both need fresh-session re-evaluation.
+  clean commit can move a feature to `pass`. F002 and F003 were then
+  re-evaluated in fresh sessions: F002 passed at clean `0a59a6a` (avg 4.8,
+  min 4) and F003 at clean `2a29c1e` (avg 4.6, min 4), with no required
+  fixes.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -557,9 +558,12 @@ where you left off.
   architecture passed (run
   `2026-10-13T05-43-39-581Z-3ac8e758-3ec8-430c-ba00-3d988aaeeba6`). No
   further round is approved.
-* Status: F001-F004 remain `pass`. These changes affect F002 (PR feedback
-  workflow) and F003 (evaluator stale-revision handling) after their last
-  PASS verdicts, so both need fresh-session re-evaluation.
+* Status: F001-F004 are `pass`. F002 and F003 were re-evaluated in fresh
+  sessions after these changes: F002 PASS at clean `0a59a6a` (avg 4.8,
+  min 4) and F003 PASS at clean `2a29c1e` (avg 4.6, min 4), no required
+  fixes. Run IDs are in the issue #32 `agent-progress.md`. The F003
+  evaluator's first Windows run failed on the known timing flake and is
+  not counted.
 * Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
   `docs/harness-agent.md`, `docs/decisions.md`,
   `docs/progress.md`, `scripts/maker-checker-loop.mjs`,
@@ -596,10 +600,8 @@ where you left off.
 * Publication: these commits are pushed to PR #33. The PR description is
   the source of truth for the current head and its exact-head CI.
 * Blockers: none.
-* Next: run fresh-session evaluator re-evaluations of F002 and F003 against
-  the commit that records the third round, then await human review and
-  merge authorisation. Do not start another review round without user
-  approval (D037).
+* Next: await human review and merge authorisation. Do not start another
+  review round without user approval (D037).
 
 ## Built
 
