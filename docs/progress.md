@@ -62,7 +62,14 @@ health before it changes anything.
   inside unhashed `bin`/`obj` subtrees are rejected, repository-root symbolic
   links are now hashed so they fail closed, and the evaluator skill and harness
   guide stop on any `git status --short` entry rather than tracked changes
-  only.
+  only. A second review round, reading both inline threads and the collapsed
+  summary sections, fixed four further findings: repository-root file
+  additions now raise a boundary violation, the evaluator exempts bounded-loop
+  dispatch from the clean-commit gate it cannot satisfy, the evaluator prompt
+  template carries the full commit SHA, and stale tracked-tree wording was
+  corrected. F001 and F003 were re-evaluated in fresh sessions and passed
+  against the changed code. The digest-skipped non-module read is tracked as
+  [issue #34](https://github.com/willvelida/agentgate-lab/issues/34).
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -559,7 +566,17 @@ where you left off.
   started. Test fixtures cleaned themselves, raw reports remain under ignored
   `.local/verification/`, and unrelated processes/files were left untouched.
 * Evaluations: F003 and F004 both passed fresh evaluation with average 5.0 and
-  minimum 5. No required fixes remain.
+  minimum 5. After the second review round changed their code, F001 was
+  re-evaluated at clean `b714ecf` and F003 at clean `b11461c`; both passed
+  with average 4.8 and minimum 4, scoring scope discipline 4 only because the
+  reviewed range carries the whole branch. Re-evaluation runs: safety suite
+  37/37, exit 0 (`2026-10-13T02-35-00-827Z-f8e6d004-c325-47dc-a567-415e5e3cb87d`)
+  with architecture pass
+  (`2026-10-13T02-35-31-217Z-ef381d54-e86f-441d-b197-fdd7a1d0478a`); loop suite
+  35/35, exit 0 (`2026-10-13T02-41-19-520Z-663b59a7-f4ac-4a4d-868d-75b8cc6491f3`)
+  with architecture pass
+  (`2026-10-13T02-41-35-156Z-5021b1de-5d80-47d9-ad8a-7abecee04a8e`). No feature
+  status moved backwards and no required fixes remain.
 * Blockers: none.
 * Publication: PR #33 is open against `main`. Its first documentation link
   check found that tracked `agent-progress.md` linked to ignored
@@ -569,8 +586,8 @@ where you left off.
   succeeded). The PR description records the current head and its CI, and is
   refreshed whenever the head moves. All review threads from both live sources
   were answered and resolved.
-* Next: confirm exact-head CI for the second review-response head, then await
-  human review and merge authorisation.
+* Next: confirm exact-head CI for the current head `b11461c`, then await human
+  review and merge authorisation.
 
 ## Built
 

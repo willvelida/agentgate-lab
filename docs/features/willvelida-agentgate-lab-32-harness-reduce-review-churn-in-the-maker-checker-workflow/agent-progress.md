@@ -248,3 +248,34 @@ scripts, tests, and documentation only. No long-lived process was started, and
 raw reports remain under ignored `.local/verification/`.
 
 * 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at b714ecf9602443c70d889101695621e3764d6890. See evaluator-rubric.md.
+* 2026-10-13: F003 evaluator verdict PASS (avg 4.8, min 4) at b11461c9a5f11622ffe2afd1759e5aae5efdd984. See evaluator-rubric.md.
+
+### Stale verdict re-evaluation
+
+The review raised that the recorded F001 and F003 verdicts reviewed commits
+that predated the changes made while answering review feedback. Both were
+re-evaluated in fresh independent sessions against named clean commits rather
+than left standing.
+
+| Feature | Original commit | Re-evaluated commit | Verdict |
+| --- | --- | --- | --- |
+| F001 | `f6dacbe` | `b714ecf` | PASS, avg 4.8, min 4 |
+| F003 | `ae5b78a` | `b11461c` | PASS, avg 4.8, min 4 |
+
+Each evaluator confirmed HEAD matched the requested commit with an empty
+`git status --short` at entry and again before recording its verdict. Both
+scored scope discipline 4 because the reviewed range also carries the other
+features from this branch; no required fixes were raised.
+
+Re-evaluation runs, captured through
+[Invoke-Verification.ps1](../../../scripts/Invoke-Verification.ps1):
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass 37/37, exit 0 | `2026-10-13T02-35-00-827Z-f8e6d004-c325-47dc-a567-415e5e3cb87d` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T02-35-31-217Z-ef381d54-e86f-441d-b197-fdd7a1d0478a` |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass 35/35, exit 0 | `2026-10-13T02-41-19-520Z-663b59a7-f4ac-4a4d-868d-75b8cc6491f3` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T02-41-35-156Z-5021b1de-5d80-47d9-ad8a-7abecee04a8e` |
+
+No feature status moved backwards; both features remain `pass` on the strength
+of the fresh verdicts.
