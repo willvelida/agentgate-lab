@@ -495,3 +495,5 @@ suite, two sandbox tests) both failed because Docker Desktop had stopped.
 Both passed after Docker Desktop was started again. F001 (safety boundary)
 and F003 (loop evaluator handling) need fresh-session re-evaluation against
 the commit that records this round.
+
+* 2026-10-14: F001 evaluator verdict PASS (avg 4.6, min 4) at clean commit a8d695113c7f8b56503e1e68fac508e35cc623ce. See evaluator-rubric.md.
