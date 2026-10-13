@@ -320,6 +320,7 @@ export class CopilotCliDispatcher {
     goal,
     feedback,
     verificationRecords = [],
+    revisionFingerprint = null,
     timeoutMs,
     statePath,
   }) {
@@ -354,6 +355,8 @@ export class CopilotCliDispatcher {
           'This is a bounded maker-checker loop dispatch, so the evaluator clean-commit',
           'gate does not apply: the maker cannot commit. Judge the uncommitted round work',
           'that the controller fingerprinted, and report stale only if that round changed.',
+          `Controller round fingerprint: ${revisionFingerprint ?? 'unavailable'}.`,
+          'Record that fingerprint as the reviewed revision in your rubric evidence.',
           contract,
           'Judge the recorded controller verification evidence instead of rerunning it.',
           `End your response with exactly one line starting ${resultMarker}`,
@@ -587,8 +590,11 @@ export function getGitRevision(
   const fingerprint = createHash('sha256')
     .update(`${commit}\n${trackedDiff}`);
   for (const path of untracked) {
-    fingerprint.update(`\n${path}\n`);
-    fingerprint.update(readFileSync(resolve(repositoryRoot, path)));
+    // Length-prefixed so untracked names and contents cannot be rearranged
+    // into an identical byte stream.
+    const contents = readFileSync(resolve(repositoryRoot, path));
+    fingerprint.update(`${Buffer.byteLength(path)}\0`).update(path);
+    fingerprint.update(`${contents.length}\0`).update(contents);
   }
   return {
     commit,
@@ -909,6 +915,7 @@ async function runMakerCheckerLoopWithLock({
         verificationRecords: actor === 'checker'
           ? gateVerification ?? latestMakerRound(state)?.verification ?? []
           : [],
+        revisionFingerprint: actor === 'checker' ? before.fingerprint : null,
         timeoutMs: dispatchTimeLeft,
         statePath: resolve(statePath),
       });

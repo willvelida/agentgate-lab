@@ -598,6 +598,17 @@ where you left off.
   F003 were re-evaluated again in fresh sessions because the round changed
   their code: F001 passed at clean `7d16d81` and F003 at clean `b7987a3`, both
   with average 4.8 and minimum 4 and no required fixes.
+* Fourth review round: seven findings across both live sources, all valid and
+  in scope. Relative verification imports resolving outside the hashed roots
+  are now rejected, the round fingerprint length-prefixes untracked names and
+  contents, the checker dispatch carries the controller fingerprint, the
+  pre-verdict stale check is qualified for both evaluation paths, and D036 now
+  states that cleanup retries are deliberately unbounded. F001, F003, and F004
+  were re-evaluated in fresh sessions afterwards.
+* Fourth-round verification: loop suite passed 37/37, exit 0 (run
+  `2026-10-13T03-29-58-420Z-8b9ae07f-4a48-41f6-9902-6f0ce3d07af5`); safety
+  suite passed 39/39 with one POSIX-only skip, exit 0 (run
+  `2026-10-13T03-30-17-747Z-4397c6dd-5845-447d-987a-03b6c6a63983`).
 * Blockers: none.
 * Publication: PR #33 is open against `main`. Its first documentation link
   check found that tracked `agent-progress.md` linked to ignored

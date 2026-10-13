@@ -3,9 +3,11 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -14,6 +16,7 @@ import {
   CopilotCliDispatcher,
   MAX_PROCESS_OUTPUT_BYTES,
   ScriptedDispatcher,
+  getGitRevision,
   runMakerCheckerLoop,
   runProcess,
   tokenizeCommand,
@@ -194,6 +197,31 @@ test('keeps D036 and the rubric template consistent with both evaluation paths',
   assert.match(decisions, /clean-commit evaluator gate for human-dispatched evaluations/i);
   assert.match(evaluator, /Reviewed revision and working tree/);
   assert.match(evaluator, /or, under bounded-loop dispatch, the controller-recorded round\s+fingerprint/i);
+  assert.match(evaluator, /Under bounded-loop\s+dispatch the tree is necessarily dirty/i);
+  assert.match(decisions, /Cleanup is\s+deliberately not bounded/i);
+});
+
+test('revision fingerprints distinguish rearranged untracked names and contents', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-fingerprint-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'src'), { recursive: true });
+
+  const runner = (untracked) => (args) => {
+    if (args[0] === 'rev-parse') return 'abc123\n';
+    if (args[0] === 'status') return ' M src/a\n';
+    if (args[0] === 'diff') return '';
+    return `${untracked.join('\n')}\n`;
+  };
+
+  // Under an un-delimited encoding these two states hash identically.
+  writeFileSync(join(root, 'src/a'), '\nsrc/b\nx');
+  const collapsed = getGitRevision(root, runner(['src/a']));
+
+  writeFileSync(join(root, 'src/a'), '');
+  writeFileSync(join(root, 'src/b'), 'x');
+  const expanded = getGitRevision(root, runner(['src/a', 'src/b']));
+
+  assert.notEqual(collapsed.fingerprint, expanded.fingerprint);
 });
 
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
@@ -237,6 +265,7 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     }],
     timeoutMs: 1000,
     statePath,
+    revisionFingerprint: 'round-fingerprint-abc123',
   });
 
   assert.equal(calls.length, 2);
@@ -259,6 +288,11 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
   assert.match(calls[1].args.at(-1), /recorded controller verification evidence/);
   assert.match(calls[1].args.at(-1), /bounded maker-checker loop dispatch/);
   assert.match(calls[1].args.at(-1), /clean-commit\s+gate does not apply/);
+  assert.match(
+    calls[1].args.at(-1),
+    /Controller round fingerprint: round-fingerprint-abc123\./,
+  );
+  assert.match(calls[1].args.at(-1), /Record that fingerprint as the reviewed revision/);
   assert.match(
     calls[1].args.at(-1),
     /Recorded verification results: \[\{"command":"node --test scripts\/maker-checker-loop\.test\.mjs","status":"passed","runId":"run-checker-evidence","exitCode":0,"reportPath":"\.local\/verification\/run-checker-evidence\/report\.json"\}\]/,

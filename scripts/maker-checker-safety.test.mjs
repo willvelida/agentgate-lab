@@ -875,6 +875,23 @@ test('repository boundary rejects verification imports inside unhashed build out
   );
 });
 
+test('repository boundary rejects verification imports outside the protected roots', (t) => {
+  const files = fixture(t);
+  const unprotectedHelper = join(files.root, 'docs', 'helper.mjs');
+  mkdirSync(dirname(unprotectedHelper), { recursive: true });
+  writeFileSync(unprotectedHelper, 'export const helper = 1;\n');
+  writeFileSync(files.verificationPath, "import { helper } from '../docs/helper.mjs';\n");
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /import resolves outside the protected verification roots/,
+  );
+});
+
 test('repository boundary rejects symbolic links at the repository root', (t) => {
   const files = fixture(t);
   const targetDirectory = join(files.root, 'link-target');

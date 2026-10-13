@@ -378,7 +378,23 @@ function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
   if (!importedStat.isFile() && !importedStat.isSymbolicLink()) {
     throw new Error(`Node verification import is not a file: ${specifier}`);
   }
+  assertImportIsProtected(repositoryRoot, repositoryRelative, specifier);
   return importedPath;
+}
+
+// Imports are only traversed for adversarial screening, so one resolving
+// outside the hashed set would never appear in a protection snapshot. Product
+// code under `src/` is deliberately exempt because the loop expects it to
+// change.
+function assertImportIsProtected(repositoryRoot, repositoryRelative, specifier) {
+  const segments = repositoryRelative.split(/[\\/]/).filter(Boolean);
+  if (segments.length === 1) return;
+  const [root] = segments;
+  if (root === 'src' || verificationProtectedRoots.includes(root)) return;
+  throw new Error(
+    'Node verification import resolves outside the protected verification roots: '
+      + `${specifier}`,
+  );
 }
 
 // Build output directories are exempt from hashing, so any verification input

@@ -654,7 +654,9 @@ Each entry records:
   `obj/` directories do not contribute names or contents to directory hashes.
   Verification inputs that *resolve as modules* inside such a subtree, meaning
   test-file tokens and imported modules, are rejected rather than silently
-  left unhashed. Accepted limit: verification code may still read a non-module
+  left unhashed, and a relative import that resolves outside the hashed
+  verification roots is rejected for the same reason. Product code under
+  `src/` stays exempt because the loop expects it to change. Accepted limit: verification code may still read a non-module
   data file inside a skipped subtree through a permitted API such as
   `node:fs`, and changes to that file produce no boundary violation because
   neither digest covers it. Closing that gap needs a sandbox-level mechanism
@@ -677,7 +679,9 @@ Each entry records:
   are the host operating system, Docker daemon, kernel, and verification
   image. The sandbox supports only Node.js 24, Bash, and Git, with no network,
   host credentials, or Docker socket. Productive work is bounded by the
-  configured round, elapsed-time, dispatch, output, and cleanup-retry limits.
+  configured round, elapsed-time, dispatch, and output limits. Cleanup is
+  deliberately not bounded: process-tree termination retries until the child
+  closes rather than giving up after a fixed number of attempts.
   Evaluators dispatched by a human in a fresh session must review one named
   clean commit and verify that the same clean revision remains unchanged
   before recording a verdict. Evaluators dispatched by the bounded loop review

@@ -44,10 +44,13 @@ Ask for either value if it is missing.
   architecture check as round evidence. In that case, judge the recorded
   controller evidence and never claim to have run the command yourself.
 * Cite evidence (a file path, command output, or line) for every score.
-* Before recording a verdict, confirm that the starting commit is still
-  checked out and the working tree is clean. If HEAD changed or
+* Before recording a verdict, confirm the reviewed revision is unchanged. For
+  a human-dispatched evaluation, confirm that the starting commit is still
+  checked out and the working tree is clean: if HEAD changed or
   `git status --short` reports any entry, report `STALE` and do not record
-  PASS or FAIL.
+  PASS or FAIL. Under bounded-loop dispatch the tree is necessarily dirty and
+  there is no starting commit, so compare the controller-recorded round
+  fingerprint instead and report `STALE` only when it no longer matches.
 * Do not commit. Leave committing to the user or the implementer.
 
 ## Rubric

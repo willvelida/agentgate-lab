@@ -321,6 +321,31 @@ scored scope discipline 4 because the reviewed range bundles the round's F001
 and F003 work; no required fixes were raised and no feature status moved
 backwards.
 
+### Fourth PR review round
+
+Seven findings across both live sources, all valid and in scope. One was
+already fixed before the reply (the PR description had been refreshed for the
+current head by the time the finding was read).
+
+| Finding | Severity | Resolution |
+| --- | --- | --- |
+| Imports resolving outside the hashed roots are unprotected | high | `resolveVerificationImport()` rejects relative imports outside `scripts/`, `tests/`, repository-root files, and the deliberate `src/` exemption |
+| Round fingerprint concatenates untracked names and contents | high | Untracked names and contents are length-prefixed, with a collision regression test |
+| Checker dispatch supplies no fingerprint | medium | The controller passes `revisionFingerprint` into the checker prompt and the dispatch test asserts its value |
+| F004 verdict predates its shipped decision text | medium | F004 re-evaluated in a fresh session against the current clean commit |
+| Pre-verdict stale check is unconditional | medium | The check is qualified for both evaluation paths, keeping the existing human-dispatch wording intact |
+| D036 lists cleanup retries as a bounded limit | low | D036 states cleanup is deliberately unbounded and retries until termination is confirmed |
+| PR description named an outdated commit | low | Already refreshed for the current head before the reply |
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass 37/37, exit 0 | `2026-10-13T03-29-58-420Z-8b9ae07f-4a48-41f6-9902-6f0ce3d07af5` |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass 39/39, 1 POSIX-only test skipped on Windows, exit 0 | `2026-10-13T03-30-17-747Z-4397c6dd-5845-447d-987a-03b6c6a63983` |
+
+One existing contract assertion pinned the human-dispatch stale-check wording.
+Rather than relax the test, the skill text was rephrased to keep that wording
+while adding the loop-dispatch branch.
+
 * 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at clean commit 7d16d81a9021fe8d3a59d90dc24442182730815e. See evaluator-rubric.md.
 
 * 2026-10-13: F003 evaluator verdict PASS (avg 4.8, min 4) at clean commit b7987a3e1c1e5bbe7217538015596f70c94845c9. See evaluator-rubric.md.
