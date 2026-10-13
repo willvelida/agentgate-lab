@@ -497,3 +497,20 @@ and F003 (loop evaluator handling) need fresh-session re-evaluation against
 the commit that records this round.
 
 * 2026-10-14: F001 evaluator verdict PASS (avg 4.6, min 4) at clean commit a8d695113c7f8b56503e1e68fac508e35cc623ce. See evaluator-rubric.md.
+* 2026-10-14: F003 evaluator verdict PASS (avg 4.8, min 4) at clean commit 04ec089d6f3e001c53050a0cda08be67fd09f27d. See evaluator-rubric.md.
+
+### F001 and F003 re-evaluation after the fourth round
+
+Each ran in a fresh independent session against a named clean commit. HEAD
+matched and `git status --short` was empty at entry and before the verdict.
+
+| Feature | Commit | Range | Verdict | Verification runs | Architecture run |
+| --- | --- | --- | --- | --- | --- |
+| F001 | `a8d6951` | `ff326c8..a8d6951` | PASS, avg 4.6, min 4 | `2026-10-13T22-34-57-216Z-68f152d9-0765-4b86-902b-60d321f007e2` (39/40, POSIX-only skip, exit 0) | `2026-10-13T22-35-30-556Z-32b06cdd-12e0-436d-a4e9-5fe48dc13a51` |
+| F003 | `04ec089` | `2a29c1e..04ec089` | PASS, avg 4.8, min 4 | `2026-10-13T22-38-28-300Z-8145f580-67d5-48ff-ab53-47cd87a12529` (Windows 45/46, symlink skip, exit 0); `2026-10-13T22-39-09-371Z-4b4a7c80-d5b3-4384-8228-fd4a369761dd` (Linux 46/46, exit 0) | `2026-10-13T22-38-45-623Z-8f85f9f0-3984-408b-ba9c-e06ecce97bf6` |
+
+The F001 evaluator confirmed the replaced safety test removes only the
+assertion that allowed a checker PASS, which D038 deliberately forbids.
+Both evaluators scored scope discipline 4 because the ranges carry other
+features' work. No required fixes were raised and no feature status moved
+backwards.

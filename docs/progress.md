@@ -551,10 +551,10 @@ where you left off.
   replaced by one asserting every loop status change is rejected, because
   that permission was deliberately removed (D038). Five new tests fail on
   `5527c7b` and pass now; a control test keeps accepted verdicts.
-* Status: F001-F004 are `pass`. This round changes F001's safety boundary
-  and F003's loop evaluator handling, so both need fresh-session
-  re-evaluation; results are recorded in the issue #32 `agent-progress.md`.
-  F004's D036 text is unchanged.
+* Status: F001-F004 are `pass`. Fresh-session re-evaluations after this
+  round passed: F001 at clean `a8d6951` (avg 4.6, min 4) and F003 at clean
+  `04ec089` (avg 4.8, min 4), no required fixes. Run IDs are in the issue
+  #32 `agent-progress.md`. F004's D036 text is unchanged.
 * Files: `docs/decisions.md`, `docs/harness-agent.md`, `docs/progress.md`,
   `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
   `scripts/maker-checker-safety.mjs`,
