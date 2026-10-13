@@ -917,6 +917,13 @@ export class RepositorySafetyBoundary {
         violations.push(`Protected file ${relative(this.repositoryRoot, path)} changed.`);
       }
     }
+    // Added protected paths appear only in the later snapshot, so comparing
+    // the key sets keeps repository-root additions inside the boundary.
+    for (const path of Object.keys(after.protectedFiles)) {
+      if (!Object.hasOwn(before.protectedFiles, path)) {
+        violations.push(`Protected file ${relative(this.repositoryRoot, path)} was added.`);
+      }
+    }
     return [...new Set(violations)];
   }
 

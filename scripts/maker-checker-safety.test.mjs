@@ -607,6 +607,23 @@ test('repository boundary protects acceptance criteria and verification files', 
   );
 });
 
+test('repository boundary rejects repository-root files added during a round', (t) => {
+  const files = fixture(t);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  writeFileSync(join(files.root, 'injected-root-helper.mjs'), 'export const hijack = true;\n');
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file injected-root-helper\.mjs was added/,
+  );
+});
+
 test('repository boundary protects the architecture verification script', (t) => {
   const files = fixture(t);
   const boundary = new RepositorySafetyBoundary({

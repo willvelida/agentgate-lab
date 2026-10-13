@@ -72,8 +72,12 @@ session only after an authorized parent or user commits the verified work.
 Confirm the working tree is clean and record the full commit SHA, then invoke:
 
 ```text
-/feature-evaluator Evaluate F001 in slug <generated-slug>.
+/feature-evaluator Evaluate F001 in slug <generated-slug> at commit <full-sha>.
 ```
+
+Always pass the full commit SHA. The evaluator requires it as an input so a
+fresh session verifies the intended post-verification commit rather than
+whatever happens to be `HEAD`.
 
 The [evaluator skill](../.github/skills/feature-evaluator/SKILL.md) reruns checks
 and records a verdict without changing implementation or feature status. It
@@ -83,6 +87,12 @@ clean tree before recording a verdict. If HEAD changes or `git status --short`
 reports any entry during evaluation, the result is stale and the evaluator
 records neither PASS nor FAIL. Switching agents in the implementation chat is
 not a fresh-session review.
+
+That clean-commit gate governs sessions you open for an authorized commit. The
+bounded maker-checker loop forbids the maker to commit, so its checker
+dispatch is exempt: the evaluator judges the controller-recorded round
+fingerprint and evidence, and reports stale when that fingerprint no longer
+matches.
 
 This first implementer version stops before evaluation. In a separate
 follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or

@@ -145,6 +145,32 @@ test('requires evaluators to review one unchanged clean commit', () => {
   assert.match(guide, /records neither PASS nor FAIL/i);
 });
 
+test('exempts bounded-loop dispatch from the evaluator clean-commit gate', () => {
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+
+  assert.match(evaluator, /Exception for bounded-loop dispatch/i);
+  assert.match(evaluator, /clean-commit gate does not apply to that dispatch/i);
+  assert.match(evaluator, /controller-recorded round fingerprint/i);
+  assert.match(evaluator, /clean-commit gate\s+governs every fresh session/i);
+  assert.match(guide, /its checker\s+dispatch is exempt/i);
+});
+
+test('requires the evaluator prompt to name the reviewed commit', () => {
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+
+  assert.match(guide, /Evaluate F001 in slug <generated-slug> at commit <full-sha>/);
+  assert.match(guide, /Always pass the full commit SHA/i);
+  assert.match(evaluator, /The full commit SHA named for evaluation/i);
+});
+
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
   const calls = [];
   const statePath = resolve(tmpdir(), 'agentgate-dispatch-state', 'state.json');
@@ -206,6 +232,8 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     /Verification command: node --test scripts\/maker-checker-loop\.test\.mjs/,
   );
   assert.match(calls[1].args.at(-1), /recorded controller verification evidence/);
+  assert.match(calls[1].args.at(-1), /bounded maker-checker loop dispatch/);
+  assert.match(calls[1].args.at(-1), /clean-commit\s+gate does not apply/);
   assert.match(
     calls[1].args.at(-1),
     /Recorded verification results: \[\{"command":"node --test scripts\/maker-checker-loop\.test\.mjs","status":"passed","runId":"run-checker-evidence","exitCode":0,"reportPath":"\.local\/verification\/run-checker-evidence\/report\.json"\}\]/,

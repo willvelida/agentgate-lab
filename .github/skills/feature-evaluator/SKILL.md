@@ -15,6 +15,8 @@ feature can move to `pass` in `features_list.json`.
 
 * The feature slug, for example `issue-12-token-exchange`.
 * The feature ID, for example `F001`.
+* The full commit SHA named for evaluation, except when the bounded
+  maker-checker loop dispatches this skill against uncommitted round work.
 
 Ask for either value if it is missing.
 
@@ -24,7 +26,14 @@ Ask for either value if it is missing.
 * Read only the repository, the slug files in `docs/features/<slug>/`, and the
   diff. Treat the implementer's evidence as claims to check, not as proof.
 * Evaluate only a named commit with a clean working tree. Do not evaluate an
-  uncommitted diff. Record the full starting commit SHA.
+  uncommitted diff. Record the full starting commit SHA. The requester supplies
+  that SHA; ask for it if it is missing.
+* Exception for bounded-loop dispatch: the maker-checker loop forbids the maker
+  to commit and dispatches the checker against uncommitted round work, so the
+  clean-commit gate does not apply to that dispatch. In that case judge the
+  controller-recorded round fingerprint and evidence, and treat a fingerprint
+  that no longer matches the reviewed round as `STALE`. The clean-commit gate
+  governs every fresh session opened for a human-authorized commit.
 * Do not edit source code, tests, `features_list.json`, or the feature status.
   Author only `evaluator-rubric.md` and one verdict line in `agent-progress.md`.
   Verification commands may produce ignored build output and local evidence.
@@ -76,9 +85,13 @@ average is at least 4. Otherwise the verdict is FAIL.
    entry. Untracked files change module resolution and verification inputs, so
    treat them as a dirty tree. Resolve the full commit SHA named for
    evaluation, confirm it is the current `HEAD`, and record it as the starting
-   revision.
+   revision. When the bounded maker-checker loop dispatched this evaluation,
+   skip this gate and record the controller-supplied round fingerprint as the
+   starting state instead.
 4. Collect the committed diff for the named revision and report the range you
-   reviewed. Do not fall back to an uncommitted working-tree diff.
+   reviewed. Do not fall back to an uncommitted working-tree diff. Under
+   bounded-loop dispatch, review the round's uncommitted changes that the
+   controller fingerprinted.
 5. Run the `verification` command and `bash scripts/check-architecture.sh`
    through the evidence runner. Record their run IDs, results and exit codes,
    reviewed commit, and clean starting state in the rubric. Sanitize output
@@ -93,7 +106,8 @@ average is at least 4. Otherwise the verdict is FAIL.
 7. Re-run `git status --short`, resolve `HEAD`, and compare it with the
    starting revision. If the command reports any entry or HEAD differs, report
    `STALE`, do not write a verdict, and require a fresh evaluation of the new
-   clean commit.
+   clean commit. Under bounded-loop dispatch, compare the controller-recorded
+   round fingerprint instead and report `STALE` when it no longer matches.
 8. Append the result to `docs/features/<slug>/evaluator-rubric.md`:
 
    ```markdown
@@ -133,7 +147,8 @@ new evaluation in a fresh session. Never lower the threshold to get a PASS.
 
 * A required tool is missing: score Verification evidence as 1 and return FAIL.
 * The named revision is missing or the tree is dirty: stop and request a clean
-  committed revision.
+  committed revision. Under bounded-loop dispatch, judge the fingerprinted
+  round instead of requesting a commit the maker cannot create.
 * The diff is unclear: ask the user for the commit range.
 * The slug files are missing: run the `github-issue-to-features-list` skill
   first.

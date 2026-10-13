@@ -110,9 +110,10 @@ or test file. F002 is `pass`.
 
 F003 is active. The evaluator workflow now refuses uncommitted or dirty input,
 records the full named commit SHA before checks, and confirms that the same
-commit is still checked out with a clean tracked tree before recording a
-verdict. A changed HEAD or dirty tracked tree makes the evaluation stale, with
-neither PASS nor FAIL recorded. The implementer and harness handoffs now
+commit is still checked out with a clean working tree before recording a
+verdict. Any `git status --short` entry, tracked or untracked, or a changed
+HEAD makes the evaluation stale, with neither PASS nor FAIL recorded. The
+implementer and harness handoffs now
 require an authorized parent or user to commit verified work before opening
 the fresh evaluator session. A focused contract test preserves these entry,
 exit, and stale-result requirements.
@@ -163,7 +164,59 @@ process was started, and raw reports remain under ignored
 F004 passed fresh evaluation with average 5.0 and minimum 5. The evaluator
 reviewed clean commit `06b2d99bf6e15bb60bb1e5f562c003286e35847a`, confirmed
 clean entry and exit state, and verified the exact architecture command and an
-independent architecture check. Issue #32 is complete.
+independent architecture check.
+
+### Second PR review round
+
+The first round's record was incomplete: it counted only the four inline
+threads and missed the collapsed "Previously missed" findings in review
+summary `5486387949`, including the repository-root addition bypass. Both
+sources were re-read for this round.
+
+Findings judged valid and fixed in this round:
+
+* Repository-root files added during a round produced no violation because
+  `violations()` compared only the earlier snapshot's keys. The protected-path
+  key sets are now compared, and a new safety test covers the addition case.
+* The evaluator's unconditional clean-commit gate contradicted the bounded
+  loop, which forbids the maker to commit and dispatches the checker against
+  uncommitted work. The skill now exempts bounded-loop dispatch and judges the
+  controller-recorded round fingerprint, while the clean-commit gate still
+  governs fresh human-authorized sessions. The loop's checker prompt states
+  the exemption, and two contract tests cover it.
+* The evaluator prompt template omitted the commit SHA it told users to
+  record. The template and the skill inputs now require the full SHA.
+* This log described the superseded tracked-tree cleanliness rule.
+
+Finding judged valid but only partly in scope: verification code can still
+read a non-module data file inside a digest-skipped `bin/` or `obj/` subtree
+through a permitted API, and no violation results. Narrowing the skip is
+rejected for the reason recorded in D035, and a mechanism covering non-module
+reads is larger than issue #32. D035 now records the accurate limit, and the
+mechanism is tracked in issue #34.
+
+Findings judged valid and addressed by re-evaluation: the recorded F001 and
+F003 verdicts predated this round's changes to the safety boundary and the
+evaluator contract, so both features were re-evaluated in fresh sessions
+against the new clean commit before remaining `pass`.
+
+No finding was judged invalid.
+
+Verification results for this round, captured through
+[Invoke-Verification.ps1](../../../scripts/Invoke-Verification.ps1):
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass, 37/37, exit 0 | `2026-10-13T02-25-10-693Z-66491235-9c64-4baf-9289-cca98f92371c` |
+| `node --test scripts/maker-checker-loop.test.mjs` | pass, 35/35, exit 0 | `2026-10-13T02-22-47-035Z-6c9f3f54-c8c5-493d-9ea4-78238458eeb0` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T02-26-45-248Z-c5cbaf2b-76b5-48c9-bd71-096dca0ea70e` |
+
+An earlier loop run (`2026-10-13T02-21-31-538Z-a7457dc1-62fd-49e4-9961-7c7103951bc8`)
+failed on a new assertion's line-wrapping regex, and an earlier safety run
+(`2026-10-13T02-21-30-506Z-5a82220f-8fb5-4bea-aaf7-63fe2ad496f5`) failed only
+because Docker Desktop was stopped and the sandbox tests could not run. The
+assertion was corrected, Docker was started, and both suites were rerun to
+completion. The incomplete runs are not counted as passes.
 
 ## Review round: PR #33 Copilot feedback
 

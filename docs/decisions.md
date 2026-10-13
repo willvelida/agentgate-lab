@@ -651,9 +651,16 @@ Each entry records:
   the hashed set through a subprocess or reflective loader.
 * Constraints: `.git/`, `.local/`, `docs/`, `src/`, and other root
   directories are not recursive verification roots. Generated `bin/` and
-  `obj/` directories do not contribute names or contents to directory hashes,
-  so verification inputs that resolve inside such a subtree are rejected
-  rather than silently left unhashed. Repository-root symbolic links are
+  `obj/` directories do not contribute names or contents to directory hashes.
+  Verification inputs that *resolve as modules* inside such a subtree, meaning
+  test-file tokens and imported modules, are rejected rather than silently
+  left unhashed. Accepted limit: verification code may still read a non-module
+  data file inside a skipped subtree through a permitted API such as
+  `node:fs`, and changes to that file produce no boundary violation because
+  neither digest covers it. Closing that gap needs a sandbox-level mechanism
+  that covers non-module reads rather than another import rule. Repository-root
+  protected paths are compared by key set as well as by digest, so additions
+  are rejected alongside edits and removals. Repository-root symbolic links are
   enumerated so the digest's symlink guard fails closed on them.
   Expanding the protected set must avoid paths that the harness legitimately
   mutates during a round.

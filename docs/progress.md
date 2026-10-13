@@ -520,22 +520,40 @@ where you left off.
   `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. The branch is published in
   PR #33, whose exact-head CI passed at `7a18119` (build, links,
   progress-reminder, and DCO all succeeded).
-* Review round: the Copilot reviewer raised four findings on PR #33. All four
-  were judged valid and in scope; none were invalid or out of scope. Two HIGH
-  findings in `scripts/maker-checker-safety.mjs` (verification inputs hidden
-  inside digest-skipped `bin`/`obj` subtrees, and repository-root symbolic
-  links never reaching the digest symlink guard) are fixed and covered by
-  three new safety tests. One MEDIUM and one LOW documentation finding
+* Review round: the first round's record counted only four inline threads and
+  missed the collapsed "Previously missed" findings in review summary
+  `5486387949`. A second round re-read both live sources. Two HIGH findings in
+  `scripts/maker-checker-safety.mjs` (verification inputs hidden inside
+  digest-skipped `bin`/`obj` subtrees, and repository-root symbolic links
+  never reaching the digest symlink guard) are fixed and covered by three new
+  safety tests. One MEDIUM and one LOW documentation finding
   tightened the evaluator stop condition from tracked changes to any
   `git status --short` entry in
   `.github/skills/feature-evaluator/SKILL.md` and `docs/harness-agent.md`,
   with the F003 contract test extended to assert the new wording.
+* Second review round: five open findings and four previously missed findings
+  were triaged against both live sources. Repository-root additions now raise
+  a boundary violation, the evaluator exempts bounded-loop dispatch from the
+  clean-commit gate it cannot satisfy, the evaluator prompt template carries
+  the full commit SHA, and the stale tracked-tree wording was corrected. The
+  digest-skipped non-module read is valid but needs a sandbox-level mechanism,
+  so D035 records the accurate limit and issue #34 tracks the fix. No finding
+  was invalid. F001 and F003 were re-evaluated in fresh sessions because this
+  round changed their code after their earlier verdicts.
 * Review-round verification: loop suite passed 33/33, exit 0 (run
   `2026-10-12T04-03-51-405Z-fd730cd2-d747-43b3-8643-7c33d4ca2c68`); safety
   suite passed 36/36, exit 0 (run
   `2026-10-12T04-04-11-878Z-2d5e6b30-de46-4885-aa2a-0831c84c205d`);
   architecture passed, exit 0 (run
   `2026-10-12T04-04-47-081Z-97ebbe89-4501-4566-9700-b88f33a9e10b`).
+* Second-round verification: safety suite passed 37/37, exit 0 (run
+  `2026-10-13T02-25-10-693Z-66491235-9c64-4baf-9289-cca98f92371c`); loop suite
+  passed 35/35, exit 0 (run
+  `2026-10-13T02-22-47-035Z-6c9f3f54-c8c5-493d-9ea4-78238458eeb0`);
+  architecture passed, exit 0 (run
+  `2026-10-13T02-26-45-248Z-c5cbaf2b-76b5-48c9-bd71-096dca0ea70e`). Two earlier
+  runs failed, one on a wrapped assertion regex and one because Docker Desktop
+  was stopped, and are not counted as passes.
 * Startup and cleanup: runtime startup is not applicable because the issue
   changes harness documentation and tests only. No long-lived process was
   started. Test fixtures cleaned themselves, raw reports remain under ignored
@@ -548,8 +566,11 @@ where you left off.
   `features_list.json`; the link was replaced with a plain local-checklist
   reference. Exact-head CI then passed for `7a18119`, and passed again for the
   review-response head `8355c01` (build, links, progress-reminder, and DCO all
-  succeeded). All four Copilot review threads were answered and resolved.
-* Next: await human review and merge authorisation.
+  succeeded). The PR description records the current head and its CI, and is
+  refreshed whenever the head moves. All review threads from both live sources
+  were answered and resolved.
+* Next: confirm exact-head CI for the second review-response head, then await
+  human review and merge authorisation.
 
 ## Built
 

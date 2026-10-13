@@ -351,6 +351,9 @@ export class CopilotCliDispatcher {
       : [
           `/feature-evaluator Evaluate ${goal.featureId} in slug ${goal.featureSlug}.`,
           'Run this as a fresh independent evaluation session.',
+          'This is a bounded maker-checker loop dispatch, so the evaluator clean-commit',
+          'gate does not apply: the maker cannot commit. Judge the uncommitted round work',
+          'that the controller fingerprinted, and report stale only if that round changed.',
           contract,
           'Judge the recorded controller verification evidence instead of rerunning it.',
           `End your response with exactly one line starting ${resultMarker}`,
