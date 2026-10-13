@@ -378,7 +378,7 @@ function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
   if (!importedStat.isFile() && !importedStat.isSymbolicLink()) {
     throw new Error(`Node verification import is not a file: ${specifier}`);
   }
-  assertImportIsProtected(repositoryRoot, repositoryRelative, specifier);
+  assertImportIsProtected(repositoryRelative, specifier);
   return importedPath;
 }
 
@@ -386,7 +386,7 @@ function resolveVerificationImport(repositoryRoot, importerPath, specifier) {
 // outside the hashed set would never appear in a protection snapshot. Product
 // code under `src/` is deliberately exempt because the loop expects it to
 // change.
-function assertImportIsProtected(repositoryRoot, repositoryRelative, specifier) {
+function assertImportIsProtected(repositoryRelative, specifier) {
   const segments = repositoryRelative.split(/[\\/]/).filter(Boolean);
   if (segments.length === 1) return;
   const [root] = segments;
