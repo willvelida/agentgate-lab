@@ -8,8 +8,10 @@ description: Independently scores a feature from a feature list against a five-p
 ## Overview
 
 Use this skill after an implementer reports that a feature's verification
-passed. The evaluator acts as an independent reviewer. It decides whether the
-feature can move to `pass` in `features_list.json`.
+passed. The evaluator acts as an independent reviewer. A PASS from a
+fresh-session evaluation of a named clean commit decides whether the feature
+can move to `pass` in `features_list.json`. A PASS from bounded-loop dispatch
+is provisional and never does.
 
 ## Inputs
 
@@ -34,6 +36,10 @@ Ask for either value if it is missing.
   controller-recorded round fingerprint and evidence, and treat a fingerprint
   that no longer matches the reviewed round as `STALE`. The clean-commit gate
   governs every fresh session opened for a human-authorized commit.
+* A loop-dispatched PASS is provisional. It ends the loop, but it does not
+  satisfy the clean-commit rule in `AGENTS.md` and must not be used to move
+  the feature to `pass`. After the round's work is committed, a fresh-session
+  evaluation of that named clean commit must also pass.
 * Do not edit source code, tests, `features_list.json`, or the feature status.
   Author only `evaluator-rubric.md` and one verdict line in `agent-progress.md`.
   Verification commands may produce ignored build output and local evidence.
@@ -137,6 +143,13 @@ average is at least 4. Otherwise the verdict is FAIL.
 
    ```markdown
    * YYYY-MM-DD: F001 evaluator verdict PASS (avg 4.4, min 4). See evaluator-rubric.md.
+   ```
+
+   Under bounded-loop dispatch, label the line provisional and name the round
+   fingerprint, so it cannot be mistaken for a clean-commit verdict:
+
+   ```markdown
+   * YYYY-MM-DD: F001 provisional loop verdict PASS (avg 4.4, min 4) at round fingerprint <fingerprint>. Not a clean-commit verdict. See evaluator-rubric.md.
    ```
 
 10. Confirm the rubric file is ignored with

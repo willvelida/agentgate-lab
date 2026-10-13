@@ -92,7 +92,9 @@ That clean-commit gate governs sessions you open for an authorized commit. The
 bounded maker-checker loop forbids the maker to commit, so its checker
 dispatch is exempt: the evaluator judges the controller-recorded round
 fingerprint and evidence, and reports stale when that fingerprint no longer
-matches.
+matches. A PASS from that dispatch is provisional: it stops the loop but does
+not let the feature move to `pass`. Commit the round's work when authorized,
+then run the fresh-session clean-commit evaluation above.
 
 This first implementer version stops before evaluation. In a separate
 follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or
@@ -350,6 +352,8 @@ tree for partial work from an interrupted agent process.
 
 Terminal results such as `pass`, `blocked`, `ambiguous`, `stale`, `stalled`,
 `limit-exhausted`, and `approval-required` require no hidden automatic action.
+A `pass` result is a provisional loop verdict, not a feature `pass`; the
+feature still needs a fresh-session evaluation of a named clean commit.
 A dispatch exception is persisted and returned as `blocked` with human
 intervention required. Resolve the reported condition or revise the goal with
 human approval before starting another run. The controller itself does not

@@ -177,6 +177,25 @@ test('exempts bounded-loop dispatch from the evaluator clean-commit gate', () =>
   assert.match(guide, /its checker\s+dispatch is exempt/i);
 });
 
+test('keeps bounded-loop PASS verdicts provisional until a clean-commit evaluation', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+  const decisions = readFileSync(resolve('docs/decisions.md'), 'utf8');
+
+  assert.match(instructions, /bounded-loop checker PASS is provisional and does not satisfy this rule/);
+  assert.match(evaluator, /A PASS from bounded-loop dispatch\s+is provisional and never does/);
+  assert.match(evaluator, /A loop-dispatched PASS is provisional/);
+  assert.match(evaluator, /must not be used to move\s+the feature to `pass`/);
+  assert.match(evaluator, /provisional loop verdict PASS .* at round fingerprint <fingerprint>\. Not a clean-commit verdict\./);
+  assert.match(guide, /A PASS from that dispatch is provisional/);
+  assert.match(guide, /A `pass` result is a provisional loop verdict, not a feature `pass`/);
+  assert.match(decisions, /## D038: bounded-loop PASS verdicts are provisional/);
+});
+
 test('requires the evaluator prompt to name the reviewed commit', () => {
   const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
   const evaluator = readFileSync(
@@ -308,6 +327,8 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     /Controller round fingerprint: round-fingerprint-abc123\./,
   );
   assert.match(calls[1].args.at(-1), /Record that fingerprint as the reviewed revision/);
+  assert.match(calls[1].args.at(-1), /A PASS from this dispatch is provisional/);
+  assert.match(calls[1].args.at(-1), /provisional loop verdict/);
   assert.match(
     calls[1].args.at(-1),
     /Recorded verification results: \[\{"command":"node --test scripts\/maker-checker-loop\.test\.mjs","status":"passed","runId":"run-checker-evidence","exitCode":0,"reportPath":"\.local\/verification\/run-checker-evidence\/report\.json"\}\]/,

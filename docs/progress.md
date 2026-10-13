@@ -80,8 +80,11 @@ health before it changes anything.
   fingerprint hashes untracked symlink targets and file permission bits.
   The regex import-scanner evasion is tracked as
   [issue #35](https://github.com/willvelida/agentgate-lab/issues/35).
+  With explicit user approval, a third round made bounded-loop evaluator
+  PASS verdicts provisional (D038): only a fresh-session PASS of a named
+  clean commit can move a feature to `pass`.
   F002 and F003 keep their earlier PASS verdicts, but those verdicts
-  predate this commit, so both need fresh-session re-evaluation.
+  predate these changes, so both need fresh-session re-evaluation.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -543,16 +546,27 @@ where you left off.
 * Review threads: answered and resolved the four open Copilot threads.
   Three were fixed in this commit; the regex import-scanner evasion is out
   of scope and tracked as
-  [issue #35](https://github.com/willvelida/agentgate-lab/issues/35). No
-  further review round was started.
-* Status: F001-F004 remain `pass`. This commit changes F002 (PR feedback
+  [issue #35](https://github.com/willvelida/agentgate-lab/issues/35).
+* Third round: with explicit user approval under D037, fixed the fifth open
+  thread (`PRRT_kwDOVARayc6rtf0E`). Bounded-loop evaluator PASS verdicts are
+  now provisional in AGENTS.md rule 14, the evaluator skill, the harness
+  guide, the checker prompt, and D038. Loop suite passed 41/41 on Linux
+  (run `2026-10-13T05-43-19-877Z-46dbe223-05b4-4188-b251-cc9a3141b2f4`)
+  and 40/41 on Windows with the symlink skip (run
+  `2026-10-13T05-43-29-032Z-00c56596-16ea-44d0-baa0-b67a682c2b85`);
+  architecture passed (run
+  `2026-10-13T05-43-39-581Z-3ac8e758-3ec8-430c-ba00-3d988aaeeba6`). No
+  further round is approved.
+* Status: F001-F004 remain `pass`. These changes affect F002 (PR feedback
   workflow) and F003 (evaluator stale-revision handling) after their last
   PASS verdicts, so both need fresh-session re-evaluation.
-* Files: `AGENTS.md`, `docs/harness-agent.md`, `docs/decisions.md`,
+* Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
+  `docs/harness-agent.md`, `docs/decisions.md`,
   `docs/progress.md`, `scripts/maker-checker-loop.mjs`,
   `scripts/maker-checker-loop.test.mjs`, and the issue #32
   `agent-progress.md`. No dependency manifest or lockfile changed.
-* Decisions: D037 caps pull request follow-up review rounds at two.
+* Decisions: D037 caps pull request follow-up review rounds at two; D038
+  makes bounded-loop PASS verdicts provisional.
 * Verification on 2026-10-13, base `55a229f` plus this session's
   uncommitted changes:
   * Loop suite, Windows: passed 39/40 with the symlink test skipped for
@@ -579,12 +593,13 @@ where you left off.
   started. A temporary baseline worktree under `%TEMP%` and a temporary
   issue body file were removed. Raw reports remain under ignored
   `.local/verification/`.
-* Publication: the commit that adds this entry is pushed to PR #33. The PR
-  description is the source of truth for its SHA and exact-head CI.
+* Publication: these commits are pushed to PR #33. The PR description is
+  the source of truth for the current head and its exact-head CI.
 * Blockers: none.
 * Next: run fresh-session evaluator re-evaluations of F002 and F003 against
-  this commit, then await human review and merge authorisation. Do not
-  start another review round without user approval (D037).
+  the commit that records the third round, then await human review and
+  merge authorisation. Do not start another review round without user
+  approval (D037).
 
 ## Built
 

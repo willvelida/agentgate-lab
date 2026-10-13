@@ -38,6 +38,7 @@ ms.date: 2026-10-13
     verdict in the slug's `agent-progress.md`. The evaluator must confirm the
     same commit is still checked out with a clean tree before recording PASS.
     Treat a changed or dirty revision as stale and request a new evaluation.
+    A bounded-loop checker PASS is provisional and does not satisfy this rule.
 15. Capture verification commands through the runner in
     [verification guidance](./docs/verification.md). Keep raw reports local
     and commit only sanitized summaries with run IDs, results, and the

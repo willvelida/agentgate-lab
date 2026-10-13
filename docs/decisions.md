@@ -742,3 +742,26 @@ Each entry records:
   evaluator gate in D011 and D036. A post-cap finding that makes the pull
   request unsafe to merge is reported to the user as a blocker rather than
   silently deferred. The user can approve further rounds case by case.
+
+## D038: bounded-loop PASS verdicts are provisional
+
+* Date: 2026-10-13
+* Decision: a PASS recorded by an evaluator that the bounded maker-checker
+  loop dispatched is provisional. It ends the loop, but it does not satisfy
+  AGENTS.md rule 14 and cannot move a feature to `pass`. After the round's
+  work is committed, a fresh-session evaluation of that named clean commit
+  must also pass. The loop verdict line in `agent-progress.md` is labelled
+  provisional and names the round fingerprint. This narrows D036, which
+  described the round-fingerprint gate as equivalent to the clean-commit
+  gate.
+* Why: the evaluator skill said its verdict decides whether a feature can
+  move to `pass`, and its loop exception let it record PASS against an
+  uncommitted fingerprint with the same verdict line as a clean-commit
+  review. A loop PASS could therefore be read as meeting rule 14 without
+  any clean-commit evaluation. Raised on PR #33 and approved by the user
+  as a third review round under D037.
+* Alternatives rejected: letting the loop commit so its checker can review
+  a clean commit, because D036 forbids the maker to commit; removing the
+  loop exception, because the loop could then never reach a verdict.
+* Constraints: the controller never writes `features_list.json`. Feature
+  status moves to `pass` only on a clean-commit fresh-session PASS.

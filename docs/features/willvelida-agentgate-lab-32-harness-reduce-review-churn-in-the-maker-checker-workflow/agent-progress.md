@@ -416,3 +416,26 @@ All runs checked base `55a229f` plus this batch's uncommitted changes; only
 progress logs changed afterwards. F002 and F003 remain `pass`, but this batch
 changes their scope after their last verdicts, so both need fresh-session
 re-evaluation against the new commit.
+### Third follow-up round (user-approved under D037)
+
+Date: 2026-10-13. The user explicitly approved one further round for thread
+`PRRT_kwDOVARayc6rtf0E` (comment `4254765306`, raised against `55a229f`).
+No other finding is in this round.
+
+| Finding | Severity | Resolution |
+| --- | --- | --- |
+| A loop-dispatched evaluator PASS can be consumed as a feature `pass` without the clean-commit evaluation that AGENTS.md rule 14 requires | medium | Loop PASS verdicts are provisional in AGENTS.md rule 14, the evaluator skill (overview, requirements, and a labelled verdict-line template), the harness guide, the checker prompt, and D038. Feature status moves to `pass` only on a fresh-session PASS of a named clean commit |
+
+A new contract test asserts the provisional wording in all four documents,
+and the dispatch test asserts the checker prompt carries it. No existing
+assertion was changed.
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` (Linux container) | pass 41/41, exit 0 | `2026-10-13T05-43-19-877Z-46dbe223-05b4-4188-b251-cc9a3141b2f4` |
+| `node --test scripts/maker-checker-loop.test.mjs` (Windows) | pass 40/41, symlink test skipped without symlink privilege, exit 0 | `2026-10-13T05-43-29-032Z-00c56596-16ea-44d0-baa0-b67a682c2b85` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T05-43-39-581Z-3ac8e758-3ec8-430c-ba00-3d988aaeeba6` |
+
+These runs checked base `6a3c6f8` plus this round's uncommitted changes.
+F002 and F003 need fresh-session re-evaluation against the commit that
+records this round.
