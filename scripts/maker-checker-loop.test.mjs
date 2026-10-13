@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -120,6 +121,20 @@ test('documents inline threads and review summaries as required PR feedback sour
   assert.match(guide, /pulls\/\{number\}\/reviews` for submitted review bodies/);
   assert.match(guide, /re-fetch both inline threads and review summary bodies/);
   assert.match(guide, /If either source cannot be read, record the review check as unavailable/);
+});
+
+test('caps pull request follow-up review rounds behind user approval', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+  const decisions = readFileSync(resolve('docs/decisions.md'), 'utf8');
+
+  assert.match(instructions, /at most two follow-up\s+review rounds per pull request/);
+  assert.match(instructions, /explicit user approval before\s+starting a third/);
+  assert.match(guide, /Process at most two follow-up rounds per pull request/);
+  assert.match(guide, /Record the commit each finding\s+was raised against/);
+  assert.match(guide, /Route findings that arrive after the cap to follow-up GitHub issues/);
+  assert.match(decisions, /## D037: cap pull request follow-up review rounds at two/);
+  assert.match(decisions, /process limit on review churn, not a security\s+control/);
 });
 
 test('requires evaluators to review one unchanged clean commit', () => {
@@ -927,6 +942,75 @@ test('checks protected transitions when dispatch throws', async (t) => {
   assert.equal(result.status, 'approval-required');
   assert.match(result.state.rounds[0].feedback, /Protected checklist changed/);
   assert.equal(result.state.rounds[0].humanIntervention.required, true);
+});
+
+test('rolls back a stale checker verdict written during evaluation', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-stale-verdict-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const progressPath = join(root, 'agent-progress.md');
+  const rubricPath = join(root, 'evaluator-rubric.md');
+  writeFileSync(progressPath, '# Progress\n');
+
+  const scripted = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'maker finished' },
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+  const dispatcher = {
+    calls: scripted.calls,
+    async dispatch(request) {
+      if (request.actor === 'checker') {
+        writeFileSync(progressPath, '# Progress\n\nF003 PASS\n');
+        writeFileSync(rubricPath, 'stale rubric\n');
+      }
+      return scripted.dispatch(request);
+    },
+  };
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    evaluatorArtifactPaths: [progressPath, rubricPath],
+    getRevision: revisions(
+      revision('initial'),
+      revision('maker'),
+      revision('maker'),
+      revision('drifted'),
+    ),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'stale');
+  assert.equal(readFileSync(progressPath, 'utf8'), '# Progress\n');
+  assert.equal(existsSync(rubricPath), false);
+  assert.match(result.state.rounds.at(-1).feedback, /Rolled back the stale evaluator verdict/);
+});
+
+test('revision fingerprints distinguish untracked symlinks from their targets', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-fingerprint-link-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'target-a'), 'x');
+  writeFileSync(join(root, 'target-b'), 'x');
+  try {
+    symlinkSync(join(root, 'target-a'), join(root, 'link'));
+  } catch {
+    t.skip('symbolic links are unavailable without elevation on this host');
+    return;
+  }
+
+  const runner = (args) => {
+    if (args[0] === 'rev-parse') return 'abc123\n';
+    if (args[0] === 'status') return ' M link\n';
+    if (args[0] === 'diff') return '';
+    return 'link\n';
+  };
+
+  const first = getGitRevision(root, runner);
+  rmSync(join(root, 'link'));
+  symlinkSync(join(root, 'target-b'), join(root, 'link'));
+  const second = getGitRevision(root, runner);
+
+  assert.notEqual(first.fingerprint, second.fingerprint);
 });
 
 test('stops when checker work is stale', async (t) => {

@@ -1,7 +1,7 @@
 ---
 title: Progress
 description: Repository-level snapshot of what is built, what is in progress, and what is planned for AgentGate Lab.
-ms.date: 2026-10-12
+ms.date: 2026-10-13
 ---
 
 ## Purpose
@@ -70,6 +70,18 @@ health before it changes anything.
   corrected. F001 and F003 were re-evaluated in fresh sessions and passed
   against the changed code. The digest-skipped non-module read is tracked as
   [issue #34](https://github.com/willvelida/agentgate-lab/issues/34).
+* PR #33 went through four follow-up review rounds because each push
+  triggered a new automated review and rule 16 set no limit. AGENTS.md
+  rule 16, the harness guide, and D037 now cap follow-up review rounds at
+  two per pull request, require user approval for a third, and route later
+  findings to follow-up issues. A final batch also fixed the last two
+  round-four code findings in `scripts/maker-checker-loop.mjs`: a stale
+  checker verdict written during evaluation is rolled back, and the round
+  fingerprint hashes untracked symlink targets and file permission bits.
+  The regex import-scanner evasion is tracked as
+  [issue #35](https://github.com/willvelida/agentgate-lab/issues/35).
+  F002 and F003 keep their earlier PASS verdicts, but those verdicts
+  predate this commit, so both need fresh-session re-evaluation.
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -205,6 +217,20 @@ final link and whitespace checks were repeated before commit.
   `.local/`, `docs/`, and `src/`, and skips generated `bin/` and `obj/`
   directories (D035). The retained JavaScript scanner rejects known
   adversarial loader forms but does not define the protected path set.
+  Obfuscated loader forms such as an escaped-identifier `require` evade the
+  scanner ([issue #35](https://github.com/willvelida/agentgate-lab/issues/35)),
+  and non-module reads inside skipped subtrees are unhashed
+  ([issue #34](https://github.com/willvelida/agentgate-lab/issues/34)).
+* Two process-tree timing tests in `scripts/maker-checker-loop.test.mjs`
+  use fixed 5-second bounds and fail intermittently under heavy host load,
+  on Windows and in the Linux container alike. On 2026-10-13 they failed
+  1 of 5 runs on both the baseline and the changed code, so this is
+  pre-existing flakiness. The bounds were not relaxed.
+* The untracked-symlink fingerprint test skips on Windows hosts that cannot
+  create symbolic links without elevation. It runs in CI on Ubuntu and in
+  the local Linux verification container.
+* PR follow-up review rounds are capped at two (D037). The cap is a process
+  limit, not a security control; post-cap findings become issues.
 * Issue #2 is complete: F001-F009 passed independent evaluation. The ACS spike
   is isolated synthetic evidence, not a Gateway authorization boundary; it
   does not implement production authorization, identity, or ticket operations.
@@ -496,133 +522,69 @@ where you left off.
 
 ## Last session
 
-* Date: 2026-10-12
-* Accomplished: completed issue #32 on `feat/harness-reduce-review-churn`.
-  F003 requires evaluation of a named clean commit and rechecks the same
-  revision before recording PASS. F004 records the maker-checker loop's
-  accepted limits in D036. Published PR #33, confirmed its exact-head CI, and
-  resolved a Copilot review round of four valid findings in one batched
-  commit.
-* Status: F001-F004 are `pass`; issue #32 is complete and under review.
-* Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
-  `.github/agents/harness-implementer.agent.md`, `docs/harness-agent.md`,
-  `scripts/maker-checker-safety.mjs`,
-  `scripts/maker-checker-safety.test.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, `docs/decisions.md`,
-  `docs/progress.md`, and the issue #32 `agent-progress.md`. The ignored
-  `features_list.json` records all four features as `pass`. No dependency
-  manifest or lockfile changed.
-* Verification: F003 exact loop tests passed 33/33, exit 0 (run
-  `2026-10-12T03-07-18-984Z-70b71ec6-f4cf-4933-946e-91a982600961`);
-  F003 architecture passed (run
-  `2026-10-12T03-07-18-975Z-91b42c2c-7921-4bae-8493-b6acfd8ff3a5`);
-  F004 implementation architecture passed (run
-  `2026-10-12T03-17-12-148Z-be826fb4-16d2-4cf5-91a6-be894c14547f`); F004
-  evaluator exact verification passed (run
-  `2026-10-12T03-33-29-444Z-e7ec9fba-e06b-437f-9c52-0525824fcbbb`) and
-  independent architecture passed (run
-  `2026-10-12T03-33-29-564Z-0f591fb9-0bd6-4a5a-b558-5b640d4d8f6d`).
-* Reviewed commits: F003 evaluator reviewed clean
-  `ae5b78aab789429cfacc41700e8741558acba0ab`; F004 evaluator reviewed clean
-  `06b2d99bf6e15bb60bb1e5f562c003286e35847a`. The branch is published in
-  PR #33, whose exact-head CI passed at `7a18119` (build, links,
-  progress-reminder, and DCO all succeeded).
-* Review round: the first round's record counted only four inline threads and
-  missed the collapsed "Previously missed" findings in review summary
-  `5486387949`. A second round re-read both live sources. Two HIGH findings in
-  `scripts/maker-checker-safety.mjs` (verification inputs hidden inside
-  digest-skipped `bin`/`obj` subtrees, and repository-root symbolic links
-  never reaching the digest symlink guard) are fixed and covered by three new
-  safety tests. One MEDIUM and one LOW documentation finding
-  tightened the evaluator stop condition from tracked changes to any
-  `git status --short` entry in
-  `.github/skills/feature-evaluator/SKILL.md` and `docs/harness-agent.md`,
-  with the F003 contract test extended to assert the new wording.
-* Second review round: five open findings and four previously missed findings
-  were triaged against both live sources. Repository-root additions now raise
-  a boundary violation, the evaluator exempts bounded-loop dispatch from the
-  clean-commit gate it cannot satisfy, the evaluator prompt template carries
-  the full commit SHA, and the stale tracked-tree wording was corrected. The
-  digest-skipped non-module read is valid but needs a sandbox-level mechanism,
-  so D035 records the accurate limit and issue #34 tracks the fix. No finding
-  was invalid. F001 and F003 were re-evaluated in fresh sessions because this
-  round changed their code after their earlier verdicts.
-* Review-round verification: loop suite passed 33/33, exit 0 (run
-  `2026-10-12T04-03-51-405Z-fd730cd2-d747-43b3-8643-7c33d4ca2c68`); safety
-  suite passed 36/36, exit 0 (run
-  `2026-10-12T04-04-11-878Z-2d5e6b30-de46-4885-aa2a-0831c84c205d`);
-  architecture passed, exit 0 (run
-  `2026-10-12T04-04-47-081Z-97ebbe89-4501-4566-9700-b88f33a9e10b`).
-* Second-round verification: safety suite passed 37/37, exit 0 (run
-  `2026-10-13T02-25-10-693Z-66491235-9c64-4baf-9289-cca98f92371c`); loop suite
-  passed 35/35, exit 0 (run
-  `2026-10-13T02-22-47-035Z-6c9f3f54-c8c5-493d-9ea4-78238458eeb0`);
-  architecture passed, exit 0 (run
-  `2026-10-13T02-26-45-248Z-c5cbaf2b-76b5-48c9-bd71-096dca0ea70e`). Two earlier
-  runs failed, one on a wrapped assertion regex and one because Docker Desktop
-  was stopped, and are not counted as passes.
+* Date: 2026-10-13
+* Accomplished: stopped the PR #33 review loop. AGENTS.md rule 16 keeps the
+  two-source check and now caps follow-up review rounds at two per pull
+  request, with explicit user approval needed for a third.
+  `docs/harness-agent.md` documents the bounded workflow: record the commit
+  each finding was raised against, answer already-fixed points with the
+  fixing commit, and route post-cap findings to follow-up issues. D037
+  records why the cap exists, what it trades away, and that it is a
+  process limit rather than a security control. A contract test pins the
+  cap in all three documents.
+* Code: validated and committed the aborted fifth-round edits to
+  `scripts/maker-checker-loop.mjs`. A checker verdict written while the
+  work changed is rolled back from the evaluator artifacts, and the round
+  fingerprint hashes untracked symlink targets and file permission bits.
+  The first run showed the new rollback test read a nonexistent `detail`
+  field; it now asserts the same message on the `feedback` field the
+  controller writes. Both new tests failed against the previous code and
+  pass against the new code in the Linux container.
+* Review threads: answered and resolved the four open Copilot threads.
+  Three were fixed in this commit; the regex import-scanner evasion is out
+  of scope and tracked as
+  [issue #35](https://github.com/willvelida/agentgate-lab/issues/35). No
+  further review round was started.
+* Status: F001-F004 remain `pass`. This commit changes F002 (PR feedback
+  workflow) and F003 (evaluator stale-revision handling) after their last
+  PASS verdicts, so both need fresh-session re-evaluation.
+* Files: `AGENTS.md`, `docs/harness-agent.md`, `docs/decisions.md`,
+  `docs/progress.md`, `scripts/maker-checker-loop.mjs`,
+  `scripts/maker-checker-loop.test.mjs`, and the issue #32
+  `agent-progress.md`. No dependency manifest or lockfile changed.
+* Decisions: D037 caps pull request follow-up review rounds at two.
+* Verification on 2026-10-13, base `55a229f` plus this session's
+  uncommitted changes:
+  * Loop suite, Windows: passed 39/40 with the symlink test skipped for
+    lack of symlink privilege, exit 0 (run
+    `2026-10-13T05-15-02-129Z-c79db976-560d-44c0-a3d8-182c0b01a756`).
+  * Loop suite, Linux container: passed 40/40, exit 0 (run
+    `2026-10-13T05-15-41-478Z-428a4c7c-c44e-4c11-beec-3748ce659727`).
+  * Safety suite: passed 39/40 with the POSIX-only permission test skipped
+    on Windows, exit 0 (run
+    `2026-10-13T05-16-25-943Z-850aa45a-83dc-4cb9-b544-54a9edad6354`).
+  * Architecture: passed, exit 0 (run
+    `2026-10-13T05-16-50-222Z-8ddb9649-d469-475e-8e43-1c11ce20e454`).
+  * Failed runs, not counted as passes:
+    `2026-10-13T05-00-46-605Z-707273e5-7638-48fb-88cd-ae1c23b22dd1`
+    (rollback test field bug plus a timing flake);
+    `2026-10-13T05-02-47-665Z-29858ad7-5494-4a41-8b02-6f1af10ae96e`,
+    `2026-10-13T05-12-35-665Z-d30f0241-bff2-4045-9db6-53415533fedc`, and
+    `2026-10-13T05-14-43-908Z-36f2be1f-bcf7-4fb4-9bbd-434d2087f8ae` (one
+    process-tree timing test each). Five-run comparisons failed 1 of 5 on
+    both baseline and changed code, so the flake is pre-existing.
+  * Only progress logs changed after these runs.
 * Startup and cleanup: runtime startup is not applicable because no
-  application service startup path changed. The issue does change executable
-  harness behavior in `scripts/maker-checker-safety.mjs` and
-  `scripts/maker-checker-loop.mjs`, which the harness test suites cover
-  directly. No long-lived process was started. Test fixtures cleaned
-  themselves, raw reports remain under ignored
-  `.local/verification/`, and unrelated processes/files were left untouched.
-* Evaluations: F003 and F004 both passed fresh evaluation with average 5.0 and
-  minimum 5. After the second review round changed their code, F001 was
-  re-evaluated at clean `b714ecf` and F003 at clean `b11461c`; both passed
-  with average 4.8 and minimum 4, scoring scope discipline 4 only because the
-  reviewed range carries the whole branch. Re-evaluation runs: safety suite
-  37/37, exit 0 (`2026-10-13T02-35-00-827Z-f8e6d004-c325-47dc-a567-415e5e3cb87d`)
-  with architecture pass
-  (`2026-10-13T02-35-31-217Z-ef381d54-e86f-441d-b197-fdd7a1d0478a`); loop suite
-  35/35, exit 0 (`2026-10-13T02-41-19-520Z-663b59a7-f4ac-4a4d-868d-75b8cc6491f3`)
-  with architecture pass
-  (`2026-10-13T02-41-35-156Z-5021b1de-5d80-47d9-ad8a-7abecee04a8e`). No feature
-  status moved backwards and no required fixes remain.
-* Third review round: a further review of the second-round head raised eight
-  findings across both live sources, all valid and in scope. The protected-root
-  digest now uses a length-prefixed, terminated encoding and includes POSIX
-  permission bits, closing a byte-stream collision and a permission-only
-  `chmod` bypass, each covered by a new regression test. The Harness
-  Implementer's generated evaluator prompt now carries the full commit SHA and
-  is asserted by the contract suite, D036 and the rubric template now describe
-  both the clean-commit and round-fingerprint evaluation paths, and the
-  startup-inapplicability reason was corrected to name the unchanged
-  application service startup paths rather than claiming only documentation
-  and tests changed.
-* Third-round verification: loop suite passed 36/36, exit 0 (run
-  `2026-10-13T02-57-30-221Z-557f1a3b-0746-4ea4-ab03-93ff35c20598`); safety
-  suite passed 38/38 with one POSIX-only permission test skipped on Windows,
-  exit 0 (run   `2026-10-13T02-59-47-226Z-d3f596d6-e864-4ac9-932a-d6d3258ca727`). F001 and
-  F003 were re-evaluated again in fresh sessions because the round changed
-  their code: F001 passed at clean `7d16d81` and F003 at clean `b7987a3`, both
-  with average 4.8 and minimum 4 and no required fixes.
-* Fourth review round: seven findings across both live sources, all valid and
-  in scope. Relative verification imports resolving outside the hashed roots
-  are now rejected, the round fingerprint length-prefixes untracked names and
-  contents, the checker dispatch carries the controller fingerprint, the
-  pre-verdict stale check is qualified for both evaluation paths, and D036 now
-  states that cleanup retries are deliberately unbounded. F001, F003, and F004
-  were re-evaluated in fresh sessions afterwards: F001 passed at `50bb527`
-  (avg 4.6), F003 at `3cb3798` (avg 4.8), and F004 at `b7d93ca` (avg 4.8), all
-  with minimum 4 and no required fixes. Both non-blocking evaluator notes were
-  acted on rather than merely recorded.
-* Fourth-round verification: loop suite passed 37/37, exit 0 (run
-  `2026-10-13T03-29-58-420Z-8b9ae07f-4a48-41f6-9902-6f0ce3d07af5`); safety
-  suite passed 39/39 with one POSIX-only skip, exit 0 (run
-  `2026-10-13T03-30-17-747Z-4397c6dd-5845-447d-987a-03b6c6a63983`).
+  application service startup path changed. No long-lived process was
+  started. A temporary baseline worktree under `%TEMP%` and a temporary
+  issue body file were removed. Raw reports remain under ignored
+  `.local/verification/`.
+* Publication: the commit that adds this entry is pushed to PR #33. The PR
+  description is the source of truth for its SHA and exact-head CI.
 * Blockers: none.
-* Publication: PR #33 is open against `main`. Its first documentation link
-  check found that tracked `agent-progress.md` linked to ignored
-  `features_list.json`; the link was replaced with a plain local-checklist
-  reference. Exact-head CI then passed for `7a18119`, for the review-response
-  head `8355c01`, and for `12e143b` (build, links, progress-reminder, and DCO
-  all succeeded). The PR description is the source of truth for the current
-  head and its CI, and is refreshed whenever the head moves. Review threads
-  from both live sources were answered and resolved as each round closed.
-* Next: confirm exact-head CI for the third review-response head, then await
-  human review and merge authorisation.
+* Next: run fresh-session evaluator re-evaluations of F002 and F003 against
+  this commit, then await human review and merge authorisation. Do not
+  start another review round without user approval (D037).
 
 ## Built
 

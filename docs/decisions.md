@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-11
+ms.date: 2026-10-13
 ---
 
 ## Purpose
@@ -709,3 +709,36 @@ Each entry records:
   equivalent round-fingerprint gate for loop dispatch, and keep pending
   cleanup fail-closed until the
   owned process tree is confirmed terminated.
+
+## D037: cap pull request follow-up review rounds at two
+
+* Date: 2026-10-13
+* Decision: process at most two follow-up review rounds per pull request.
+  A third round, or a new review request, needs explicit user approval for
+  that round. Findings that arrive after the cap become follow-up GitHub
+  issues, and their threads are answered and resolved with the issue link.
+  Each finding records the commit it was raised against, so a point already
+  fixed by a later commit is answered rather than reworked. This narrows
+  AGENTS.md rule 16, which still requires both inline threads and review
+  summary bodies to be read before a round is reported complete.
+* Why: on PR #33 every push triggered a fresh automated review with new
+  findings. Rule 16 required re-checking both feedback sources but set no
+  limit or human gate, so the agent processed four full rounds, each one
+  changing evaluated code and requiring fresh re-evaluation. The cycle had
+  no termination condition.
+* Trade-offs: valid findings raised after the cap are not fixed in the
+  pull request that prompted them. Some merged pull requests will carry
+  known, tracked defects, and follow-up issues add backlog overhead. In
+  exchange, review effort is bounded and each pull request reaches a
+  stable head that a human can evaluate and merge.
+* Alternatives rejected: an unbounded loop that stops only when a review
+  raises no findings, because automated reviews rarely return empty;
+  disabling automated review, because it still finds real defects; a
+  severity threshold alone, because severity is assigned by the reviewer
+  being bounded; capping at one round, because the first round often
+  surfaces findings missed in collapsed summary sections.
+* Constraints: this is a process limit on review churn, not a security
+  control. It does not make merged code safe, and it does not replace the
+  evaluator gate in D011 and D036. A post-cap finding that makes the pull
+  request unsafe to merge is reported to the user as a blocker rather than
+  silently deferred. The user can approve further rounds case by case.

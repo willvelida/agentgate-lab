@@ -371,3 +371,48 @@ the parameter removal (39/39 with one POSIX-only skip, exit 0, run
 
 * 2026-10-13: F004 evaluator verdict PASS (avg 4.8, min 4) at clean commit b7d93ca9b4fba614529f1a6c3e3c8ccb183c8e92. See evaluator-rubric.md.
 * 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at clean commit ff326c8945ed3de325e120020f5854ac0427563f. See evaluator-rubric.md.
+
+### Review loop stopped: cap and final batch
+
+Date: 2026-10-13. PR #33 went through four follow-up review rounds because
+each push triggered a new automated review and AGENTS.md rule 16 had no
+limit. This batch adds the cap and closes the remaining open threads
+without starting another review round.
+
+| Thread | Raised against | Finding | Resolution |
+| --- | --- | --- | --- |
+| `4254452282` | `ff326c8` | Stale checker PASS stays recorded | Evaluator artifacts are snapshotted before checker dispatch and restored when the revision drifts; regression test added |
+| `4254452306` | `ff326c8` | Fingerprint ignores symlink target and mode | Untracked entries use `lstat`; symlinks hash their link target and files hash permission bits; regression test added |
+| `4254452368` | `ff326c8` | "Next steps" in `docs/progress.md` is stale | "Last session" replaced with the current next steps |
+| `4254738277` | `ff326c8` | Regex import discovery evaded by obfuscated `require` | Valid, out of scope; tracked as [issue #35](https://github.com/willvelida/agentgate-lab/issues/35), same class as #34 |
+
+Process change: AGENTS.md rule 16, `docs/harness-agent.md`, and D037 cap
+follow-up review rounds at two per pull request, require explicit user
+approval for a third, and route later findings to follow-up issues. A new
+contract test asserts the cap in all three documents.
+
+The new rollback test initially read a nonexistent `detail` field. It now
+asserts the same message on the `feedback` field the controller writes; the
+assertion was not weakened. Both new tests failed against the previous code
+and pass against the new code in the Linux verification container.
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` (Windows) | pass 39/40, symlink test skipped without symlink privilege, exit 0 | `2026-10-13T05-15-02-129Z-c79db976-560d-44c0-a3d8-182c0b01a756` |
+| `node --test scripts/maker-checker-loop.test.mjs` (Linux container, read-only mount, no network) | pass 40/40, exit 0 | `2026-10-13T05-15-41-478Z-428a4c7c-c44e-4c11-beec-3748ce659727` |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass 39/40, 1 POSIX-only test skipped on Windows, exit 0 | `2026-10-13T05-16-25-943Z-850aa45a-83dc-4cb9-b544-54a9edad6354` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T05-16-50-222Z-8ddb9649-d469-475e-8e43-1c11ce20e454` |
+
+Failed runs, not counted as passes: `2026-10-13T05-00-46-605Z-707273e5-7638-48fb-88cd-ae1c23b22dd1`
+(rollback test field bug and one timing test), and
+`2026-10-13T05-02-47-665Z-29858ad7-5494-4a41-8b02-6f1af10ae96e`,
+`2026-10-13T05-12-35-665Z-d30f0241-bff2-4045-9db6-53415533fedc`, and
+`2026-10-13T05-14-43-908Z-36f2be1f-bcf7-4fb4-9bbd-434d2087f8ae` (one
+process-tree timing test each, under heavy host load). Running the two
+timing tests five times failed once on both the baseline `55a229f` and the
+changed code, so the flake is pre-existing; its bounds were not changed.
+
+All runs checked base `55a229f` plus this batch's uncommitted changes; only
+progress logs changed afterwards. F002 and F003 remain `pass`, but this batch
+changes their scope after their last verdicts, so both need fresh-session
+re-evaluation against the new commit.

@@ -1,7 +1,7 @@
 ---
 title: Harness Implementer
 description: Use the custom agent directly or through the bounded maker-checker controller.
-ms.date: 2026-10-11
+ms.date: 2026-10-13
 ---
 
 ## What it does
@@ -112,7 +112,10 @@ comments alone.
    findings inside collapsed `<details>` sections, such as "Previously
    missed", are included.
 4. Combine both sources into one deduplicated checklist. Record which findings
-   are in scope, which are deferred, and why.
+   are in scope, which are deferred, and why. Record the commit each finding
+   was raised against. Before reworking a finding, check whether a later
+   commit already fixed it; if so, reply with the fixing commit instead of
+   changing code again.
 5. Batch the approved fixes into one review round. After publishing the round,
    re-fetch both inline threads and review summary bodies before reporting that
    feedback is resolved.
@@ -124,6 +127,28 @@ for inline thread resolution state, and query
 Rendered or collapsed presentation must not hide text from the raw review
 body. If either source cannot be read, record the review check as unavailable,
 not complete.
+
+### Cap follow-up review rounds
+
+Each push can trigger a new automated review with new findings, so
+addressing feedback can loop indefinitely. Bound it per pull request:
+
+* A follow-up review round is one batch of fixes pushed in response to
+  review feedback. Process at most two follow-up rounds per pull request.
+* Record the round number, the reviewed commit, and each finding's
+  disposition in the slug's `agent-progress.md`.
+* After the second follow-up round, stop and hand back to the user. Do not
+  start a third round, or request another review, without explicit user
+  approval for that round.
+* Route findings that arrive after the cap to follow-up GitHub issues
+  instead of new pull request commits. Reply to each thread with the issue
+  link, then resolve it.
+* The cap does not override correctness. If a post-cap finding shows the
+  pull request is unsafe to merge, report it to the user as a blocker
+  rather than silently deferring it.
+
+The cap is a process limit on review churn, recorded as D037 in
+[decisions](./decisions.md), not a security control.
 
 ## Run the bounded loop
 

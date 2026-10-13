@@ -2,9 +2,12 @@ import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
@@ -565,6 +568,32 @@ export class ScriptedDispatcher {
   }
 }
 
+export function snapshotEvaluatorArtifacts(paths = []) {
+  return paths.map((path) => ({
+    path,
+    contents: existsSync(path) ? readFileSync(path) : null,
+  }));
+}
+
+export function restoreEvaluatorArtifacts(snapshot = []) {
+  const restored = [];
+  for (const entry of snapshot) {
+    const current = existsSync(entry.path) ? readFileSync(entry.path) : null;
+    if (current === null && entry.contents === null) continue;
+    if (current !== null && entry.contents !== null
+        && current.equals(entry.contents)) {
+      continue;
+    }
+    if (entry.contents === null) {
+      rmSync(entry.path, { force: true });
+    } else {
+      writeFileSync(entry.path, entry.contents);
+    }
+    restored.push(entry.path);
+  }
+  return restored;
+}
+
 export function getGitRevision(
   repositoryRoot = process.cwd(),
   commandRunner = (args) => execFileSync('git', args, {
@@ -592,8 +621,18 @@ export function getGitRevision(
   for (const path of untracked) {
     // Length-prefixed so untracked names and contents cannot be rearranged
     // into an identical byte stream.
-    const contents = readFileSync(resolve(repositoryRoot, path));
     fingerprint.update(`${Buffer.byteLength(path)}\0`).update(path);
+    const absolute = resolve(repositoryRoot, path);
+    const stats = lstatSync(absolute);
+    if (stats.isSymbolicLink()) {
+      // Hash the link target rather than dereferenced contents so retargeting
+      // a symlink at same-byte files still changes the fingerprint.
+      const target = Buffer.from(readlinkSync(absolute));
+      fingerprint.update(`symlink\0${target.length}\0`).update(target);
+      continue;
+    }
+    const contents = readFileSync(absolute);
+    fingerprint.update(`file\0${stats.mode & 0o7777}\0`);
     fingerprint.update(`${contents.length}\0`).update(contents);
   }
   return {
@@ -694,6 +733,7 @@ async function runMakerCheckerLoopWithLock({
   safetyBoundary = new RepositorySafetyBoundary(),
   verificationRunner = new VerificationRunner(),
   architectureCommand = 'bash scripts/check-architecture.sh',
+  evaluatorArtifactPaths = [],
   now = () => new Date(),
 }) {
   if (typeof verificationRunner.ensureReady === 'function') {
@@ -907,6 +947,9 @@ async function runMakerCheckerLoopWithLock({
     }
 
     let result;
+    const evaluatorSnapshot = actor === 'checker'
+      ? snapshotEvaluatorArtifacts(evaluatorArtifactPaths)
+      : [];
     try {
       result = await dispatcher.dispatch({
         actor,
@@ -1000,6 +1043,13 @@ async function runMakerCheckerLoopWithLock({
       return { status: 'approval-required', state };
     }
     if (actor === 'checker' && !sameRevision(before, after)) {
+      // The evaluator writes its verdict before returning, and those files are
+      // excluded from the fingerprint, so a stale verdict must be rolled back
+      // rather than left recorded.
+      const restored = restoreEvaluatorArtifacts(evaluatorSnapshot);
+      const rollback = restored.length > 0
+        ? ` Rolled back the stale evaluator verdict in ${restored.join(', ')}.`
+        : '';
       state = persistRound(
         statePath,
         state,
@@ -1008,7 +1058,7 @@ async function runMakerCheckerLoopWithLock({
           after,
           finishedAt,
           'stale',
-          'Work changed while the checker was evaluating it.',
+          `Work changed while the checker was evaluating it.${rollback}`,
           'Review the changed work before starting another maker round.',
         ),
         finishedAt,
@@ -1155,6 +1205,10 @@ async function main() {
         `docs/features/${goal.featureSlug}/evaluator-rubric.md`,
       ],
     ),
+    evaluatorArtifactPaths: [
+      resolve(`docs/features/${goal.featureSlug}/agent-progress.md`),
+      resolve(`docs/features/${goal.featureSlug}/evaluator-rubric.md`),
+    ],
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }

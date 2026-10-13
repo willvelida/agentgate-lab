@@ -1,7 +1,7 @@
 ---
 title: Agent Instructions
 description: Guidance for coding agents working in AgentGate Lab
-ms.date: 2026-10-09
+ms.date: 2026-10-13
 ---
 
 ## Hard rules
@@ -45,7 +45,9 @@ ms.date: 2026-10-09
 16. When addressing pull request feedback, inspect live GitHub data for both
     unresolved inline review threads and the latest submitted review summary
     bodies, including collapsed sections. Re-check both sources before
-    reporting the review round complete. See
+    reporting the review round complete. Process at most two follow-up
+    review rounds per pull request. Get explicit user approval before
+    starting a third, and route later findings to follow-up issues. See
     [Harness Implementer usage](./docs/harness-agent.md).
 
 ## Repository context
