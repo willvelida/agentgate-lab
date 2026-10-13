@@ -1,7 +1,7 @@
 ---
 title: "Issue #32 feature progress"
 description: "Implementation evidence for reducing review churn in the maker-checker workflow."
-ms.date: 2026-10-12
+ms.date: 2026-10-14
 ---
 
 # Issue #32: harness: reduce review churn in the maker-checker workflow
@@ -459,3 +459,39 @@ The F003 evaluator's first Windows run,
 a pass and lowered verification evidence to 4. Both evaluators scored scope
 discipline 4 because the reviewed ranges also carry other features' work.
 No required fixes were raised and no feature status moved backwards.
+### Fourth follow-up round (user-approved under D037)
+
+Date: 2026-10-14. The user approved one further round after the review of
+`5527c7b` showed that the third-round fix was documented but not enforced.
+Base: `5527c7b`.
+
+| Finding | Raised against | Severity | Resolution |
+| --- | --- | --- | --- |
+| Comment `4255227769`: the safety boundary still lets a loop checker move the feature to `pass` | `5527c7b` | high | `RepositorySafetyBoundary.violations()` rejects any feature status change in every loop round, maker or checker. The unused checker-outcome context was removed from the boundary and its caller. D038 now states it replaces D020's checker-pass constraint |
+| Review summary "previously missed": verdict rollback only on the changed-work exit | `5527c7b` | medium | One `rollbackVerdict()` helper restores evaluator artifacts on every exit that does not accept a checker round: failed or interrupted dispatch, a failed safety check after either, and changed work |
+| Comment `4255227824`: progress log `ms.date` is stale | `5527c7b` | low | Updated |
+| Comment `4255227868`: PR description names an old head | `5527c7b` | low | Already fixed before this round; the description was refreshed after that review ran |
+
+The safety test `repository boundary allows only the checker to pass the
+active feature` asserted the old permission. Because this round
+deliberately removes that permission, it is replaced by `repository
+boundary denies feature status changes in every loop round`, which asserts
+that the checker, maker, and a `blocked` transition are all rejected. This
+is an intended behaviour change recorded in D038, not a weakened test. Five
+new rollback and boundary tests fail on `5527c7b` and pass on the new code;
+a control test confirms an accepted checker verdict is kept.
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `node --test scripts/maker-checker-loop.test.mjs` (Linux container) | pass 46/46, exit 0 | `2026-10-13T22-30-48-467Z-2ce89fd0-cbb4-4511-821e-437efa6eb300` |
+| `node --test scripts/maker-checker-loop.test.mjs` (Windows) | pass 45/46, symlink test skipped without symlink privilege, exit 0 | `2026-10-13T22-27-26-450Z-9f52dde6-d59c-42d6-8ba9-74fca8d37484` |
+| `node --test scripts/maker-checker-safety.test.mjs` | pass 39/40, 1 POSIX-only test skipped on Windows, exit 0 | `2026-10-13T22-30-57-887Z-364066ef-7721-4a8d-b50e-26a8d1007ede` |
+| `bash scripts/check-architecture.sh` | pass, exit 0 | `2026-10-13T22-27-59-417Z-0f29761a-6721-46bd-877e-8b7e5f49d963` |
+
+Failed runs, not counted: `2026-10-13T22-27-22-730Z-77a48259-155d-4130-83ef-6d6b79a07aa5`
+(Linux container, exit 127) and
+`2026-10-13T22-27-36-444Z-b67db9f2-dab7-41f7-b08b-807a0b89f15e` (safety
+suite, two sandbox tests) both failed because Docker Desktop had stopped.
+Both passed after Docker Desktop was started again. F001 (safety boundary)
+and F003 (loop evaluator handling) need fresh-session re-evaluation against
+the commit that records this round.

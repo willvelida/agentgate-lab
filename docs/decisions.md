@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-13
+ms.date: 2026-10-14
 ---
 
 ## Purpose
@@ -753,15 +753,25 @@ Each entry records:
   must also pass. The loop verdict line in `agent-progress.md` is labelled
   provisional and names the round fingerprint. This narrows D036, which
   described the round-fingerprint gate as equivalent to the clean-commit
-  gate.
+  gate. It also replaces D020's constraint that the active feature can move
+  to `pass` during a checker round: the repository safety boundary now
+  rejects any feature status change in every loop round, maker or checker,
+  so the rule is enforced rather than only documented. Every loop exit that
+  does not accept a checker round rolls back the evaluator's verdict files.
 * Why: the evaluator skill said its verdict decides whether a feature can
   move to `pass`, and its loop exception let it record PASS against an
   uncommitted fingerprint with the same verdict line as a clean-commit
   review. A loop PASS could therefore be read as meeting rule 14 without
   any clean-commit evaluation. Raised on PR #33 and approved by the user
-  as a third review round under D037.
+  as a third review round under D037. A fourth, user-approved round found
+  that the first fix changed only the documents while the safety boundary
+  still allowed a checker to set `pass`, and that verdict rollback covered
+  only the changed-work exit.
 * Alternatives rejected: letting the loop commit so its checker can review
   a clean commit, because D036 forbids the maker to commit; removing the
-  loop exception, because the loop could then never reach a verdict.
-* Constraints: the controller never writes `features_list.json`. Feature
-  status moves to `pass` only on a clean-commit fresh-session PASS.
+  loop exception, because the loop could then never reach a verdict;
+  keeping the boundary's checker exception, because a rule that the
+  controller does not enforce is the gap this decision closes.
+* Constraints: the controller never writes `features_list.json`, and no
+  loop actor may change feature status without a safety-boundary violation.
+  Feature status moves to `pass` only on a clean-commit fresh-session PASS.

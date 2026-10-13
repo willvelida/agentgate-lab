@@ -953,6 +953,15 @@ async function runMakerCheckerLoopWithLock({
     const evaluatorSnapshot = actor === 'checker'
       ? snapshotEvaluatorArtifacts(evaluatorArtifactPaths)
       : [];
+    // The evaluator writes its verdict before returning, and those files are
+    // excluded from the fingerprint, so every exit that does not accept the
+    // checker round must roll the verdict back rather than leave it recorded.
+    const rollbackVerdict = (label) => {
+      const restored = restoreEvaluatorArtifacts(evaluatorSnapshot);
+      return restored.length > 0
+        ? ` Rolled back the ${label} evaluator verdict in ${restored.join(', ')}.`
+        : '';
+    };
     try {
       result = await dispatcher.dispatch({
         actor,
@@ -976,6 +985,7 @@ async function runMakerCheckerLoopWithLock({
           actor,
         );
       } catch (transitionError) {
+        const rollback = rollbackVerdict('unaccepted');
         state = persistRound(
           statePath,
           state,
@@ -984,7 +994,7 @@ async function runMakerCheckerLoopWithLock({
             after,
             finishedAt,
             'blocked',
-            transitionError.message,
+            `${transitionError.message}${rollback}`,
             'Review and explicitly approve or revert the prohibited change before resuming.',
           ),
           finishedAt,
@@ -992,6 +1002,7 @@ async function runMakerCheckerLoopWithLock({
         return { status: 'approval-required', state };
       }
       const interrupted = error.code === interruptedDispatchCode;
+      const rollback = rollbackVerdict('unaccepted');
       const round = interrupted
         ? {
           actor,
@@ -999,7 +1010,7 @@ async function runMakerCheckerLoopWithLock({
           finishedAt: finishedAt.toISOString(),
           reviewedRevision: after,
           outcome: 'interrupted',
-          feedback: error.message,
+          feedback: `${error.message}${rollback}`,
           nextAction: actor,
           verification: gateVerification,
           humanIntervention: { required: false, reason: null },
@@ -1009,7 +1020,7 @@ async function runMakerCheckerLoopWithLock({
           after,
           finishedAt,
           'blocked',
-          error.message,
+          `${error.message}${rollback}`,
           'Resolve the Copilot dispatch failure before resuming.',
         );
       state = persistRound(statePath, state, round, finishedAt);
@@ -1024,12 +1035,9 @@ async function runMakerCheckerLoopWithLock({
         safetyBoundary.capture(activeGoal, { requireActive: false }),
         activeGoal,
         actor,
-        {
-          checkerOutcome: actor === 'checker' ? result.outcome : null,
-          reviewedRevisionValid: sameRevision(before, after),
-        },
       );
     } catch (error) {
+      const rollback = rollbackVerdict('unaccepted');
       state = persistRound(
         statePath,
         state,
@@ -1038,7 +1046,7 @@ async function runMakerCheckerLoopWithLock({
           after,
           finishedAt,
           'blocked',
-          error.message,
+          `${error.message}${rollback}`,
           'Review and explicitly approve or revert the prohibited change before resuming.',
         ),
         finishedAt,
@@ -1046,13 +1054,7 @@ async function runMakerCheckerLoopWithLock({
       return { status: 'approval-required', state };
     }
     if (actor === 'checker' && !sameRevision(before, after)) {
-      // The evaluator writes its verdict before returning, and those files are
-      // excluded from the fingerprint, so a stale verdict must be rolled back
-      // rather than left recorded.
-      const restored = restoreEvaluatorArtifacts(evaluatorSnapshot);
-      const rollback = restored.length > 0
-        ? ` Rolled back the stale evaluator verdict in ${restored.join(', ')}.`
-        : '';
+      const rollback = rollbackVerdict('stale');
       state = persistRound(
         statePath,
         state,

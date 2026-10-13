@@ -1,7 +1,7 @@
 ---
 title: Harness Implementer
 description: Use the custom agent directly or through the bounded maker-checker controller.
-ms.date: 2026-10-13
+ms.date: 2026-10-14
 ---
 
 ## What it does
@@ -354,6 +354,11 @@ Terminal results such as `pass`, `blocked`, `ambiguous`, `stale`, `stalled`,
 `limit-exhausted`, and `approval-required` require no hidden automatic action.
 A `pass` result is a provisional loop verdict, not a feature `pass`; the
 feature still needs a fresh-session evaluation of a named clean commit.
+The safety boundary stops any loop round, maker or checker, that changes
+feature status in the checklist (D038). When the controller does not
+accept a checker round, because dispatch failed or was interrupted, the
+safety check failed, or the work changed, it rolls back the evaluator's
+verdict files and names them in the round feedback.
 A dispatch exception is persisted and returned as `blocked` with human
 intervention required. Resolve the reported condition or revise the goal with
 human approval before starting another run. The controller itself does not

@@ -875,10 +875,7 @@ export class RepositorySafetyBoundary {
     };
   }
 
-  violations(before, after, goal, actor, {
-    checkerOutcome = null,
-    reviewedRevisionValid = false,
-  } = {}) {
+  violations(before, after, goal, actor) {
     const violations = [];
     if (before.commit !== after.commit) {
       violations.push('Repository HEAD changed; commit and merge actions require approval.');
@@ -929,14 +926,12 @@ export class RepositorySafetyBoundary {
     const beforeTarget = featureById(before.checklist.features, goal.featureId);
     const afterTarget = featureById(after.checklist.features, goal.featureId);
     if (beforeTarget && afterTarget && beforeTarget.status !== afterTarget.status) {
-      const checkerPassed = actor === 'checker'
-        && beforeTarget.status === 'active'
-        && afterTarget.status === 'pass'
-        && checkerOutcome === 'pass'
-        && reviewedRevisionValid;
-      if (!checkerPassed) {
-        violations.push(`Feature ${goal.featureId} status changed outside checker PASS.`);
-      }
+      // A loop checker PASS is provisional (D038), so no loop actor may change
+      // feature status; only a clean-commit fresh-session evaluation can.
+      violations.push(
+        `Feature ${goal.featureId} status changed during a ${actor} round; `
+        + 'only a fresh-session evaluation of a named clean commit can change feature status.',
+      );
     }
 
     for (const [path, digest] of Object.entries(before.protectedFiles)) {
@@ -954,8 +949,8 @@ export class RepositorySafetyBoundary {
     return [...new Set(violations)];
   }
 
-  assertTransition(before, after, goal, actor, context) {
-    const violations = this.violations(before, after, goal, actor, context);
+  assertTransition(before, after, goal, actor) {
+    const violations = this.violations(before, after, goal, actor);
     if (violations.length > 0) {
       throw new Error(
         `Safety boundary requires explicit human approval:\n${violations.join('\n')}`,

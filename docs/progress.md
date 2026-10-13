@@ -1,7 +1,7 @@
 ---
 title: Progress
 description: Repository-level snapshot of what is built, what is in progress, and what is planned for AgentGate Lab.
-ms.date: 2026-10-13
+ms.date: 2026-10-14
 ---
 
 ## Purpose
@@ -85,7 +85,12 @@ health before it changes anything.
   clean commit can move a feature to `pass`. F002 and F003 were then
   re-evaluated in fresh sessions: F002 passed at clean `0a59a6a` (avg 4.8,
   min 4) and F003 at clean `2a29c1e` (avg 4.6, min 4), with no required
-  fixes.
+  fixes. A user-approved fourth round then enforced D038 in code: the
+  safety boundary rejects any feature status change in every loop round,
+  and evaluator verdict files are rolled back on every exit that does not
+  accept a checker round. Tracked-file permission changes in the round
+  fingerprint are tracked as
+  [issue #36](https://github.com/willvelida/agentgate-lab/issues/36).
 * F008 signed and pushed as `f64c72729e6f337e62e5b24e34f1157dde07133f`;
   origin matches and tree was clean before F009. Exact-head CI has no runs.
 * F009 passed independent evaluation (average 5.0, minimum 5), no required
@@ -225,6 +230,9 @@ final link and whitespace checks were repeated before commit.
   scanner ([issue #35](https://github.com/willvelida/agentgate-lab/issues/35)),
   and non-module reads inside skipped subtrees are unhashed
   ([issue #34](https://github.com/willvelida/agentgate-lab/issues/34)).
+  The round fingerprint records only the executable bit for tracked files,
+  so other tracked permission changes are not detected
+  ([issue #36](https://github.com/willvelida/agentgate-lab/issues/36)).
 * Two process-tree timing tests in `scripts/maker-checker-loop.test.mjs`
   use fixed 5-second bounds and fail intermittently under heavy host load,
   on Windows and in the Linux container alike. On 2026-10-13 they failed
@@ -526,82 +534,58 @@ where you left off.
 
 ## Last session
 
-* Date: 2026-10-13
-* Accomplished: stopped the PR #33 review loop. AGENTS.md rule 16 keeps the
-  two-source check and now caps follow-up review rounds at two per pull
-  request, with explicit user approval needed for a third.
-  `docs/harness-agent.md` documents the bounded workflow: record the commit
-  each finding was raised against, answer already-fixed points with the
-  fixing commit, and route post-cap findings to follow-up issues. D037
-  records why the cap exists, what it trades away, and that it is a
-  process limit rather than a security control. A contract test pins the
-  cap in all three documents.
-* Code: validated and committed the aborted fifth-round edits to
-  `scripts/maker-checker-loop.mjs`. A checker verdict written while the
-  work changed is rolled back from the evaluator artifacts, and the round
-  fingerprint hashes untracked symlink targets and file permission bits.
-  The first run showed the new rollback test read a nonexistent `detail`
-  field; it now asserts the same message on the `feedback` field the
-  controller writes. Both new tests failed against the previous code and
-  pass against the new code in the Linux container.
-* Review threads: answered and resolved the four open Copilot threads.
-  Three were fixed in this commit; the regex import-scanner evasion is out
-  of scope and tracked as
-  [issue #35](https://github.com/willvelida/agentgate-lab/issues/35).
-* Third round: with explicit user approval under D037, fixed the fifth open
-  thread (`PRRT_kwDOVARayc6rtf0E`). Bounded-loop evaluator PASS verdicts are
-  now provisional in AGENTS.md rule 14, the evaluator skill, the harness
-  guide, the checker prompt, and D038. Loop suite passed 41/41 on Linux
-  (run `2026-10-13T05-43-19-877Z-46dbe223-05b4-4188-b251-cc9a3141b2f4`)
-  and 40/41 on Windows with the symlink skip (run
-  `2026-10-13T05-43-29-032Z-00c56596-16ea-44d0-baa0-b67a682c2b85`);
-  architecture passed (run
-  `2026-10-13T05-43-39-581Z-3ac8e758-3ec8-430c-ba00-3d988aaeeba6`). No
-  further round is approved.
-* Status: F001-F004 are `pass`. F002 and F003 were re-evaluated in fresh
-  sessions after these changes: F002 PASS at clean `0a59a6a` (avg 4.8,
-  min 4) and F003 PASS at clean `2a29c1e` (avg 4.6, min 4), no required
-  fixes. Run IDs are in the issue #32 `agent-progress.md`. The F003
-  evaluator's first Windows run failed on the known timing flake and is
-  not counted.
-* Files: `AGENTS.md`, `.github/skills/feature-evaluator/SKILL.md`,
-  `docs/harness-agent.md`, `docs/decisions.md`,
-  `docs/progress.md`, `scripts/maker-checker-loop.mjs`,
-  `scripts/maker-checker-loop.test.mjs`, and the issue #32
+* Date: 2026-10-14
+* Accomplished: ran the user-approved fourth follow-up review round on
+  PR #33, which enforced D038 in code. `RepositorySafetyBoundary` now
+  rejects any feature status change in every loop round, maker or checker,
+  replacing D020's checker-pass constraint. A single `rollbackVerdict()`
+  helper in `scripts/maker-checker-loop.mjs` restores evaluator verdict
+  files on every exit that does not accept a checker round. The issue #32
+  progress log `ms.date` was updated.
+* Earlier on 2026-10-13: added the two-round review cap (D037), fixed the
+  verdict rollback and untracked symlink/mode fingerprint findings, made
+  loop PASS verdicts provisional in a user-approved third round (D038),
+  and re-evaluated F002 at `0a59a6a` and F003 at `2a29c1e` (both PASS).
+  Issues #35 and #36 track the out-of-scope findings.
+* Tests: the safety test that asserted a checker may set `pass` was
+  replaced by one asserting every loop status change is rejected, because
+  that permission was deliberately removed (D038). Five new tests fail on
+  `5527c7b` and pass now; a control test keeps accepted verdicts.
+* Status: F001-F004 are `pass`. This round changes F001's safety boundary
+  and F003's loop evaluator handling, so both need fresh-session
+  re-evaluation; results are recorded in the issue #32 `agent-progress.md`.
+  F004's D036 text is unchanged.
+* Files: `docs/decisions.md`, `docs/harness-agent.md`, `docs/progress.md`,
+  `scripts/maker-checker-loop.mjs`, `scripts/maker-checker-loop.test.mjs`,
+  `scripts/maker-checker-safety.mjs`,
+  `scripts/maker-checker-safety.test.mjs`, and the issue #32
   `agent-progress.md`. No dependency manifest or lockfile changed.
-* Decisions: D037 caps pull request follow-up review rounds at two; D038
-  makes bounded-loop PASS verdicts provisional.
-* Verification on 2026-10-13, base `55a229f` plus this session's
-  uncommitted changes:
-  * Loop suite, Windows: passed 39/40 with the symlink test skipped for
-    lack of symlink privilege, exit 0 (run
-    `2026-10-13T05-15-02-129Z-c79db976-560d-44c0-a3d8-182c0b01a756`).
-  * Loop suite, Linux container: passed 40/40, exit 0 (run
-    `2026-10-13T05-15-41-478Z-428a4c7c-c44e-4c11-beec-3748ce659727`).
-  * Safety suite: passed 39/40 with the POSIX-only permission test skipped
-    on Windows, exit 0 (run
-    `2026-10-13T05-16-25-943Z-850aa45a-83dc-4cb9-b544-54a9edad6354`).
-  * Architecture: passed, exit 0 (run
-    `2026-10-13T05-16-50-222Z-8ddb9649-d469-475e-8e43-1c11ce20e454`).
-  * Failed runs, not counted as passes:
-    `2026-10-13T05-00-46-605Z-707273e5-7638-48fb-88cd-ae1c23b22dd1`
-    (rollback test field bug plus a timing flake);
-    `2026-10-13T05-02-47-665Z-29858ad7-5494-4a41-8b02-6f1af10ae96e`,
-    `2026-10-13T05-12-35-665Z-d30f0241-bff2-4045-9db6-53415533fedc`, and
-    `2026-10-13T05-14-43-908Z-36f2be1f-bcf7-4fb4-9bbd-434d2087f8ae` (one
-    process-tree timing test each). Five-run comparisons failed 1 of 5 on
-    both baseline and changed code, so the flake is pre-existing.
-  * Only progress logs changed after these runs.
+* Decisions: D038 amended within this unmerged PR to record the enforced
+  boundary and the replaced D020 constraint.
+* Verification on 2026-10-14, base `5527c7b` plus this round's
+  uncommitted changes: Linux loop suite 46/46, exit 0 (run
+  `2026-10-13T22-30-48-467Z-2ce89fd0-cbb4-4511-821e-437efa6eb300`);
+  Windows loop suite 45/46 with the symlink skip, exit 0 (run
+  `2026-10-13T22-27-26-450Z-9f52dde6-d59c-42d6-8ba9-74fca8d37484`);
+  safety suite 39/40 with the POSIX-only skip, exit 0 (run
+  `2026-10-13T22-30-57-887Z-364066ef-7721-4a8d-b50e-26a8d1007ede`);
+  architecture pass, exit 0 (run
+  `2026-10-13T22-27-59-417Z-0f29761a-6721-46bd-877e-8b7e5f49d963`). Two
+  earlier runs failed because Docker Desktop had stopped and are not
+  counted; see the issue #32 progress log.
 * Startup and cleanup: runtime startup is not applicable because no
-  application service startup path changed. No long-lived process was
-  started. A temporary baseline worktree under `%TEMP%` and a temporary
-  issue body file were removed. Raw reports remain under ignored
-  `.local/verification/`.
-* Publication: these commits are pushed to PR #33. The PR description is
-  the source of truth for the current head and its exact-head CI.
+  application service startup path changed. Docker Desktop had stopped
+  overnight; this session started it again because the safety suite and
+  sandbox require it, and left it running as it was before. No other
+  long-lived process was started. A temporary baseline worktree was
+  removed. Raw reports remain under ignored `.local/verification/`.
+* Publication: pushed to PR #33 once after re-evaluation. The PR
+  description is the source of truth for the head and its exact-head CI.
 * Blockers: none.
-* Next: await human review and merge authorisation. Do not start another
-  review round without user approval (D037).
+* Next: await human review and merge authorisation. The review triggered
+  by this push is informational only: route its findings to issues unless
+  one shows that a guarantee written in this PR is false. Do not start
+  another review round without user approval (D037).
 
 ## Built
 

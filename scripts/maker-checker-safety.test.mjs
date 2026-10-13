@@ -1228,7 +1228,7 @@ test('repository boundary rejects duplicate feature IDs', (t) => {
   );
 });
 
-test('repository boundary allows only the checker to pass the active feature', (t) => {
+test('repository boundary denies feature status changes in every loop round', (t) => {
   const files = fixture(t);
   const boundary = new RepositorySafetyBoundary({
     repositoryRoot: files.root,
@@ -1240,29 +1240,22 @@ test('repository boundary allows only the checker to pass the active feature', (
   after.checklist.features[1].evidence = 'independent PASS';
   after.checklist.features[1].testedAt = '2026-10-10';
 
-  assert.doesNotThrow(
-    () => boundary.assertTransition(before, after, goal(), 'checker', {
-      checkerOutcome: 'pass',
-      reviewedRevisionValid: true,
-    }),
-  );
+  // A loop checker PASS is provisional (D038), so even a checker that
+  // passed an unchanged round may not move the feature to `pass`.
   assert.throws(
-    () => boundary.assertTransition(before, after, goal(), 'checker', {
-      checkerOutcome: 'fail',
-      reviewedRevisionValid: true,
-    }),
-    /status changed outside checker PASS/,
-  );
-  assert.throws(
-    () => boundary.assertTransition(before, after, goal(), 'checker', {
-      checkerOutcome: 'pass',
-      reviewedRevisionValid: false,
-    }),
-    /status changed outside checker PASS/,
+    () => boundary.assertTransition(before, after, goal(), 'checker'),
+    /F004 status changed during a checker round; only a fresh-session evaluation of a named clean commit can change feature status/,
   );
   assert.throws(
     () => boundary.assertTransition(before, after, goal(), 'maker'),
-    /status changed outside checker PASS/,
+    /F004 status changed during a maker round/,
+  );
+
+  const blocked = structuredClone(before);
+  blocked.checklist.features[1].status = 'blocked';
+  assert.throws(
+    () => boundary.assertTransition(before, blocked, goal(), 'checker'),
+    /F004 status changed during a checker round/,
   );
 });
 

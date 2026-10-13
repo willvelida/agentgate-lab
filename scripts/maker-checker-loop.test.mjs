@@ -194,6 +194,8 @@ test('keeps bounded-loop PASS verdicts provisional until a clean-commit evaluati
   assert.match(guide, /A PASS from that dispatch is provisional/);
   assert.match(guide, /A `pass` result is a provisional loop verdict, not a feature `pass`/);
   assert.match(decisions, /## D038: bounded-loop PASS verdicts are provisional/);
+  assert.match(decisions, /replaces D020's constraint that the active feature can move\s+to `pass` during a checker round/);
+  assert.match(guide, /The safety boundary stops any loop round, maker or checker, that changes\s+feature status/);
 });
 
 test('requires the evaluator prompt to name the reviewed commit', () => {
@@ -1005,6 +1007,135 @@ test('rolls back a stale checker verdict written during evaluation', async (t) =
   assert.equal(readFileSync(progressPath, 'utf8'), '# Progress\n');
   assert.equal(existsSync(rubricPath), false);
   assert.match(result.state.rounds.at(-1).feedback, /Rolled back the stale evaluator verdict/);
+});
+
+function verdictFixture(t) {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-unaccepted-verdict-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const progressPath = join(root, 'agent-progress.md');
+  const rubricPath = join(root, 'evaluator-rubric.md');
+  writeFileSync(progressPath, '# Progress\n');
+  const writeVerdict = () => {
+    writeFileSync(progressPath, '# Progress\n\nF003 PASS\n');
+    writeFileSync(rubricPath, 'unaccepted rubric\n');
+  };
+  const assertRolledBack = (round) => {
+    assert.equal(readFileSync(progressPath, 'utf8'), '# Progress\n');
+    assert.equal(existsSync(rubricPath), false);
+    assert.match(round.feedback, /Rolled back the unaccepted evaluator verdict/);
+  };
+  return { paths: [progressPath, rubricPath], writeVerdict, assertRolledBack };
+}
+
+for (const [name, makeError, expectedStatus] of [
+  ['fails', () => new Error('Dispatcher timed out.'), 'blocked'],
+  ['is interrupted', () => Object.assign(
+    new Error('Dispatch interrupted by SIGINT.'),
+    { code: 'ERR_MAKER_CHECKER_INTERRUPTED' },
+  ), 'interrupted'],
+]) {
+  test(`rolls back a checker verdict when dispatch ${name}`, async (t) => {
+    const verdict = verdictFixture(t);
+    const scripted = new ScriptedDispatcher([
+      { outcome: 'completed', feedback: 'maker finished' },
+    ]);
+    const dispatcher = {
+      calls: scripted.calls,
+      async dispatch(request) {
+        if (request.actor === 'checker') {
+          verdict.writeVerdict();
+          throw makeError();
+        }
+        return scripted.dispatch(request);
+      },
+    };
+
+    const result = await runLoop({
+      goal: goal(),
+      statePath: fixture(t),
+      dispatcher,
+      evaluatorArtifactPaths: verdict.paths,
+      getRevision: revisions(revision('initial'), revision('maker')),
+      now: clock(),
+    });
+
+    assert.equal(result.status, expectedStatus);
+    assert.equal(result.state.rounds.at(-1).actor, 'checker');
+    verdict.assertRolledBack(result.state.rounds.at(-1));
+  });
+}
+
+for (const [name, dispatchFails] of [
+  ['after a successful dispatch', false],
+  ['after a failed dispatch', true],
+]) {
+  test(`rolls back a checker verdict when the safety check fails ${name}`, async (t) => {
+    const verdict = verdictFixture(t);
+    const scripted = new ScriptedDispatcher([
+      { outcome: 'completed', feedback: 'maker finished' },
+      { outcome: 'pass', feedback: 'checker passed' },
+    ]);
+    const dispatcher = {
+      calls: scripted.calls,
+      async dispatch(request) {
+        if (request.actor === 'checker') {
+          verdict.writeVerdict();
+          if (dispatchFails) throw new Error('Dispatcher timed out.');
+        }
+        return scripted.dispatch(request);
+      },
+    };
+    const safetyBoundary = {
+      capture: () => ({}),
+      assertTransition: (_before, _after, _goal, actor) => {
+        if (actor === 'checker') {
+          throw new Error('Feature F003 status changed during a checker round.');
+        }
+      },
+    };
+
+    const result = await runLoop({
+      goal: goal(),
+      statePath: fixture(t),
+      dispatcher,
+      safetyBoundary,
+      evaluatorArtifactPaths: verdict.paths,
+      getRevision: revisions(revision('initial'), revision('maker')),
+      now: clock(),
+    });
+
+    assert.equal(result.status, 'approval-required');
+    assert.match(result.state.rounds.at(-1).feedback, /status changed during a checker round/);
+    verdict.assertRolledBack(result.state.rounds.at(-1));
+  });
+}
+
+test('keeps an accepted checker verdict recorded', async (t) => {
+  const verdict = verdictFixture(t);
+  const scripted = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'maker finished' },
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+  const dispatcher = {
+    calls: scripted.calls,
+    async dispatch(request) {
+      if (request.actor === 'checker') verdict.writeVerdict();
+      return scripted.dispatch(request);
+    },
+  };
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    evaluatorArtifactPaths: verdict.paths,
+    getRevision: revisions(revision('initial'), revision('maker')),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.match(readFileSync(verdict.paths[0], 'utf8'), /F003 PASS/);
+  assert.equal(existsSync(verdict.paths[1]), true);
 });
 
 test('revision fingerprints distinguish untracked symlinks from their targets', (t) => {
