@@ -656,7 +656,8 @@ Each entry records:
   test-file tokens and imported modules, are rejected rather than silently
   left unhashed, and a relative import that resolves outside the hashed
   verification roots is rejected for the same reason. Product code under
-  `src/` stays exempt because the loop expects it to change. Accepted limit: verification code may still read a non-module
+  `src/` stays exempt because the loop expects it to change. Accepted limit:
+  verification code may still read a non-module
   data file inside a skipped subtree through a permitted API such as
   `node:fs`, and changes to that file produce no boundary violation because
   neither digest covers it. Closing that gap needs a sandbox-level mechanism
@@ -705,5 +706,6 @@ Each entry records:
 * Constraints: do not claim application security features from this harness.
   Keep productive dispatch and verification bounded, preserve the
   clean-commit evaluator gate for human-dispatched evaluations and the
-  equivalent round-fingerprint gate for loop dispatch, and keep pending cleanup fail-closed until the
+  equivalent round-fingerprint gate for loop dispatch, and keep pending
+  cleanup fail-closed until the
   owned process tree is confirmed terminated.

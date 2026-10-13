@@ -346,6 +346,21 @@ One existing contract assertion pinned the human-dispatch stale-check wording.
 Rather than relax the test, the skill text was rephrased to keep that wording
 while adding the loop-dispatch branch.
 
+Round-four re-evaluations, each in a fresh independent session against a named
+clean commit:
+
+| Feature | Commit | Verdict | Verification run | Architecture run |
+| --- | --- | --- | --- | --- |
+| F001 | `50bb527` | PASS, avg 4.6, min 4 | `2026-10-13T03-36-05-776Z-f12a1fd2-e330-4e40-9440-8e5334dac170` | `2026-10-13T03-36-45-145Z-4fa9830f-beb5-4043-b2fa-fab9239baeca` |
+| F003 | `3cb3798` | PASS, avg 4.8, min 4 | `2026-10-13T03-44-13-344Z-cfa1e556-bf0a-435c-b654-d0d02a903e3a` | `2026-10-13T03-44-39-102Z-b9aa5008-fb7b-44d5-a938-23bb45b96dca` |
+| F004 | `b7d93ca` | PASS, avg 4.8, min 4 | `2026-10-13T04-19-57-314Z-4b12e864-98ce-4f29-a3a3-6039ad8d6e0c` | `2026-10-13T04-20-12-117Z-439f8f6b-b20d-4681-a96d-5e2aacaa4f9f` |
+
+Both non-blocking evaluator notes were acted on rather than left recorded: the
+unused `repositoryRoot` parameter was removed from `assertImportIsProtected()`,
+and two over-long D036 lines were rewrapped. The safety suite was re-run after
+the parameter removal (39/39 with one POSIX-only skip, exit 0, run
+`2026-10-13T03-40-38-536Z-3133dc10-dcbf-4dbe-9cef-04c9362990a1`).
+
 * 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at clean commit 7d16d81a9021fe8d3a59d90dc24442182730815e. See evaluator-rubric.md.
 
 * 2026-10-13: F003 evaluator verdict PASS (avg 4.8, min 4) at clean commit b7987a3e1c1e5bbe7217538015596f70c94845c9. See evaluator-rubric.md.
@@ -353,3 +368,5 @@ while adding the loop-dispatch branch.
 * 2026-10-13: F001 evaluator verdict PASS (avg 4.6, min 4) at clean commit 50bb52779946837ad3ec7e3e142caade31b3e957. See evaluator-rubric.md.
 
 * 2026-10-13: F003 evaluator verdict PASS (avg 4.8, min 4) at clean commit 3cb37980fcaa48e78bc90600ec41e0008c73b655. See evaluator-rubric.md.
+
+* 2026-10-13: F004 evaluator verdict PASS (avg 4.8, min 4) at clean commit b7d93ca9b4fba614529f1a6c3e3c8ccb183c8e92. See evaluator-rubric.md.

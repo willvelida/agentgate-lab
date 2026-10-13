@@ -604,7 +604,10 @@ where you left off.
   contents, the checker dispatch carries the controller fingerprint, the
   pre-verdict stale check is qualified for both evaluation paths, and D036 now
   states that cleanup retries are deliberately unbounded. F001, F003, and F004
-  were re-evaluated in fresh sessions afterwards.
+  were re-evaluated in fresh sessions afterwards: F001 passed at `50bb527`
+  (avg 4.6), F003 at `3cb3798` (avg 4.8), and F004 at `b7d93ca` (avg 4.8), all
+  with minimum 4 and no required fixes. Both non-blocking evaluator notes were
+  acted on rather than merely recorded.
 * Fourth-round verification: loop suite passed 37/37, exit 0 (run
   `2026-10-13T03-29-58-420Z-8b9ae07f-4a48-41f6-9902-6f0ce3d07af5`); safety
   suite passed 39/39 with one POSIX-only skip, exit 0 (run
