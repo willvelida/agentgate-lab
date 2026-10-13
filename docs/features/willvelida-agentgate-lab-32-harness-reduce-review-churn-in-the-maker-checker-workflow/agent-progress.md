@@ -370,3 +370,4 @@ the parameter removal (39/39 with one POSIX-only skip, exit 0, run
 * 2026-10-13: F003 evaluator verdict PASS (avg 4.8, min 4) at clean commit 3cb37980fcaa48e78bc90600ec41e0008c73b655. See evaluator-rubric.md.
 
 * 2026-10-13: F004 evaluator verdict PASS (avg 4.8, min 4) at clean commit b7d93ca9b4fba614529f1a6c3e3c8ccb183c8e92. See evaluator-rubric.md.
+* 2026-10-13: F001 evaluator verdict PASS (avg 4.8, min 4) at clean commit ff326c8945ed3de325e120020f5854ac0427563f. See evaluator-rubric.md.
