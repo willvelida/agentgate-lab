@@ -86,11 +86,19 @@ phase-by-phase approval prompts.
 2. Report the slug and feature ID, implementation status, verification
    results and run IDs, reviewed revision and dirty state, changed files,
    blockers, and cleanup. Distinguish implemented-and-verified from complete.
-3. If verification passed, provide this prompt with the actual slug and ID:
-   `/feature-evaluator Evaluate <feature-id> in slug <slug>.`
+3. If verification passed, tell the user that an authorized parent or user
+   must commit the verified work and confirm a clean working tree before
+   evaluation. The evaluator reviews that exact commit, not the implementer's
+   uncommitted diff.
+4. After the clean commit exists, provide this prompt with the actual slug,
+   ID, and the full SHA of that commit:
+   `/feature-evaluator Evaluate <feature-id> in slug <slug> at commit <full-sha>.`
+   The SHA is required: the evaluator rejects a prompt that does not name the
+   commit it must review, so never hand over a prompt with the placeholder or
+   a short SHA left in it.
    Tell the user to open a fresh session in the same checkout and use the
    [feature-evaluator skill](../skills/feature-evaluator/SKILL.md).
    A same-chat handoff is not independent evaluation. If verification did
    not pass, provide the blocker and repair action instead.
-4. Stop. The user or a separate follow-up workflow handles evaluator results,
+5. Stop. The user or a separate follow-up workflow handles evaluator results,
    feature completion, and authorized publication.

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  chmodSync,
   cpSync,
   mkdtempSync,
   mkdirSync,
@@ -607,6 +608,75 @@ test('repository boundary protects acceptance criteria and verification files', 
   );
 });
 
+test('repository boundary rejects repository-root files added during a round', (t) => {
+  const files = fixture(t);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  writeFileSync(join(files.root, 'injected-root-helper.mjs'), 'export const hijack = true;\n');
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file injected-root-helper\.mjs was added/,
+  );
+});
+
+test('repository boundary rejects coordinated edits that preserve digest input bytes', (t) => {
+  const files = fixture(t);
+  const scriptsDirectory = join(files.root, 'scripts');
+  const firstPath = join(scriptsDirectory, 'digest-a.mjs');
+  const secondPath = join(scriptsDirectory, 'digest-b.mjs');
+  writeFileSync(firstPath, 'alpha');
+  writeFileSync(secondPath, 'beta');
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    protectedPaths: [scriptsDirectory],
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  // Deleting an entry and appending its exact encoding to the preceding file's
+  // contents produces an identical byte stream under an un-delimited encoding,
+  // so the removal would go unreported.
+  writeFileSync(firstPath, 'alphadigest-b.mjs\0file\0beta');
+  rmSync(secondPath);
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file/,
+  );
+});
+
+test('repository boundary rejects permission-only changes to protected paths', (t) => {
+  if (process.platform === 'win32') {
+    t.skip('POSIX permission bits are not modelled on Windows');
+    return;
+  }
+  const files = fixture(t);
+  const scriptsDirectory = join(files.root, 'scripts');
+  const scriptPath = join(scriptsDirectory, 'protected-tool.sh');
+  writeFileSync(scriptPath, '#!/bin/sh\nexit 0\n', { mode: 0o644 });
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    protectedPaths: [scriptsDirectory],
+    commandRunner: commandRunner(),
+  });
+
+  const before = boundary.capture(goal());
+  chmodSync(scriptPath, 0o755);
+  const after = boundary.capture(goal());
+
+  assert.throws(
+    () => boundary.assertTransition(before, after, goal(), 'maker'),
+    /Protected file/,
+  );
+});
+
 test('repository boundary protects the architecture verification script', (t) => {
   const files = fixture(t);
   const boundary = new RepositorySafetyBoundary({
@@ -755,6 +825,81 @@ test('repository boundary rejects symbolic links in protected paths', (t) => {
   symlinkSync(
     targetDirectory,
     linkPath,
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /Protected path contains a symbolic link/,
+  );
+});
+
+test('repository boundary rejects verification inputs inside unhashed build output', (t) => {
+  const files = fixture(t);
+  const buildOutputTest = join(files.root, 'scripts', 'bin', 'feature.test.mjs');
+  mkdirSync(dirname(buildOutputTest), { recursive: true });
+  writeFileSync(buildOutputTest, 'build output fixture\n');
+  const verificationCommand = 'node --test scripts/bin/feature.test.mjs';
+  const changed = checklist();
+  changed.features[1].verification = verificationCommand;
+  writeFileSync(files.checklistPath, `${JSON.stringify(changed, null, 2)}\n`);
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture({ ...goal(), verificationCommand }),
+    /test file is inside an unhashed build output directory/,
+  );
+});
+
+test('repository boundary rejects verification imports inside unhashed build output', (t) => {
+  const files = fixture(t);
+  const buildOutputHelper = join(files.root, 'scripts', 'obj', 'helper.mjs');
+  mkdirSync(dirname(buildOutputHelper), { recursive: true });
+  writeFileSync(buildOutputHelper, 'export const helper = 1;\n');
+  writeFileSync(files.verificationPath, "import { helper } from './obj/helper.mjs';\n");
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /import resolves into an unhashed build output directory/,
+  );
+});
+
+test('repository boundary rejects verification imports outside the protected roots', (t) => {
+  const files = fixture(t);
+  const unprotectedHelper = join(files.root, 'docs', 'helper.mjs');
+  mkdirSync(dirname(unprotectedHelper), { recursive: true });
+  writeFileSync(unprotectedHelper, 'export const helper = 1;\n');
+  writeFileSync(files.verificationPath, "import { helper } from '../docs/helper.mjs';\n");
+  const boundary = new RepositorySafetyBoundary({
+    repositoryRoot: files.root,
+    commandRunner: commandRunner(),
+  });
+
+  assert.throws(
+    () => boundary.capture(goal()),
+    /import resolves outside the protected verification roots/,
+  );
+});
+
+test('repository boundary rejects symbolic links at the repository root', (t) => {
+  const files = fixture(t);
+  const targetDirectory = join(files.root, 'link-target');
+  mkdirSync(targetDirectory);
+  writeFileSync(join(targetDirectory, 'helper.mjs'), 'helper\n');
+  symlinkSync(
+    targetDirectory,
+    join(files.root, 'linked-root-entry'),
     process.platform === 'win32' ? 'junction' : 'dir',
   );
   const boundary = new RepositorySafetyBoundary({
@@ -1083,7 +1228,7 @@ test('repository boundary rejects duplicate feature IDs', (t) => {
   );
 });
 
-test('repository boundary allows only the checker to pass the active feature', (t) => {
+test('repository boundary denies feature status changes in every loop round', (t) => {
   const files = fixture(t);
   const boundary = new RepositorySafetyBoundary({
     repositoryRoot: files.root,
@@ -1095,29 +1240,22 @@ test('repository boundary allows only the checker to pass the active feature', (
   after.checklist.features[1].evidence = 'independent PASS';
   after.checklist.features[1].testedAt = '2026-10-10';
 
-  assert.doesNotThrow(
-    () => boundary.assertTransition(before, after, goal(), 'checker', {
-      checkerOutcome: 'pass',
-      reviewedRevisionValid: true,
-    }),
-  );
+  // A loop checker PASS is provisional (D038), so even a checker that
+  // passed an unchanged round may not move the feature to `pass`.
   assert.throws(
-    () => boundary.assertTransition(before, after, goal(), 'checker', {
-      checkerOutcome: 'fail',
-      reviewedRevisionValid: true,
-    }),
-    /status changed outside checker PASS/,
-  );
-  assert.throws(
-    () => boundary.assertTransition(before, after, goal(), 'checker', {
-      checkerOutcome: 'pass',
-      reviewedRevisionValid: false,
-    }),
-    /status changed outside checker PASS/,
+    () => boundary.assertTransition(before, after, goal(), 'checker'),
+    /F004 status changed during a checker round; only a fresh-session evaluation of a named clean commit can change feature status/,
   );
   assert.throws(
     () => boundary.assertTransition(before, after, goal(), 'maker'),
-    /status changed outside checker PASS/,
+    /F004 status changed during a maker round/,
+  );
+
+  const blocked = structuredClone(before);
+  blocked.checklist.features[1].status = 'blocked';
+  assert.throws(
+    () => boundary.assertTransition(before, blocked, goal(), 'checker'),
+    /F004 status changed during a checker round/,
   );
 });
 

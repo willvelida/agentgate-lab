@@ -1,7 +1,7 @@
 ---
 title: Decisions
 description: Log of harness and repository decisions for AgentGate Lab, with the reasons behind them.
-ms.date: 2026-10-11
+ms.date: 2026-10-14
 ---
 
 ## Purpose
@@ -629,3 +629,149 @@ Each entry records:
   failure is deterministic and the fix is small.
 * Constraints: Windows (`C:\...`, `C:/...`) and POSIX (`/...`) absolute forms
   are both rejected on every platform.
+
+## D035: hash stable verification roots instead of discovered imports
+
+* Date: 2026-10-12
+* Decision: the Node.js verification boundary hashes `scripts/` and `tests/`
+  recursively, plus repository-root files individually. Directory hashing
+  skips `bin/` and `obj/`. JavaScript import traversal remains only as an
+  adversarial screen for prohibited dynamic, reflective, subprocess, and
+  worker loaders; it no longer determines the protected path set. This
+  resolves the import-scanning limit recorded in D033.
+* Why: whole-root content hashing protects verification inputs without trying
+  to recognize every JavaScript import form. Repository-root files cover
+  helpers beside the solution file without recursing into directories that
+  change during a normal round.
+* Alternatives rejected: hashing the entire repository except `src/`, because
+  `.git/`, `.local/`, and progress documents mutate during normal harness
+  operation and would always violate the boundary; parsing imports into paths,
+  because new loader forms repeatedly caused review churn; removing the
+  adversarial screens, because verification code could then execute outside
+  the hashed set through a subprocess or reflective loader.
+* Constraints: `.git/`, `.local/`, `docs/`, `src/`, and other root
+  directories are not recursive verification roots. Generated `bin/` and
+  `obj/` directories do not contribute names or contents to directory hashes.
+  Verification inputs that *resolve as modules* inside such a subtree, meaning
+  test-file tokens and imported modules, are rejected rather than silently
+  left unhashed, and a relative import that resolves outside the hashed
+  verification roots is rejected for the same reason. Product code under
+  `src/` stays exempt because the loop expects it to change. Accepted limit:
+  verification code may still read a non-module
+  data file inside a skipped subtree through a permitted API such as
+  `node:fs`, and changes to that file produce no boundary violation because
+  neither digest covers it. Closing that gap needs a sandbox-level mechanism
+  that covers non-module reads rather than another import rule. Repository-root
+  protected paths are compared by key set as well as by digest, so additions
+  are rejected alongside edits and removals. Repository-root symbolic links are
+  enumerated so the digest's symlink guard fails closed on them. Directory
+  digests use a length-prefixed, terminated encoding and include POSIX
+  permission bits, so neither a coordinated edit that preserves the
+  concatenated byte stream nor a permission-only `chmod` can leave a protected
+  path's digest unchanged.
+  Expanding the protected set must avoid paths that the harness legitimately
+  mutates during a round.
+
+## D036: record the maker-checker loop's accepted limits
+
+* Date: 2026-10-12
+* Decision: treat the local maker-checker harness as a bounded review
+  coordinator, not an application security boundary. Its trusted components
+  are the host operating system, Docker daemon, kernel, and verification
+  image. The sandbox supports only Node.js 24, Bash, and Git, with no network,
+  host credentials, or Docker socket. Productive work is bounded by the
+  configured round, elapsed-time, dispatch, and output limits. Cleanup is
+  deliberately not bounded: process-tree termination retries until the child
+  closes rather than giving up after a fixed number of attempts.
+  Evaluators dispatched by a human in a fresh session must review one named
+  clean commit and verify that the same clean revision remains unchanged
+  before recording a verdict. Evaluators dispatched by the bounded loop review
+  the controller-recorded round fingerprint of uncommitted work instead,
+  because the maker is forbidden to commit; the same unchanged-revision rule
+  applies to that fingerprint. If the operating
+  system cannot terminate a child process tree, cleanup remains pending and
+  retries until termination is confirmed rather than claiming a bounded
+  completion.
+* Why: these limits make the harness's guarantees precise. The loop reduces
+  review churn and prevents an evaluator from accepting a moving target, but
+  it does not provide authentication, authorization, model access control,
+  task grants, human approval, or protection from a trusted host, kernel, or
+  container-runtime compromise.
+* Alternatives rejected: describing the sandbox as a complete security
+  boundary, because trusted host and container components remain outside its
+  control; allowing unsupported tools or network access, because reproducible
+  offline verification is the goal; forcing cleanup to exit after a fixed
+  number of failed termination attempts, because that could release
+  supervision while a child process is still active.
+* Constraints: do not claim application security features from this harness.
+  Keep productive dispatch and verification bounded, preserve the
+  clean-commit evaluator gate for human-dispatched evaluations and the
+  equivalent round-fingerprint gate for loop dispatch, and keep pending
+  cleanup fail-closed until the
+  owned process tree is confirmed terminated.
+
+## D037: cap pull request follow-up review rounds at two
+
+* Date: 2026-10-13
+* Decision: process at most two follow-up review rounds per pull request.
+  A third round, or a new review request, needs explicit user approval for
+  that round. Findings that arrive after the cap become follow-up GitHub
+  issues, and their threads are answered and resolved with the issue link.
+  Each finding records the commit it was raised against, so a point already
+  fixed by a later commit is answered rather than reworked. This narrows
+  AGENTS.md rule 16, which still requires both inline threads and review
+  summary bodies to be read before a round is reported complete.
+* Why: on PR #33 every push triggered a fresh automated review with new
+  findings. Rule 16 required re-checking both feedback sources but set no
+  limit or human gate, so the agent processed four full rounds, each one
+  changing evaluated code and requiring fresh re-evaluation. The cycle had
+  no termination condition.
+* Trade-offs: valid findings raised after the cap are not fixed in the
+  pull request that prompted them. Some merged pull requests will carry
+  known, tracked defects, and follow-up issues add backlog overhead. In
+  exchange, review effort is bounded and each pull request reaches a
+  stable head that a human can evaluate and merge.
+* Alternatives rejected: an unbounded loop that stops only when a review
+  raises no findings, because automated reviews rarely return empty;
+  disabling automated review, because it still finds real defects; a
+  severity threshold alone, because severity is assigned by the reviewer
+  being bounded; capping at one round, because the first round often
+  surfaces findings missed in collapsed summary sections.
+* Constraints: this is a process limit on review churn, not a security
+  control. It does not make merged code safe, and it does not replace the
+  evaluator gate in D011 and D036. A post-cap finding that makes the pull
+  request unsafe to merge is reported to the user as a blocker rather than
+  silently deferred. The user can approve further rounds case by case.
+
+## D038: bounded-loop PASS verdicts are provisional
+
+* Date: 2026-10-13
+* Decision: a PASS recorded by an evaluator that the bounded maker-checker
+  loop dispatched is provisional. It ends the loop, but it does not satisfy
+  AGENTS.md rule 14 and cannot move a feature to `pass`. After the round's
+  work is committed, a fresh-session evaluation of that named clean commit
+  must also pass. The loop verdict line in `agent-progress.md` is labelled
+  provisional and names the round fingerprint. This narrows D036, which
+  described the round-fingerprint gate as equivalent to the clean-commit
+  gate. It also replaces D020's constraint that the active feature can move
+  to `pass` during a checker round: the repository safety boundary now
+  rejects any feature status change in every loop round, maker or checker,
+  so the rule is enforced rather than only documented. Every loop exit that
+  does not accept a checker round rolls back the evaluator's verdict files.
+* Why: the evaluator skill said its verdict decides whether a feature can
+  move to `pass`, and its loop exception let it record PASS against an
+  uncommitted fingerprint with the same verdict line as a clean-commit
+  review. A loop PASS could therefore be read as meeting rule 14 without
+  any clean-commit evaluation. Raised on PR #33 and approved by the user
+  as a third review round under D037. A fourth, user-approved round found
+  that the first fix changed only the documents while the safety boundary
+  still allowed a checker to set `pass`, and that verdict rollback covered
+  only the changed-work exit.
+* Alternatives rejected: letting the loop commit so its checker can review
+  a clean commit, because D036 forbids the maker to commit; removing the
+  loop exception, because the loop could then never reach a verdict;
+  keeping the boundary's checker exception, because a rule that the
+  controller does not enforce is the gap this decision closes.
+* Constraints: the controller never writes `features_list.json`, and no
+  loop actor may change feature status without a safety-boundary violation.
+  Feature status moves to `pass` only on a clean-commit fresh-session PASS.

@@ -1,7 +1,7 @@
 ---
 title: Harness Implementer
 description: Use the custom agent directly or through the bounded maker-checker controller.
-ms.date: 2026-10-11
+ms.date: 2026-10-14
 ---
 
 ## What it does
@@ -68,20 +68,89 @@ cleanup, blockers, and the next action. Check the sanitized progress log and
 the local reports described in [verification guidance](./verification.md).
 
 After successful verification, the feature remains `active`. Open a fresh
-session in the same checkout and invoke:
+session only after an authorized parent or user commits the verified work.
+Confirm the working tree is clean and record the full commit SHA, then invoke:
 
 ```text
-/feature-evaluator Evaluate F001 in slug <generated-slug>.
+/feature-evaluator Evaluate F001 in slug <generated-slug> at commit <full-sha>.
 ```
 
+Always pass the full commit SHA. The evaluator requires it as an input so a
+fresh session verifies the intended post-verification commit rather than
+whatever happens to be `HEAD`.
+
 The [evaluator skill](../.github/skills/feature-evaluator/SKILL.md) reruns checks
-and records a verdict without changing implementation or feature status.
-Switching agents in the implementation chat is not a fresh-session review.
+and records a verdict without changing implementation or feature status. It
+refuses an uncommitted or otherwise unclean working tree, records the full
+starting commit SHA, and confirms the same commit is still checked out with a
+clean tree before recording a verdict. If HEAD changes or `git status --short`
+reports any entry during evaluation, the result is stale and the evaluator
+records neither PASS nor FAIL. Switching agents in the implementation chat is
+not a fresh-session review.
+
+That clean-commit gate governs sessions you open for an authorized commit. The
+bounded maker-checker loop forbids the maker to commit, so its checker
+dispatch is exempt: the evaluator judges the controller-recorded round
+fingerprint and evidence, and reports stale when that fingerprint no longer
+matches. A PASS from that dispatch is provisional: it stops the loop but does
+not let the feature move to `pass`. Commit the round's work when authorized,
+then run the fresh-session clean-commit evaluation above.
 
 This first implementer version stops before evaluation. In a separate
 follow-up, apply the recorded verdict: repair and reevaluate after FAIL, or
 mark `pass` only after PASS covers the unchanged reviewed implementation.
 Commit and publish only when explicitly approved, and confirm exact-head CI.
+
+## Review pull request feedback
+
+Use live GitHub data as the source of truth for every pull request review
+round. Do not infer review status from `docs/progress.md` or from inline
+comments alone.
+
+1. Refresh the pull request before making changes.
+2. Read every unresolved inline review thread, including replies and outdated
+   threads that remain unresolved.
+3. Read the latest submitted review summary body. Inspect the raw body so
+   findings inside collapsed `<details>` sections, such as "Previously
+   missed", are included.
+4. Combine both sources into one deduplicated checklist. Record which findings
+   are in scope, which are deferred, and why. Record the commit each finding
+   was raised against. Before reworking a finding, check whether a later
+   commit already fixed it; if so, reply with the fixing commit instead of
+   changing code again.
+5. Batch the approved fixes into one review round. After publishing the round,
+   re-fetch both inline threads and review summary bodies before reporting that
+   feedback is resolved.
+
+Use the host's pull request tool when it returns review threads and submitted
+review bodies. With GitHub CLI, query `reviewThreads` through `gh api graphql`
+for inline thread resolution state, and query
+`repos/{owner}/{repo}/pulls/{number}/reviews` for submitted review bodies.
+Rendered or collapsed presentation must not hide text from the raw review
+body. If either source cannot be read, record the review check as unavailable,
+not complete.
+
+### Cap follow-up review rounds
+
+Each push can trigger a new automated review with new findings, so
+addressing feedback can loop indefinitely. Bound it per pull request:
+
+* A follow-up review round is one batch of fixes pushed in response to
+  review feedback. Process at most two follow-up rounds per pull request.
+* Record the round number, the reviewed commit, and each finding's
+  disposition in the slug's `agent-progress.md`.
+* After the second follow-up round, stop and hand back to the user. Do not
+  start a third round, or request another review, without explicit user
+  approval for that round.
+* Route findings that arrive after the cap to follow-up GitHub issues
+  instead of new pull request commits. Reply to each thread with the issue
+  link, then resolve it.
+* The cap does not override correctness. If a post-cap finding shows the
+  pull request is unsafe to merge, report it to the user as a blocker
+  rather than silently deferring it.
+
+The cap is a process limit on review churn, recorded as D037 in
+[decisions](./decisions.md), not a security control.
 
 ## Run the bounded loop
 
@@ -283,6 +352,13 @@ tree for partial work from an interrupted agent process.
 
 Terminal results such as `pass`, `blocked`, `ambiguous`, `stale`, `stalled`,
 `limit-exhausted`, and `approval-required` require no hidden automatic action.
+A `pass` result is a provisional loop verdict, not a feature `pass`; the
+feature still needs a fresh-session evaluation of a named clean commit.
+The safety boundary stops any loop round, maker or checker, that changes
+feature status in the checklist (D038). When the controller does not
+accept a checker round, because dispatch failed or was interrupted, the
+safety check failed, or the work changed, it rolls back the evaluator's
+verdict files and names them in the round feedback.
 A dispatch exception is persisted and returned as `blocked` with human
 intervention required. Resolve the reported condition or revise the goal with
 human approval before starting another run. The controller itself does not

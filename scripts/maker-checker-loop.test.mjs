@@ -3,9 +3,12 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -14,6 +17,7 @@ import {
   CopilotCliDispatcher,
   MAX_PROCESS_OUTPUT_BYTES,
   ScriptedDispatcher,
+  getGitRevision,
   runMakerCheckerLoop,
   runProcess,
   tokenizeCommand,
@@ -106,6 +110,156 @@ function runLoop(options) {
   });
 }
 
+test('documents inline threads and review summaries as required PR feedback sources', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+
+  assert.match(instructions, /unresolved inline review threads/);
+  assert.match(instructions, /latest submitted review summary\s+bodies/);
+  assert.match(instructions, /including collapsed sections/);
+  assert.match(guide, /query `reviewThreads` through `gh api graphql`/);
+  assert.match(guide, /pulls\/\{number\}\/reviews` for submitted review bodies/);
+  assert.match(guide, /re-fetch both inline threads and review summary bodies/);
+  assert.match(guide, /If either source cannot be read, record the review check as unavailable/);
+});
+
+test('caps pull request follow-up review rounds behind user approval', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+  const decisions = readFileSync(resolve('docs/decisions.md'), 'utf8');
+
+  assert.match(instructions, /at most two follow-up\s+review rounds per pull request/);
+  assert.match(instructions, /explicit user approval before\s+starting a third/);
+  assert.match(guide, /Process at most two follow-up rounds per pull request/);
+  assert.match(guide, /Record the commit each finding\s+was raised against/);
+  assert.match(guide, /Route findings that arrive after the cap to follow-up GitHub issues/);
+  assert.match(decisions, /## D037: cap pull request follow-up review rounds at two/);
+  assert.match(decisions, /process limit on review churn, not a security\s+control/);
+});
+
+test('requires evaluators to review one unchanged clean commit', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+  const implementer = readFileSync(
+    resolve('.github/agents/harness-implementer.agent.md'),
+    'utf8',
+  );
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+
+  assert.match(instructions, /named, clean commit/i);
+  assert.match(instructions, /same commit.*clean tree/is);
+  assert.match(evaluator, /Do not evaluate an\s+uncommitted diff/i);
+  assert.match(evaluator, /starting commit is still\s+checked out/i);
+  assert.match(evaluator, /report `STALE`/);
+  assert.match(evaluator, /stop without evaluating if it reports any\s+entry/i);
+  assert.match(evaluator, /Untracked files change module resolution/i);
+  assert.match(evaluator, /`git status --short` reports any entry/);
+  assert.match(implementer, /authorized parent or user\s+must commit/i);
+  assert.match(guide, /record the full commit SHA/i);
+  assert.match(guide, /`git status --short`\s+reports any entry/);
+  assert.match(guide, /records neither PASS nor FAIL/i);
+});
+
+test('exempts bounded-loop dispatch from the evaluator clean-commit gate', () => {
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+
+  assert.match(evaluator, /Exception for bounded-loop dispatch/i);
+  assert.match(evaluator, /clean-commit gate does not apply to that dispatch/i);
+  assert.match(evaluator, /controller-recorded round fingerprint/i);
+  assert.match(evaluator, /clean-commit gate\s+governs every fresh session/i);
+  assert.match(guide, /its checker\s+dispatch is exempt/i);
+});
+
+test('keeps bounded-loop PASS verdicts provisional until a clean-commit evaluation', () => {
+  const instructions = readFileSync(resolve('AGENTS.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+  const decisions = readFileSync(resolve('docs/decisions.md'), 'utf8');
+
+  assert.match(instructions, /bounded-loop checker PASS is provisional and does not satisfy this rule/);
+  assert.match(evaluator, /A PASS from bounded-loop dispatch\s+is provisional and never does/);
+  assert.match(evaluator, /A loop-dispatched PASS is provisional/);
+  assert.match(evaluator, /must not be used to move\s+the feature to `pass`/);
+  assert.match(evaluator, /provisional loop verdict PASS .* at round fingerprint <fingerprint>\. Not a clean-commit verdict\./);
+  assert.match(guide, /A PASS from that dispatch is provisional/);
+  assert.match(guide, /A `pass` result is a provisional loop verdict, not a feature `pass`/);
+  assert.match(decisions, /## D038: bounded-loop PASS verdicts are provisional/);
+  assert.match(decisions, /replaces D020's constraint that the active feature can move\s+to `pass` during a checker round/);
+  assert.match(guide, /The safety boundary stops any loop round, maker or checker, that changes\s+feature status/);
+});
+
+test('requires the evaluator prompt to name the reviewed commit', () => {
+  const guide = readFileSync(resolve('docs/harness-agent.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+
+  assert.match(guide, /Evaluate F001 in slug <generated-slug> at commit <full-sha>/);
+  assert.match(guide, /Always pass the full commit SHA/i);
+  assert.match(evaluator, /The full commit SHA named for evaluation/i);
+
+  // The Harness Implementer hands this prompt to the user directly, so its
+  // template must carry the SHA the evaluator now requires.
+  const implementer = readFileSync(
+    resolve('.github/agents/harness-implementer.agent.md'),
+    'utf8',
+  );
+  assert.match(
+    implementer,
+    /Evaluate <feature-id> in slug <slug> at commit <full-sha>/,
+  );
+  assert.match(implementer, /The SHA is required/i);
+});
+
+test('keeps D036 and the rubric template consistent with both evaluation paths', () => {
+  const decisions = readFileSync(resolve('docs/decisions.md'), 'utf8');
+  const evaluator = readFileSync(
+    resolve('.github/skills/feature-evaluator/SKILL.md'),
+    'utf8',
+  );
+
+  assert.match(decisions, /Evaluators dispatched by the bounded loop review\s+the controller-recorded round fingerprint/i);
+  assert.match(decisions, /clean-commit evaluator gate for human-dispatched evaluations/i);
+  assert.match(evaluator, /Reviewed revision and working tree/);
+  assert.match(evaluator, /or, under bounded-loop dispatch, the controller-recorded round\s+fingerprint/i);
+  assert.match(evaluator, /Under bounded-loop\s+dispatch the tree is necessarily dirty/i);
+  assert.match(decisions, /Cleanup is\s+deliberately not bounded/i);
+});
+
+test('revision fingerprints distinguish rearranged untracked names and contents', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-fingerprint-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'src'), { recursive: true });
+
+  const runner = (untracked) => (args) => {
+    if (args[0] === 'rev-parse') return 'abc123\n';
+    if (args[0] === 'status') return ' M src/a\n';
+    if (args[0] === 'diff') return '';
+    return `${untracked.join('\n')}\n`;
+  };
+
+  // Under an un-delimited encoding these two states hash identically.
+  writeFileSync(join(root, 'src/a'), '\nsrc/b\nx');
+  const collapsed = getGitRevision(root, runner(['src/a']));
+
+  writeFileSync(join(root, 'src/a'), '');
+  writeFileSync(join(root, 'src/b'), 'x');
+  const expanded = getGitRevision(root, runner(['src/a', 'src/b']));
+
+  assert.notEqual(collapsed.fingerprint, expanded.fingerprint);
+});
+
 test('dispatches Harness Implementer maker and fresh evaluator checker sessions', async () => {
   const calls = [];
   const statePath = resolve(tmpdir(), 'agentgate-dispatch-state', 'state.json');
@@ -147,6 +301,7 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     }],
     timeoutMs: 1000,
     statePath,
+    revisionFingerprint: 'round-fingerprint-abc123',
   });
 
   assert.equal(calls.length, 2);
@@ -167,6 +322,15 @@ test('dispatches Harness Implementer maker and fresh evaluator checker sessions'
     /Verification command: node --test scripts\/maker-checker-loop\.test\.mjs/,
   );
   assert.match(calls[1].args.at(-1), /recorded controller verification evidence/);
+  assert.match(calls[1].args.at(-1), /bounded maker-checker loop dispatch/);
+  assert.match(calls[1].args.at(-1), /clean-commit\s+gate does not apply/);
+  assert.match(
+    calls[1].args.at(-1),
+    /Controller round fingerprint: round-fingerprint-abc123\./,
+  );
+  assert.match(calls[1].args.at(-1), /Record that fingerprint as the reviewed revision/);
+  assert.match(calls[1].args.at(-1), /A PASS from this dispatch is provisional/);
+  assert.match(calls[1].args.at(-1), /provisional loop verdict/);
   assert.match(
     calls[1].args.at(-1),
     /Recorded verification results: \[\{"command":"node --test scripts\/maker-checker-loop\.test\.mjs","status":"passed","runId":"run-checker-evidence","exitCode":0,"reportPath":"\.local\/verification\/run-checker-evidence\/report\.json"\}\]/,
@@ -801,6 +965,204 @@ test('checks protected transitions when dispatch throws', async (t) => {
   assert.equal(result.status, 'approval-required');
   assert.match(result.state.rounds[0].feedback, /Protected checklist changed/);
   assert.equal(result.state.rounds[0].humanIntervention.required, true);
+});
+
+test('rolls back a stale checker verdict written during evaluation', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-stale-verdict-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const progressPath = join(root, 'agent-progress.md');
+  const rubricPath = join(root, 'evaluator-rubric.md');
+  writeFileSync(progressPath, '# Progress\n');
+
+  const scripted = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'maker finished' },
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+  const dispatcher = {
+    calls: scripted.calls,
+    async dispatch(request) {
+      if (request.actor === 'checker') {
+        writeFileSync(progressPath, '# Progress\n\nF003 PASS\n');
+        writeFileSync(rubricPath, 'stale rubric\n');
+      }
+      return scripted.dispatch(request);
+    },
+  };
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    evaluatorArtifactPaths: [progressPath, rubricPath],
+    getRevision: revisions(
+      revision('initial'),
+      revision('maker'),
+      revision('maker'),
+      revision('drifted'),
+    ),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'stale');
+  assert.equal(readFileSync(progressPath, 'utf8'), '# Progress\n');
+  assert.equal(existsSync(rubricPath), false);
+  assert.match(result.state.rounds.at(-1).feedback, /Rolled back the stale evaluator verdict/);
+});
+
+function verdictFixture(t) {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-unaccepted-verdict-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const progressPath = join(root, 'agent-progress.md');
+  const rubricPath = join(root, 'evaluator-rubric.md');
+  writeFileSync(progressPath, '# Progress\n');
+  const writeVerdict = () => {
+    writeFileSync(progressPath, '# Progress\n\nF003 PASS\n');
+    writeFileSync(rubricPath, 'unaccepted rubric\n');
+  };
+  const assertRolledBack = (round) => {
+    assert.equal(readFileSync(progressPath, 'utf8'), '# Progress\n');
+    assert.equal(existsSync(rubricPath), false);
+    assert.match(round.feedback, /Rolled back the unaccepted evaluator verdict/);
+  };
+  return { paths: [progressPath, rubricPath], writeVerdict, assertRolledBack };
+}
+
+for (const [name, makeError, expectedStatus] of [
+  ['fails', () => new Error('Dispatcher timed out.'), 'blocked'],
+  ['is interrupted', () => Object.assign(
+    new Error('Dispatch interrupted by SIGINT.'),
+    { code: 'ERR_MAKER_CHECKER_INTERRUPTED' },
+  ), 'interrupted'],
+]) {
+  test(`rolls back a checker verdict when dispatch ${name}`, async (t) => {
+    const verdict = verdictFixture(t);
+    const scripted = new ScriptedDispatcher([
+      { outcome: 'completed', feedback: 'maker finished' },
+    ]);
+    const dispatcher = {
+      calls: scripted.calls,
+      async dispatch(request) {
+        if (request.actor === 'checker') {
+          verdict.writeVerdict();
+          throw makeError();
+        }
+        return scripted.dispatch(request);
+      },
+    };
+
+    const result = await runLoop({
+      goal: goal(),
+      statePath: fixture(t),
+      dispatcher,
+      evaluatorArtifactPaths: verdict.paths,
+      getRevision: revisions(revision('initial'), revision('maker')),
+      now: clock(),
+    });
+
+    assert.equal(result.status, expectedStatus);
+    assert.equal(result.state.rounds.at(-1).actor, 'checker');
+    verdict.assertRolledBack(result.state.rounds.at(-1));
+  });
+}
+
+for (const [name, dispatchFails] of [
+  ['after a successful dispatch', false],
+  ['after a failed dispatch', true],
+]) {
+  test(`rolls back a checker verdict when the safety check fails ${name}`, async (t) => {
+    const verdict = verdictFixture(t);
+    const scripted = new ScriptedDispatcher([
+      { outcome: 'completed', feedback: 'maker finished' },
+      { outcome: 'pass', feedback: 'checker passed' },
+    ]);
+    const dispatcher = {
+      calls: scripted.calls,
+      async dispatch(request) {
+        if (request.actor === 'checker') {
+          verdict.writeVerdict();
+          if (dispatchFails) throw new Error('Dispatcher timed out.');
+        }
+        return scripted.dispatch(request);
+      },
+    };
+    const safetyBoundary = {
+      capture: () => ({}),
+      assertTransition: (_before, _after, _goal, actor) => {
+        if (actor === 'checker') {
+          throw new Error('Feature F003 status changed during a checker round.');
+        }
+      },
+    };
+
+    const result = await runLoop({
+      goal: goal(),
+      statePath: fixture(t),
+      dispatcher,
+      safetyBoundary,
+      evaluatorArtifactPaths: verdict.paths,
+      getRevision: revisions(revision('initial'), revision('maker')),
+      now: clock(),
+    });
+
+    assert.equal(result.status, 'approval-required');
+    assert.match(result.state.rounds.at(-1).feedback, /status changed during a checker round/);
+    verdict.assertRolledBack(result.state.rounds.at(-1));
+  });
+}
+
+test('keeps an accepted checker verdict recorded', async (t) => {
+  const verdict = verdictFixture(t);
+  const scripted = new ScriptedDispatcher([
+    { outcome: 'completed', feedback: 'maker finished' },
+    { outcome: 'pass', feedback: 'checker passed' },
+  ]);
+  const dispatcher = {
+    calls: scripted.calls,
+    async dispatch(request) {
+      if (request.actor === 'checker') verdict.writeVerdict();
+      return scripted.dispatch(request);
+    },
+  };
+
+  const result = await runLoop({
+    goal: goal(),
+    statePath: fixture(t),
+    dispatcher,
+    evaluatorArtifactPaths: verdict.paths,
+    getRevision: revisions(revision('initial'), revision('maker')),
+    now: clock(),
+  });
+
+  assert.equal(result.status, 'pass');
+  assert.match(readFileSync(verdict.paths[0], 'utf8'), /F003 PASS/);
+  assert.equal(existsSync(verdict.paths[1]), true);
+});
+
+test('revision fingerprints distinguish untracked symlinks from their targets', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'agentgate-fingerprint-link-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'target-a'), 'x');
+  writeFileSync(join(root, 'target-b'), 'x');
+  try {
+    symlinkSync(join(root, 'target-a'), join(root, 'link'));
+  } catch {
+    t.skip('symbolic links are unavailable without elevation on this host');
+    return;
+  }
+
+  const runner = (args) => {
+    if (args[0] === 'rev-parse') return 'abc123\n';
+    if (args[0] === 'status') return ' M link\n';
+    if (args[0] === 'diff') return '';
+    return 'link\n';
+  };
+
+  const first = getGitRevision(root, runner);
+  rmSync(join(root, 'link'));
+  symlinkSync(join(root, 'target-b'), join(root, 'link'));
+  const second = getGitRevision(root, runner);
+
+  assert.notEqual(first.fingerprint, second.fingerprint);
 });
 
 test('stops when checker work is stale', async (t) => {

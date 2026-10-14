@@ -1,7 +1,7 @@
 ---
 title: Agent Instructions
 description: Guidance for coding agents working in AgentGate Lab
-ms.date: 2026-10-09
+ms.date: 2026-10-13
 ---
 
 ## Hard rules
@@ -33,14 +33,23 @@ ms.date: 2026-10-09
     progress log.
 13. Never weaken, skip, or quietly change a verification command or test to
     make it pass. If one is wrong, mark the feature `blocked` and ask the user.
-14. Mark a feature `pass` only after the `feature-evaluator` skill gives it a
-    PASS in a fresh session and records the verdict in the slug's
-    `agent-progress.md`. The verdict must cover the changes being marked
-    `pass`; request a new evaluation if those changes are modified.
+14. Mark a feature `pass` only after the `feature-evaluator` skill reviews a
+    named, clean commit in a fresh session, gives it a PASS, and records the
+    verdict in the slug's `agent-progress.md`. The evaluator must confirm the
+    same commit is still checked out with a clean tree before recording PASS.
+    Treat a changed or dirty revision as stale and request a new evaluation.
+    A bounded-loop checker PASS is provisional and does not satisfy this rule.
 15. Capture verification commands through the runner in
     [verification guidance](./docs/verification.md). Keep raw reports local
     and commit only sanitized summaries with run IDs, results, and the
     reviewed revision. An incomplete run is not a successful check.
+16. When addressing pull request feedback, inspect live GitHub data for both
+    unresolved inline review threads and the latest submitted review summary
+    bodies, including collapsed sections. Re-check both sources before
+    reporting the review round complete. Process at most two follow-up
+    review rounds per pull request. Get explicit user approval before
+    starting a third, and route later findings to follow-up issues. See
+    [Harness Implementer usage](./docs/harness-agent.md).
 
 ## Repository context
 
